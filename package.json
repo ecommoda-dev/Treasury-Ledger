@@ -1,0 +1,11 @@
+{
+  "name": "treasury-ledger",
+  "private": true,
+  "type": "module",
+  "description": "Treasury-Ledger — دفتر الخزنة (Worker + واجهة) — EcomModa",
+  "scripts": {
+    "test": "node --test tests/worker.test.mjs",
+    "check:logs": "node check-log-values.mjs",
+    "check:ui": "node scripts/css-check.cjs index.html && node scripts/js-undef-check.cjs index.html"
+  }
+}

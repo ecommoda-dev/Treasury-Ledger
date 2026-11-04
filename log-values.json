@@ -1,0 +1,16 @@
+{
+  "tool": "treasury_ledger",
+  "since": "index.js v1.0.0",
+  "logAnchors": ["safeLog"],
+  "types": {
+    "login":                     { "result": null,       "stage": null,      "desc": "دخول موظف (بوابة PIN المشتركة)" },
+    "logout":                    { "result": null,       "stage": null,      "desc": "خروج موظف (يدوي أو تلقائي لعدم النشاط)" },
+    "session_confirmed":         { "result": ["success", "warning"], "stage": "write", "desc": "جلسة تحصيل اتأكدت واتكتبت حركاتها في الدفتر — warning = المرآة على الأوردر ما اتكتبتش" },
+    "session_already_confirmed": { "result": "already",   "stage": "lookup",  "desc": "الجلسة اتأكدت قبل كده — مفيش حاجة اتكتبت" },
+    "session_blocked":           { "result": "rejected",  "stage": "preflight", "desc": "الجلسة مرفوضة: بيانات المصدر فيها مشكلة (courierCollect فاضي · شحن إضافي مش متسق …)" },
+    "confirm_mismatch":          { "result": "rejected",  "stage": "lookup",  "desc": "المبلغ المكتوب ≠ المتوقع — التسجيل ممنوع (D17) والمحاولة بتفضل تنبيه لحد ما الجلسة تتأكد" },
+    "confirm_failed":            { "result": "error",     "stage": "write",   "desc": "كتابة الدفتر في D1 فشلت — مفيش حاجة اتسجّلت" },
+    "entry_reversed":            { "result": ["success", "warning"], "stage": "write", "desc": "تصحيح بصف REVERSAL جديد — warning = المرآة ما اتحدّثتش" },
+    "mirror_rebuilt":            { "result": ["success", "warning", "error"], "stage": "write", "desc": "إعادة بناء ميتافيلدز الأوردر من D1" }
+  }
+}

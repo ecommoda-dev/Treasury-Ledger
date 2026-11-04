@@ -1,0 +1,23 @@
+name               = "treasury-ledger-worker"   # لازم يطابق اسم الـ Worker في داشبورد كلاودفلير بالحرف (قاعدة ecommoda-constants §5.1)
+main               = "index.js"
+compatibility_date = "2025-01-01"
+workers_dev        = true
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding       = "DB"
+database_name = "ecommoda-dev-logs"
+database_id   = "90db62d3-bd7e-4d92-912b-10fc78eeb565"
+
+[vars]
+SHOP_DOMAIN = "6c7e1a-53.myshopify.com"
+
+# ─────────────────────────────────────────────────────────────
+# الأسرار — Dashboard → Settings → Variables → Secret (أسماء بس، القيم مش في الريبو):
+#   WORKER_SECRET   ← فريد للأداة دي
+#   CLIENT_ID       ← Shopify OAuth
+#   CLIENT_SECRET   ← Shopify OAuth
+# ⚠️ بعد إضافة أي سر: Deployments → Version History → ⋯ → Promote version
+# ─────────────────────────────────────────────────────────────
