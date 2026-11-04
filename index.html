@@ -835,6 +835,7 @@ table.dt tr.xs td { background: var(--amber-light); }
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">04-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تحصيلات بوسطة (Cash-out): الجلسة كل صفوف التحويل، والمتوقع = مجموع Net Value (بعد رسوم بوسطة). تظهر «ناقصة» لحد ما كل الصفوف تتسجّل — أكّد بعد الاكتمال. مقارنة Shopify بتعرض «بوسطة (صافي بعد الرسوم)» بدل فرق كاذب (يتطلب Worker v1.1.0)</span></li>
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>مقارنة Shopify بتبعت 100 أوردر في النداء الواحد بدل 10 (يتطلب Worker v1.0.1)</span></li>
         </ul>
       </div>
@@ -1034,7 +1035,7 @@ table.dt tr.xs td { background: var(--amber-light); }
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.0.1'; // 1.0.1 = الـ Worker بيقبل 100 أوردر في compare_orders (الواجهة بتبعتهم دفعة واحدة)
-const TOOL_VERSION = 'v1.0.1';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.1.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2050,7 +2051,7 @@ let lastOrderQuery = '';
 const CMP_BADGE = {
   MATCH: ['badge-success', 'مطابق'], SHORT: ['badge-danger', 'الخزنة أقل'], OVER: ['badge-danger', 'الخزنة أكتر'],
   NOT_IN_LEDGER: ['badge-warn', 'مش في الدفتر'], LEDGER_ONLY: ['badge-warn', 'في الدفتر بس'],
-  IN_PROGRESS: ['badge-info', 'قيد التنفيذ'], PRE_WINDOW: ['badge-neutral', 'قبل 01-10 (الدفتر ناقص بطبيعته)'], UNKNOWN: ['badge-danger', 'مش لاقيه على Shopify'],
+  BOSTA_NET: ['badge-neutral', 'بوسطة (صافي بعد الرسوم — بلا مقارنة)'], IN_PROGRESS: ['badge-info', 'قيد التنفيذ'], PRE_WINDOW: ['badge-neutral', 'قبل 01-10 (الدفتر ناقص بطبيعته)'], UNKNOWN: ['badge-danger', 'مش لاقيه على Shopify'],
 };
 async function lookupOrder(q) {
   const raw = (q ?? document.getElementById('orderQ').value).trim().replace(/^#/, '');
@@ -2154,7 +2155,7 @@ async function runCompareAll() {
     for (let i = 0; i < orders.length && !cmpStopFlag; i += CMP_CHUNK) {
       const ids = orders.slice(i, i + CMP_CHUNK).map(o => o.order_id);
       const d = await apiPost('compare_orders', { orderIds: ids });
-      for (const r of d.results) { counts[r.status] = (counts[r.status] || 0) + 1; if (r.status !== 'MATCH') bad.push(r); }
+      for (const r of d.results) { counts[r.status] = (counts[r.status] || 0) + 1; if (r.status !== 'MATCH' && r.status !== 'BOSTA_NET') bad.push(r); }
       done += ids.length;
       bar.style.width = `${Math.round(done / orders.length * 100)}%`;        // التقدّم حقيقي — بعد كل مجموعة
       txt.textContent = `${done} / ${orders.length}`;

@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.0.1-blue)
+![version](https://img.shields.io/badge/version-v1.1.0-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -43,6 +43,15 @@
 - ⚠️ **أي تغيير في أسماء المفاتيح دي داخل `COD-Payment-Center`/`Delivery-COD-Operations-Center` بيكسر الخزنة بصمت** (جلسات فاضية/ناقصة بلا خطأ).
   المطلوب من أحمد: ضيف ملاحظة بالمعنى ده في `CLAUDE.md` بتاع الريبوهين (بند 11-٤ في المواصفات).
 
+## 🆕 تحصيلات بوسطة (v1.1.0 · 04-11-2026) — صفوف `extra.source='bosta_cash_cycle'`
+مصدرها تاب «تحصيل بوسطة» في `Delivery-COD-Operations-Center` (Worker `cod-payment-center-worker` ≥ 3.11.0) من ملف Cash Cycles.
+- **نفس العقد** (`tool='cod_payment'` · `type` payment/refund · `batchId` · `courier='Bosta'` · `courierCollect` · `batchExpected`) — **صفر تغيير في طريقة القراءة**.
+- 🔴 `courierCollect` = **Net Value** (المحصَّل − رسوم بوسطة + Flex Ship) = اللي بوسطة حوّلته فعلاً، **مش** مبلغ شوبيفاي. أوردرات «بدون تحصيل» (ملغي/استبدال بلا فرق) ليها صف برسومها السالبة (`extra.noCollection=true`).
+- `batchId = bosta-<Cash-out ID>` — جلسة واحدة لكل تحويل، و`batchExpected.orders` = **كل** صفوف الملف، فالجلسة تظهر **«ناقصة»** لحد ما كل الصفوف تتسجّل. ⚠️ قرار أحمد: **الخزنة ما تأكّدش قبل الاكتمال** (التطبيق ما بيمنعش التأكيد — ده إجراء تشغيلي).
+- الدفتر: `source='bosta_cash_cycle'` وملاحظة «بوسطة — صافي بعد الرسوم».
+- 🔴 `compare_orders`: أي أوردر ليه حركة بوسطة = `BOSTA_NET` (الرقم يتعرض من غير حكم) — المعادلة `netPayment − shipping − returnFees` ما بتنطبقش على الصافي.
+- الفحص: اختبار «بوسطة: courierCollect = Net Value…» في `tests/worker.test.mjs`.
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -51,7 +60,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## المقارنة مع Shopify (قراءة فقط)
 `المتوقع = netPaymentSet − totalShippingPriceSet − Σ returns[].returnShippingFees` ويتقارن بـ Σ حركات الأوردر **من غير** Extra Shipping.
-الحالات: `MATCH` · `SHORT` · `OVER` · `NOT_IN_LEDGER` · `LEDGER_ONLY` · `IN_PROGRESS` (`PARTIALLY_PAID`/outstanding>0) · `PRE_WINDOW` (ليه صفوف تحصيل قبل 01-10).
+الحالات: `MATCH` · `SHORT` · `OVER` · `NOT_IN_LEDGER` · `LEDGER_ONLY` · `BOSTA_NET` · `IN_PROGRESS` (`PARTIALLY_PAID`/outstanding>0) · `PRE_WINDOW` (ليه صفوف تحصيل قبل 01-10).
 `COMPARE_PER_QUERY = 100` (قرار أحمد 04-11-2026) **غير مقيس** — لو النداء اترفض لتجاوز سقف التكلفة (١٠٠٠ نقطة) قلّل الرقم في `index.js` (مع `MAX_ORDER_IDS`) وفي `CMP_CHUNK` بالواجهة؛ القياس من `?action=diag` (`actualQueryCost`).
 
 ## قبل أول نشر
@@ -59,7 +68,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## الاختبارات
 ```bash
-npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 14 اختبار
+npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 15 اختبار
 node check-log-values.mjs
 npm i --no-save postcss && npm run check:ui     # فحص CSS (parser) + ربط JS
 node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الواجهة الحقيقية ↔ الـ Worker الحقيقي
@@ -84,9 +93,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 04-11-2026 · `index.js` v1.0.1 · `index.html` v1.0.1
+آخر مطابقة: 04-11-2026 · `index.js` v1.1.0 · `index.html` v1.1.0
 🔴 معلّقة: تسجيل `treasury_ledger` في `ecommoda-constants` §7.1 (مهمة أحمد) · `check-log-values.mjs` نسخة محلية مبسّطة
 
-آخر تحديث: 04-11-2026 — 09:40
+آخر تحديث: 04-11-2026 — v1.1.0 (استثناء صفوف بوسطة من مقارنة Shopify + توثيق العقد)
 
 </div>
