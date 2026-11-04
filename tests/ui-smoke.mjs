@@ -49,38 +49,40 @@ await page.waitForSelector('#pinZone.visible');
 for (const d of '1234') await page.click(`#pinKeypad .pin-key:text-is("${d}")`);
 await page.waitForSelector('#loginOverlay.hidden', { state: 'attached' });
 check('الدخول ناجح', await page.locator('#loginOverlay.hidden').count() === 1);
-await page.waitForSelector('.sess');
+await page.waitForSelector('.cg');
 
-check('جلسة واحدة تحت المندوب', await page.locator('.sess').count() === 1 && (await page.locator('.courier-head').innerText()).includes('Abo Yassin'));
-check('المتوقع = 24,400.00 (بعد خصم الشحن الإضافي)', (await page.locator('.sess-total .amt').innerText()).includes('24,400.00'));
-check('خانة المبلغ المستلم فاضية وزرار التأكيد مقفول', (await page.inputValue('#amt-0')) === '' && await page.locator('#cbtn-0').isDisabled());
+check('جلسة واحدة تحت المندوب', await page.locator('.srow').count() === 1 && (await page.locator('.cg-head').innerText()).includes('Abo Yassin'));
+check('المتوقع = 24,400.00 (بعد خصم الشحن الإضافي)', (await page.locator('.cg-total .amt').innerText()).includes('24,400.00'));
+check('جدول الأوردرات مطوي تلقائي', !(await page.locator('.srow-body').first().isVisible()));
+await page.click('.srow-line');
+check('فتح الجلسة بالضغط يعرض الأوردرات', await page.locator('.srow-body').first().isVisible());
+check('خانة المبلغ المستلم فاضية وزرار التأكيد مقفول', (await page.inputValue('#camt-0')) === '' && await page.locator('#ccbtn-0').isDisabled());
 check('صف الشحن الإضافي ظاهر', (await page.locator('tr.xs').innerText()).includes('Extra Shipping'));
 if (shots) await page.screenshot({ path: `${shots}/01-day.png`, fullPage: true });
 
 // فرق: 24000
-await page.fill('#amt-0', '24000');
-check('الزرار اتفتح بعد كتابة رقم', await page.locator('#cbtn-0').isEnabled());
-await page.click('#cbtn-0');
-await page.waitForSelector('#confirmOverlay.open');
-check('نافذة التأكيد بتسمّي الأثر بالأرقام', (await page.locator('#cfLines').innerText()).includes('4 حركة'));
-await page.click('#cfOk');
+await page.fill('#camt-0', '24000');
+check('الزرار اتفتح بعد كتابة رقم', await page.locator('#ccbtn-0').isEnabled());
+await page.click('#ccbtn-0');
 await page.waitForSelector('#summaryOverlay.open');
-check('الفرق: رسالة بالنقص 400.00 والتسجيل اتمنع', (await page.locator('#smBody').innerText()).includes('ناقص 400.00') && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
+check('الفرق: رسالة بالنقص 400.00 والتسجيل اتمنع', (await page.locator('#smBody').innerText()).includes('-400.00') && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
 await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
-await page.waitForSelector('.sess.st-diff');
-check('الجلسة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.sess.st-diff .note-box.red').innerText()).includes('24,000.00'));
+await page.waitForSelector('.srow.st-diff');
+check('الجلسة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.srow.st-diff .note-box.red').innerText()).includes('24,000.00'));
 if (shots) await page.screenshot({ path: `${shots}/02-diff.png`, fullPage: true });
 
 // صح: 24400
-await page.fill('#amt-0', '24,400');
-await page.click('#cbtn-0'); await page.waitForSelector('#confirmOverlay.open'); await page.click('#cfOk');
+await page.fill('#camt-0', '24,400');
+await page.click('#ccbtn-0'); await page.waitForSelector('#confirmOverlay.open');
+check('نافذة التأكيد بتسمّي الأثر بالأرقام', (await page.locator('#cfLines').innerText()).includes('4 حركة'));
+await page.click('#cfOk');
 await page.waitForSelector('#summaryOverlay.open');
 const sm = await page.locator('#smBody').innerText();
-check('التأكيد الصح: الملخص ظاهر (تحذير المرآة لأن مفيش Shopify في الاختبار)', (await page.locator('#smHeader').innerText()).includes('تحذير') && sm.includes('24,400.00'));
+check('التأكيد الصح: الملخص ظاهر (تحذير المرآة لأن مفيش Shopify في الاختبار)', (await page.locator('#smHeader').innerText()).includes('تحذير') && sm.includes('اتأكدت 1 من 1'));
 check('الدفتر: 4 حركات مجموعها 24400', DB.raw.prepare('SELECT COUNT(*) n, SUM(amount_piastres) s FROM treasury_ledger').get().s === 2440000);
 await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
-await page.waitForSelector('.sess.st-confirmed');
-check('الجلسة خضرا مقفولة (مفيش خانة مبلغ)', await page.locator('.sess.st-confirmed #amt-0').count() === 0);
+await page.waitForSelector('.srow.st-confirmed');
+check('الجلسة خضرا مقفولة (مفيش خانة مبلغ)', await page.locator('.srow.st-confirmed #amt-0, #camt-0').count() === 0);
 if (shots) await page.screenshot({ path: `${shots}/03-confirmed.png`, fullPage: true });
 
 // سجل الأوردر + التصحيح

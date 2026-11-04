@@ -354,19 +354,36 @@ body {
 .badge-info    { background: var(--accent-light); color: var(--accent-dark); border-color: var(--accent-border); }
 .badge-purple  { background: var(--purple-light); color: var(--purple-dark); border-color: var(--purple-border); }
 
+/* بطاقة المندوب (الأهمية لتحصيل المندوب كله) */
+.cg { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; }
+.cg.all-ok { border-color: var(--green-border); }
+.cg-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.cg.all-ok .cg-head { background: var(--green-light); border-color: var(--green-border); }
+.cg-name { font-size: 16px; font-weight: 800; }
+.cg-head .sp { flex: 1; }
+.cg-total { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+.cg-total .k { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+.cg-total .amt { font-family: var(--font-mono); font-size: 20px; font-weight: 800; direction: ltr; }
+.cg-sessions { padding: 4px 14px; }
+.srow { border-bottom: 1px solid var(--border); }
+.srow:last-child { border-bottom: 0; }
+.srow-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 0; cursor: pointer; }
+.srow-line .meta { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+.srow-line .sp { flex: 1; }
+.srow-line .amt { font-family: var(--font-mono); font-weight: 800; font-size: 14px; direction: ltr; min-width: 90px; text-align: left; }
+.srow-line .caret { display: inline-block; transition: transform .15s; font-size: 11px; color: var(--text-muted); }
+.srow.open .caret { transform: rotate(90deg); }
+.srow-body { display: none; padding: 0 0 12px; }
+.srow.open .srow-body { display: block; }
+.srow.st-diff .srow-line, .srow.st-blocked .srow-line { background: var(--red-light); margin: 0 -14px; padding-inline: 14px; }
+.cg-confirm { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-top: 1px dashed var(--border-strong); background: var(--surface-2); }
+.cg-confirm .inp { width: 200px; font-size: 16px; font-weight: 700; }
+.cg-confirm .grow { flex: 1; font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+
 /* بطاقات الجلسات */
 .courier-group { margin-bottom: 18px; }
 .courier-head { display: flex; align-items: center; gap: 10px; padding: 6px 4px; font-size: 14px; font-weight: 800; }
 .courier-head .sub { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-.sess { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 10px; overflow: hidden; }
-.sess.st-confirmed { border-color: var(--green-border); background: var(--green-light); }
-.sess.st-diff, .sess.st-blocked { border-color: var(--red-border); background: var(--red-light); }
-.sess-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; flex-wrap: wrap; border-bottom: 1px solid var(--border); background: var(--surface-2); }
-.sess.st-confirmed .sess-head { background: var(--green-light); border-color: var(--green-border); }
-.sess.st-diff .sess-head, .sess.st-blocked .sess-head { background: var(--red-light); border-color: var(--red-border); }
-.sess-head .meta { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
-.sess-head .sp { flex: 1; }
-.sess-body { padding: 10px 14px; }
 .tbl-wrap { overflow-x: auto; }
 table.dt { width: 100%; border-collapse: collapse; font-size: 12.5px; font-weight: 600; }
 table.dt th { font-size: 12px; font-weight: 700; color: var(--text-mid); text-align: right; padding: 7px 10px; border-bottom: 2px solid var(--border-strong); background: var(--surface-2); white-space: nowrap; }
@@ -1880,21 +1897,113 @@ const SESSION_BADGE = {
   confirmed: ['badge-success', '✓ مؤكدة'], pending: ['badge-warn', '⏳ لسه ماتأكدتش'],
   diff: ['badge-danger', '🔴 فرق في المبلغ'], blocked: ['badge-danger', '⛔ بيانات المصدر فيها مشكلة'],
 };
+const openSess = new Set();     // الجلسات المفتوحة (الافتراضي: كلها مطوية)
+function toggleSess(batchId) {
+  openSess.has(batchId) ? openSess.delete(batchId) : openSess.add(batchId);
+  document.querySelectorAll('.srow').forEach(el => { if (el.dataset.batch === batchId) el.classList.toggle('open', openSess.has(batchId)); });
+}
+function expandCourier(i, on) {
+  document.querySelectorAll(`.cg[data-cg="${i}"] .srow`).forEach(el => {
+    on ? openSess.add(el.dataset.batch) : openSess.delete(el.dataset.batch); el.classList.toggle('open', on);
+  });
+}
+let courierGroups = [];
 function renderDay() {
   const box = document.getElementById('daySessions');
   if (!daySessions.length) { box.innerHTML = `<div class="empty-box">مفيش جلسات تحصيل يوم ${dmy(dayDate)}</div>`; return; }
   const groups = new Map();
   daySessions.forEach((s, idx) => { const k = s.courier || 'بدون مندوب'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push([s, idx]); });
-  box.innerHTML = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ar')).map(([courier, list]) => {
-    const open = list.filter(([s]) => s.status !== 'confirmed');
+  courierGroups = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ar'));
+  box.innerHTML = courierGroups.map(([courier, list], gi) => {
+    const open = list.filter(([s]) => s.status === 'pending' || s.status === 'diff');
     const sum = open.reduce((t, [s]) => t + s.expectedPiastres, 0);
-    return `<div class="courier-group">
-      <div class="courier-head">🛵 ${esc(courier)}
-        <span class="sub">${list.length} جلسة${open.length ? ` · لسه ${open.length} · المتوقع ${fmtNum((sum / 100).toFixed(2))}` : ' · كلها مؤكدة'}</span></div>
-      ${list.map(([s, idx]) => sessionCard(s, idx)).join('')}
+    const all = list.reduce((t, [s]) => t + s.expectedPiastres, 0);
+    const orders = list.reduce((t, [s]) => t + s.rowsCount, 0);
+    const done = list.filter(([s]) => s.status === 'confirmed').length;
+    const hasDiff = list.some(([s]) => s.status === 'diff'), blocked = list.some(([s]) => s.status === 'blocked');
+    const allOk = done === list.length;
+    const [bcls, btxt] = allOk ? ['badge-success', '✓ كلها مؤكدة'] : hasDiff ? ['badge-danger', '🔴 فيه فرق'] : blocked ? ['badge-danger', '⛔ فيها مشكلة'] : ['badge-warn', `⏳ لسه ${open.length}`];
+    const totalPi = allOk || !open.length ? all : sum;
+    return `<div class="cg ${allOk ? 'all-ok' : ''}" data-cg="${gi}">
+      <div class="cg-head">
+        <span class="cg-name">🛵 ${esc(courier)}</span>
+        <span class="badge ${bcls}">${btxt}</span>
+        <span class="chip">${list.length} جلسة</span><span class="chip">${orders} أوردر</span><span class="chip ok">مؤكدة <strong>${done}/${list.length}</strong></span>
+        <span class="sp"></span>
+        <button class="btn btn-sm" onclick="expandCourier(${gi}, true)">فتح كل الأوردرات</button>
+        <button class="btn btn-sm" onclick="expandCourier(${gi}, false)">طيّ</button>
+        <span class="cg-total"><span class="k">${allOk ? 'إجمالي المندوب (مؤكد)' : 'المتوقع توريده'}</span><span class="amt ${amtClass(totalPi)}">${fmtNum((totalPi / 100).toFixed(2))}</span></span>
+      </div>
+      <div class="cg-sessions">${list.map(([s, idx]) => sessionRow(s, idx)).join('')}</div>
+      ${open.length ? `<div class="cg-confirm">
+        <div><span class="field-label">المبلغ المستلم من ${esc(courier)} — إجمالي ${open.length} جلسة (اللي عدّيته بإيدك)</span>
+          <input type="text" class="inp lockable" id="camt-${gi}" inputmode="decimal" autocomplete="off" oninput="onCourierAmtInput(${gi})" onkeydown="if(event.key==='Enter')startCourierConfirm(${gi})" /></div>
+        <button class="btn btn-primary lockable" id="ccbtn-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${gi})">تأكيد توريد المندوب كله</button>
+        <span class="grow" id="chint-${gi}"></span>
+      </div>` : ''}
     </div>`;
   }).join('');
   refreshAllAmountState();
+}
+function courierOpen(gi) { return (courierGroups[gi]?.[1] || []).filter(([s]) => s.status === 'pending' || s.status === 'diff'); }
+const toPi = v => Math.round(parseFloat(v) * 100);
+function onCourierAmtInput(gi) {
+  const inp = document.getElementById(`camt-${gi}`), btn = document.getElementById(`ccbtn-${gi}`), hint = document.getElementById(`chint-${gi}`);
+  if (!inp || !btn) return;
+  const raw = inp.value.trim(), ok = raw !== '' && parseAmount(raw) !== null;
+  btn.dataset.dis = ok ? '0' : '1'; btn.disabled = isUpdating || !ok;
+  inp.classList.toggle('has-value', !!raw);
+  if (hint) hint.textContent = (raw && !ok) ? 'اكتب رقم (بحد أقصى قرشين)' : '';
+}
+async function startCourierConfirm(gi) {
+  if (isUpdating) return;
+  const open = courierOpen(gi); if (!open.length) return;
+  const courier = courierGroups[gi][0];
+  const amt = parseAmount(document.getElementById(`camt-${gi}`)?.value);
+  if (amt === null) { showToast('اكتب المبلغ المستلم كرقم صحيح', 'warning'); return; }
+  const expectedPi = open.reduce((t, [s]) => t + s.expectedPiastres, 0), recvPi = toPi(amt);
+  const sessions = open.map(([s]) => s);
+  const blocked = daySessions.filter(s => (s.courier || 'بدون مندوب') === courier && s.status === 'blocked').length;
+  if (recvPi !== expectedPi) {
+    // أي فرق = ممنوع. المحاولة بتتسجّل على أول جلسة مفتوحة مبلغها مختلف عن المكتوب (عشان ما تتأكدش بالغلط)
+    const probe = sessions.find(s => s.expectedPiastres !== recvPi);
+    if (probe) { setUpdateLock(true); try { await apiPost('confirm_session', { batchId: probe.batchId, date: probe.day, employee: currentEmployee.username, receivedAmount: amt }); } catch (_) {} finally { setUpdateLock(false); } }
+    playBeep('error');
+    openSummary('🔴 التسجيل ممنوع — فيه فرق', `<div class="note-box red">${esc(courier)}: المتوقع ${fmtNum((expectedPi / 100).toFixed(2))} — المكتوب ${fmtNum(amt)} — الفرق ${fmtSignedNum(((recvPi - expectedPi) / 100).toFixed(2))}</div><p style="margin-top:10px;font-size:13px">لما المبلغ يكمل اكتبه كامل وتتسجّل كل الجلسات مرة واحدة.</p>`);
+    await loadDay(); return;
+  }
+  const ins = sessions.reduce((t, s) => t + s.rows.filter(r => r.kind === 'CASH_IN').length, 0), outs = sessions.reduce((t, s) => t + s.rows.filter(r => r.kind === 'CASH_OUT').length, 0), xs = sessions.reduce((t, s) => t + s.extraShipping.length, 0);
+  const lines = [
+    { text: `💰 المستلم: ${fmtNum(amt)}  —  المتوقع: ${fmtNum((expectedPi / 100).toFixed(2))}`, strong: true },
+    { text: `🧾 ${sessions.length} جلسة · هيتسجل ${ins + outs + xs} حركة: ${ins} دخول · ${outs} خروج · ${xs} شحن إضافي`, },
+    { text: 'كل جلسة بتتسجّل لوحدها بمبلغها المتوقع — التسجيل بيتكتب في الدفتر ومبيتعدّلش (التصحيح بـ REVERSAL)', soft: true },
+  ];
+  if (blocked) lines.push({ text: `⚠️ فيه ${blocked} جلسة مرفوضة (بيانات مصدر) مش داخلة في التأكيد`, soft: true });
+  if (sessions.some(s => s.incomplete)) lines.push({ text: '⚠️ فيه جلسة ناقصة — التأكيد على الصفوف المسجّلة بس', soft: true });
+  const r = await askConfirm({ header: '⚠️ تأكيد توريد المندوب', lead: `${courier} — يوم ${dmy(dayDate)}`, lines, okLabel: `تأكيد — سجّل ${fmtNum(amt)}` });
+  if (!r.ok) return;
+  setUpdateLock(true);
+  const results = [];
+  try {
+    for (const s of sessions) {
+      try { results.push({ s, r: await apiPost('confirm_session', { batchId: s.batchId, date: s.day, employee: currentEmployee.username, receivedAmount: (s.expectedPiastres / 100).toFixed(2) }) }); }
+      catch (e) { results.push({ s, err: e.message }); break; }
+    }
+  } finally { setUpdateLock(false); }
+  const okN = results.filter(x => x.r && (x.r.status === 'success' || x.r.status === 'warning' || x.r.status === 'already')).length;
+  const warns = results.filter(x => x.r && x.r.status === 'warning');
+  const bad = results.filter(x => x.err || !x.r || x.r.status === 'rejected' || x.r.status === 'error' || x.r.ok === false);
+  if (!bad.length && !warns.length) { playBeep('success'); showToast(`✓ اتأكدت ${okN} جلسة للمندوب ${courier}`, 'success', 5000); }
+  else {
+    playBeep(bad.length ? 'error' : 'success');
+    const failed = warns.flatMap(x => (x.r.mirror?.failed || []));
+    openSummary(bad.length ? '❌ التأكيد ما كملش' : '⚠️ تم مع تحذير',
+      `<div class="note-box ${bad.length ? 'red' : 'amber'}">اتأكدت ${okN} من ${sessions.length} جلسة.</div>` +
+      bad.map(x => `<div class="note-box red">${esc(String(x.s.batchId).slice(0, 8))}: ${esc(x.err || x.r?.error || 'فشل')}</div>`).join('') +
+      (failed.length ? `<div class="note-box amber">⚠️ الدفتر اتسجّل ✓ — لكن المرآة على ${failed.length} أوردر ما اتكتبتش</div><div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="rebuildMirror(${JSON.stringify(failed.map(f => f.orderId)).replace(/"/g, '&quot;')})">إعادة بناء المرآة</button></div>` : '') +
+      (bad.length ? '<p style="margin-top:10px;font-size:13px">راجع حالة الجلسات بعد التحديث — <strong>متعيدش المحاولة قبل ما تراجع</strong>.</p>' : ''));
+  }
+  await loadDay();
 }
 function typeBadges(r) {
   let h = r.srcType === 'refund' ? '<span class="badge badge-warn">استرداد</span>' : '<span class="badge badge-success">تحصيل</span>';
@@ -1902,7 +2011,7 @@ function typeBadges(r) {
   if (r.hasReturn) h += ' <span class="badge badge-info">مرتجع</span>';
   return h;
 }
-function sessionCard(s, idx) {
+function sessionRow(s, idx) {
   const [bcls, btxt] = SESSION_BADGE[s.status] || SESSION_BADGE.pending;
   const rows = (s.rows || []).map(r => `<tr>
       <td>${orderLink(r.orderName, r.orderId)}</td><td>${typeBadges(r)}</td>
@@ -1917,23 +2026,25 @@ function sessionCard(s, idx) {
   if (s.status === 'diff' && s.mismatch) notes += `<div class="note-box red">🔴 آخر محاولة (${esc(employeeDisplayName(s.mismatch.by))}): المتوقع ${fmtNum(s.mismatch.expected)} — المكتوب ${fmtNum(s.mismatch.received)}${s.mismatch.diff ? ` — الفرق ${fmtSignedNum(s.mismatch.diff)}` : ''}. التسجيل ممنوع لحد ما المبلغ يكمل.</div>`;
   if (s.status === 'confirmed' && s.confirmation) notes += `<div class="note-box green">✓ اتأكدت بواسطة ${esc(employeeDisplayName(s.confirmation.by))} — ${esc(formatDateTime(s.confirmation.at))} — المستلم ${fmtNum(s.confirmation.received)}</div>`;
   const canConfirm = s.status === 'pending' || s.status === 'diff';
-  return `<div class="sess st-${s.status}" data-idx="${idx}">
-    <div class="sess-head">
+  return `<div class="srow st-${s.status} ${openSess.has(s.batchId) ? 'open' : ''}" data-batch="${esc(s.batchId)}" data-idx="${idx}">
+    <div class="srow-line" onclick="toggleSess('${esc(s.batchId)}')">
+      <span class="caret">◀</span>
       <span class="badge ${bcls}">${btxt}</span>
       ${s.incomplete ? '<span class="badge badge-warn">ناقصة</span>' : ''}
-      <span class="meta">👤 موظف التحصيل: ${esc(employeeDisplayName(s.collector))}</span>
+      <span class="meta">👤 ${esc(employeeDisplayName(s.collector))}</span>
       <span class="meta">${esc(formatTimeOnly(s.firstTimestamp))}</span>
       <span class="meta">${s.rowsCount} أوردر</span>
-      <span class="sp"></span>
       <span class="meta" style="font-family:var(--font-mono);direction:ltr">${esc(String(s.batchId).slice(0, 8))}</span>
+      <span class="sp"></span>
+      <span class="amt ${amtClass(s.expected)}">${fmtNum(s.expected)}</span>
     </div>
-    <div class="sess-body">
+    <div class="srow-body">
       <div class="tbl-wrap"><table class="dt"><thead><tr><th>الأوردر</th><th>النوع</th><th class="num">المبلغ</th><th>ملاحظة</th></tr></thead>
         <tbody>${rows}${xs}</tbody></table></div>
       <div class="sess-total"><span>الصافي المتوقع (بعد الشحن الإضافي ${fmtNum(s.extraShippingTotal)})</span><span class="amt ${amtClass(s.expected)}">${fmtNum(s.expected)}</span></div>
       ${notes}
       ${canConfirm ? `<div class="confirm-row">
-        <div><span class="field-label">المبلغ المستلم (اللي عدّيته بإيدك)</span>
+        <div><span class="field-label">تأكيد الجلسة دي لوحدها — المبلغ المستلم</span>
           <input type="text" class="inp lockable" id="amt-${idx}" inputmode="decimal" autocomplete="off" oninput="onAmtInput(${idx})" onkeydown="if(event.key==='Enter')startConfirm(${idx})" /></div>
         <button class="btn btn-primary lockable" id="cbtn-${idx}" data-dis="1" disabled onclick="startConfirm(${idx})">تأكيد وتسجيل</button>
         <span class="meta" id="amtHint-${idx}" style="font-size:12px;color:var(--text-secondary);font-weight:600"></span>
@@ -1952,7 +2063,7 @@ function refreshAmountState(idx) {
   btn.dataset.dis = ok ? '0' : '1'; btn.disabled = isUpdating || !ok;
   if (hint) hint.textContent = (raw && !ok) ? 'اكتب رقم (بحد أقصى قرشين)' : '';
 }
-function refreshAllAmountState() { daySessions.forEach((_, i) => refreshAmountState(i)); }
+function refreshAllAmountState() { daySessions.forEach((_, i) => refreshAmountState(i)); courierGroups.forEach((_, g) => onCourierAmtInput(g)); }
 
 async function startConfirm(idx) {
   if (isUpdating) return;

@@ -92,10 +92,6 @@ function cairoDayBoundsUTC(dateStr) {
   };
 }
 function cairoDayOf(iso) { const p = cairoParts(new Date(iso)); return `${p.year}-${p.month}-${p.day}`; }
-function cairoStamp(iso) {                    // DD/MM/YYYY HH:MM — للمرآة على الأوردر
-  const p = cairoParts(new Date(iso));
-  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
-}
 
 // ─── §HELPERS::money — كل المبالغ بالقروش (integer)، التحويل مرة واحدة ───
 function toPiastres(v) {
@@ -803,8 +799,8 @@ function buildEntries(s) {
 // ─── §LEDGER::mirror — بناء سطور الأوردر وإجماليه من **كل** حركاته في D1 (مش append) ───
 function mirrorLine(e) {
   const who = String(e.treasury_employee || '').replace(/_/g, ' ');
-  const kind = (e.kind === KIND.IN ? 'CASH_IN ' : e.kind);          // عرض ثابت العرض
-  let line = `#${e.id} | ${cairoStamp(e.created_at)} | ${kind} | ${fmtSigned(e.amount_piastres).padStart(9)} | ${who}`;
+  const p = cairoParts(new Date(e.created_at));
+  let line = `📅 ${p.day}/${p.month}/${p.year} 🕕 ${p.hour}:${p.minute} | ${e.kind} | 💲 ${fmtSigned(e.amount_piastres)} | ${who}`;
   if (e.note) line += ` | ${e.note}`;                                // الملاحظة آخر عمود (قد تكون عربي)
   return line;
 }
