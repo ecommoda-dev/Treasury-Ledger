@@ -190,7 +190,7 @@ test('المرآة على Shopify: سطور مرتبة + إجمالي من كل 
     assert.equal(mf.length, 4);
     const log100 = mf.find(m => m.ownerId.endsWith('/100') && m.key === 'treasury_log');
     assert.equal(log100.type, 'multi_line_text_field');
-    assert.match(log100.value, /^#\d+ \| \d\d\/\d\d\/\d{4} \d\d:\d\d \| CASH_IN  \|   \+100\.00 \| Sara Cash$/);   // التاريخ = وقت التأكيد بتوقيت القاهرة
+    assert.match(log100.value, /^📅 \d\d\/\d\d\/\d{4} 🕕 \d\d:\d\d \| CASH_IN \| 💲 \+100\.00 \| Sara Cash$/);   // التاريخ = وقت التأكيد بتوقيت القاهرة
     assert.equal(mf.find(m => m.ownerId.endsWith('/100') && m.key === 'treasury_total').value, '100.00');
     assert.equal(mf.find(m => m.key === 'treasury_total').type, 'number_decimal');
     // تصحيح → المرآة تتبني من كل الحركات (سطرين + إجمالي صفر)
