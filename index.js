@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.0.0)
+// EcomModa — Treasury-Ledger (v1.0.1)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.0.0';
+const WORKER_VERSION = '1.0.1';
 
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
 const MIN_DATE    = '2026-10-01';         // أول يوم مسموح بتوقيت القاهرة (قرار أحمد D19)
@@ -23,13 +23,13 @@ const MF_TOTAL = { namespace: 'custom', key: 'treasury_total', type: 'number_dec
 
 // ─── سلسلة السقوف (worker-builder Step 5A ⑪) — التلاتة مع بعض ───
 // ① الواجهة  CHUNK_MIRROR_UI = 40 أوردر للنداء الواحد (وقت: كتابة المرآة ≈ نداء Shopify لكل 12 أوردر)
-// ② الـ Worker MAX_ORDER_IDS = 60 — حارس لصق/حجم، مش سقف تشغيلي (Paid: 10k subrequests)
+// ② الـ Worker MAX_ORDER_IDS = 100 — حارس لصق/حجم، مش سقف تشغيلي (Paid: 10k subrequests) — لازم ≥ COMPARE_PER_QUERY
 // ③ شوبيفاي   MIRROR_ORDERS_PER_CALL = 12 ← metafieldsSet ≤ 25 ميتافيلد ÷ 2 لكل أوردر (shopify.dev «Metafield limits»)
-//             COMPARE_PER_QUERY = 10 ← ⚠️ قيمة محافظة **غير مقيسة** (بلوك returns تقيل) — قيس actualQueryCost
-//             بعد أول تشغيل حي (?action=diag بيعرضه) وحدّث الرقم هنا مع مصدر القياس.
-const MAX_ORDER_IDS            = 60;
+//             COMPARE_PER_QUERY = 100 ← قرار أحمد 04-11-2026 — ⚠️ **غير مقيس**: لو تكلفة الأوردر × 100 عدّت سقف شوبيفاي (١٠٠٠ نقطة)
+//             النداء بيترفض كله برسالة خطأ واضحة (مش بيانات غلط). قيس actualQueryCost (?action=diag) وقلّل الرقم هنا وفي CMP_CHUNK بالواجهة.
+const MAX_ORDER_IDS            = 100;
 const MIRROR_ORDERS_PER_CALL   = 12;
-const COMPARE_PER_QUERY        = 10;
+const COMPARE_PER_QUERY        = 100;
 const BIND_CHUNK               = 50;          // D1: حد الـ bind parameters = 100 للاستعلام
 
 // مصدر الحالة: صفوف cod_payment بتتراكم (≈40/يوم) → get_pending بيمسح النافذة من MIN_DATE.

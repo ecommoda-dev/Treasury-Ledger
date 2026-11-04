@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.0.0-blue)
+![version](https://img.shields.io/badge/version-v1.0.1-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -52,15 +52,10 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 ## المقارنة مع Shopify (قراءة فقط)
 `المتوقع = netPaymentSet − totalShippingPriceSet − Σ returns[].returnShippingFees` ويتقارن بـ Σ حركات الأوردر **من غير** Extra Shipping.
 الحالات: `MATCH` · `SHORT` · `OVER` · `NOT_IN_LEDGER` · `LEDGER_ONLY` · `IN_PROGRESS` (`PARTIALLY_PAID`/outstanding>0) · `PRE_WINDOW` (ليه صفوف تحصيل قبل 01-10).
-`COMPARE_PER_QUERY = 10` **قيمة محافظة غير مقيسة** — قيس `actualQueryCost` (من `?action=diag` بعد أول مقارنة) وحدّث الرقم مع مصدر القياس.
+`COMPARE_PER_QUERY = 100` (قرار أحمد 04-11-2026) **غير مقيس** — لو النداء اترفض لتجاوز سقف التكلفة (١٠٠٠ نقطة) قلّل الرقم في `index.js` (مع `MAX_ORDER_IDS`) وفي `CMP_CHUNK` بالواجهة؛ القياس من `?action=diag` (`actualQueryCost`).
 
-## قبل أول نشر (مهام أحمد — مفيش حاجة منها اتنفّذت من الجلسة)
-1. D1 Console: نفّذ `schema.sql` (كل سطر statement لوحده — one-liners جاهزة للّصق).
-2. Cloudflare: Worker باسم `treasury-ledger-worker` من الريبو (Workers Builds) · **chip لـ`index.js` وchip منفصل لـ`wrangler.toml`** في Build watch paths · أسرار `WORKER_SECRET` (فريد) + `CLIENT_ID` + `CLIENT_SECRET` ← **Promote**.
-3. Shopify (Settings → Custom data → Orders): `custom.treasury_log` (Multi-line text) و`custom.treasury_total` (Decimal)، **Filterable = لأ**، Storefront = No access، والوصف «للقراءة فقط…». صلاحية `write_orders` على الـ Custom App.
-4. تسجيل `treasury_ledger` في فهرس `tool` → ريبو في `ecommoda-constants` §7.1 + الجدولين والميتافيلدين (تسليم السكيل = ملف `.skill` واحد بـ `skill-creator` — ممنوع `propose_skills`).
-5. GitHub Pages من `main` (الجذر). بعد النشر: `?action=diag` من زرار 🩺 في الإعدادات.
-6. اختبار حي واحد بأرقام صغيرة قبل الاعتماد (المرآة على Shopify ما اتجرّبتش على المتجر الحقيقي — الاختبارات بتحاكيها).
+## قبل أول نشر
+مهام أحمد (D1 · Cloudflare · ميتافيلدز Shopify · تحديث `ecommoda-constants` · ملاحظة ريبوهات التحصيل · اختبار حي) اتسلّمت لأحمد في الشات 04-11-2026 وبتتنفّذ برّه الجلسة دي. **أي مهمة منها لسه ما اتأكد تنفيذها = الأداة مش جاهزة للاستخدام.**
 
 ## الاختبارات
 ```bash
@@ -89,9 +84,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 04-11-2026 · `index.js` v1.0.0 · `index.html` v1.0.0
-🔴 معلّقة: تسجيل `treasury_ledger` في `ecommoda-constants` §7.1 (مهمة أحمد — بند 4 فوق) · `check-log-values.mjs` نسخة محلية مبسّطة
+آخر مطابقة: 04-11-2026 · `index.js` v1.0.1 · `index.html` v1.0.1
+🔴 معلّقة: تسجيل `treasury_ledger` في `ecommoda-constants` §7.1 (مهمة أحمد) · `check-log-values.mjs` نسخة محلية مبسّطة
 
-آخر تحديث: 04-11-2026 — 08:53
+آخر تحديث: 04-11-2026 — 09:40
 
 </div>

@@ -2,7 +2,7 @@
 
 # Treasury-Ledger
 
-![version](https://img.shields.io/badge/version-v1.0.0-blue)
+![version](https://img.shields.io/badge/version-v1.0.1-blue)
 
 أداة EcomModa لتأكيد توريد التحصيل للخزنة: موظف الخزنة بيكتب المبلغ اللي عدّه لكل جلسة تحصيل، والأداة بتقارنه بالمتوقع من D1 — مطابق بالقرش يتسجّل في دفتر append-only، وأي فرق التسجيل فيه ممنوع.
 
@@ -13,6 +13,6 @@
 npm test
 ```
 
-آخر تحديث: 04-11-2026 — 08:53
+آخر تحديث: 04-11-2026 — 09:40
 
 </div>
