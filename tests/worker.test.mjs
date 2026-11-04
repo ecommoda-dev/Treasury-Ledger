@@ -244,6 +244,57 @@ test('مقارنة Shopify: المعادلة netPayment − shipping − returnF
   } finally { globalThis.fetch = realFetch; }
 });
 
+test('بوسطة: courierCollect = Net Value، الجلسة ناقصة لحد ما كل الصفوف تتسجّل، والتأكيد بالصافي، والمقارنة BOSTA_NET', async () => {
+  const realFetch = globalThis.fetch;
+  const bostaRow = (id, name, net, type = 'payment') => ({ orderId: id, orderName: name, type, net });
+  const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+  const put = (r, orders, collect) => seed(DB, { ts: '2026-11-04T10:00:00.000Z', type: r.type, orderId: r.orderId, orderName: r.orderName, extra: {
+    result: 'success', batchId: 'bosta-MONCOD02NOV26', courier: 'Bosta', courierCollect: r.net, source: 'bosta_cash_cycle',
+    cashOutId: 'MONCOD02NOV26', trackingNumber: 't' + r.orderId, extraShipping: null, extraShippingTotal: '0.00', preRegistered: false, hasReturn: false,
+    batchExpected: { orders, payOrders: orders, refundOrders: 0, collect, extraShippingTotal: '0.00', net: collect, methods: null } } });
+  // الملف 3 صفوف: Net 2538.20 + (−85.82 بدون تحصيل) + (−1771.41 استرداد) = 680.97 — اتسجّل صفين بس
+  put(bostaRow('1', '#61945', 2538.2), 3, '680.97');
+  put(bostaRow('2', '#61540', -85.82), 3, '680.97');
+  let day = (await call(env, 'get_day', { params: { date: '2026-11-04' } })).body;
+  let s = day.sessions.find(x => x.batchId === 'bosta-MONCOD02NOV26');
+  assert.equal(s.courier, 'Bosta'); assert.equal(s.expected, '2452.38'); assert.equal(s.incomplete, true);
+  put(bostaRow('3', '#61298', -1771.41, 'refund'), 3, '680.97');
+  day = (await call(env, 'get_day', { params: { date: '2026-11-04' } })).body;
+  s = day.sessions.find(x => x.batchId === 'bosta-MONCOD02NOV26');
+  assert.equal(s.expected, '680.97'); assert.equal(s.incomplete, false);
+  assert.equal(s.rows.length, 3);
+
+  // التأكيد: موظف الخزنة بيكتب اللي بوسطة حوّلته (Σ Net)
+  const bad = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-MONCOD02NOV26', date: '2026-11-04', employee: 'Sara_Cash', receivedAmount: '2538.20' } });
+  assert.equal(bad.body.ok, false);
+  globalThis.fetch = async (u) => String(u).includes('/oauth/')
+    ? new Response(JSON.stringify({ access_token: 't' }), { status: 200 })
+    : new Response(JSON.stringify({ data: { metafieldsSet: { metafields: [], userErrors: [] } } }), { status: 200 });
+  try {
+    const ok = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-MONCOD02NOV26', date: '2026-11-04', employee: 'Sara_Cash', receivedAmount: '680.97' } });
+    assert.equal(ok.body.ok, true);
+    const led = DB.raw.prepare('SELECT order_id, kind, amount_piastres, source, note FROM treasury_ledger ORDER BY id').all();
+    assert.deepEqual(led.map(e => [e.order_id, e.kind, e.amount_piastres, e.source]), [
+      ['1', 'CASH_IN', 253820, 'bosta_cash_cycle'], ['2', 'CASH_OUT', -8582, 'bosta_cash_cycle'], ['3', 'CASH_OUT', -177141, 'bosta_cash_cycle']]);
+    assert.equal(led[0].note, 'بوسطة — صافي بعد الرسوم');
+  } finally { globalThis.fetch = realFetch; }
+
+  // مقارنة Shopify: أوردر بوسطة = BOSTA_NET (مش SHORT/OVER كاذب)، وأوردر عادي لسه بيتقارن
+  const node = (id, name, net) => ({ id: `gid://shopify/Order/${id}`, legacyResourceId: id, name, displayFinancialStatus: 'PAID', cancelledAt: null,
+    netPaymentSet: { shopMoney: { amount: net } }, totalShippingPriceSet: { shopMoney: { amount: '0.00' } }, totalOutstandingSet: { shopMoney: { amount: '0.0' } },
+    returns: { pageInfo: { hasNextPage: false }, nodes: [] } });
+  globalThis.fetch = async (u) => String(u).includes('/oauth/')
+    ? new Response(JSON.stringify({ access_token: 't' }), { status: 200 })
+    : new Response(JSON.stringify({ data: { nodes: [node('1', '#61945', '2675.00'), node('9', '#9', '100.00')] } }), { status: 200 });
+  try {
+    DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, source, treasury_employee, idempotency_key) VALUES ('2026-11-04T10:00:00Z','9','#9','CASH_IN',5000,'cod_payment','X','kx')`).run();
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['1', '9'] } })).body;
+    const st = Object.fromEntries(r.results.map(x => [x.orderId, x.status]));
+    assert.deepEqual(st, { 1: 'BOSTA_NET', 9: 'SHORT' });
+    assert.equal(r.results.find(x => x.orderId === '1').ledger, '2538.20');
+  } finally { globalThis.fetch = realFetch; }
+});
+
 test('الأمان: بدون سر = 401، WORKER_SECRET غايب = 500 (مش Bearer undefined)، CORS مقفول', async () => {
   const { env } = setup();
   const noAuth = await worker.fetch(new Request('https://w.test/?action=get_config'), env);

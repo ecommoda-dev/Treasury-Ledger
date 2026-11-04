@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.0.1)
+// EcomModa — Treasury-Ledger (v1.1.0)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,8 +10,9 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.0.1';
+const WORKER_VERSION = '1.1.0';
 
+const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
 const MIN_DATE    = '2026-10-01';         // أول يوم مسموح بتوقيت القاهرة (قرار أحمد D19)
 
@@ -554,7 +555,8 @@ const SRC_COLS = `id, timestamp, type, employee, order_id, order_name,
   json_extract(extra,'$.extraShippingTotal')      AS xs_total,
   json_extract(extra,'$.batchExpected')           AS be,
   json_extract(extra,'$.preRegistered')           AS pre,
-  json_extract(extra,'$.hasReturn')               AS has_return`;
+  json_extract(extra,'$.hasReturn')               AS has_return,
+  json_extract(extra,'$.source')                  AS src`;
 
 async function loadRowsRange(db, fromIso, toIso) {
   const { results } = await db.prepare(
@@ -599,8 +601,10 @@ function buildSession(batchId, rows) {
     items.push({
       logId: r.id, orderId: String(r.order_id), orderName: r.order_name, srcType: r.type,
       piastres: p, kind: p < 0 ? KIND.OUT : KIND.IN,
-      source: isRefund ? 'cod_refund' : 'cod_payment',
-      note: isRefund ? 'استرداد' : (pre ? 'مسجل مسبقاً' : null),
+      // 🆕 صفوف بوسطة (extra.source='bosta_cash_cycle'): courierCollect = Net Value (بعد رسوم بوسطة) —
+      //    مش مبلغ شوبيفاي، فبتتعلّم بمصدر مستقل عشان مقارنة Shopify تستثنيها (BOSTA_NET).
+      source: r.src === BOSTA_SRC ? BOSTA_SRC : (isRefund ? 'cod_refund' : 'cod_payment'),
+      note: r.src === BOSTA_SRC ? 'بوسطة — صافي بعد الرسوم' : (isRefund ? 'استرداد' : (pre ? 'مسجل مسبقاً' : null)),
       preRegistered: pre, hasReturn,
     });
   }
@@ -917,6 +921,14 @@ function compareOrder(entries, node, preWindow) {
   const ledgerNet = cashEntries.reduce((s, e) => s + e.amount_piastres, 0);
 
   if (!node) return { status: 'UNKNOWN', ledger: fmtMoney(ledgerNet), shopify: null, diff: null, reason: 'الأوردر مش لاقيه على شوبيفاي' };
+
+  // 🆕 حركة بوسطة = Net Value (بعد رسوم الشحن/التأمين/VAT…) مش مبلغ شوبيفاي — المقارنة بالمعادلة تحت
+  //    هتطلّع SHORT/OVER كاذب على كل أوردر بوسطة. فبنعرض الرقم من غير حكم (قرار أحمد 04-11-2026).
+  if (cashEntries.some(e => e.source === BOSTA_SRC)) {
+    return { status: 'BOSTA_NET', ledger: fmtMoney(ledgerNet), shopify: null, diff: null,
+      financialStatus: node.displayFinancialStatus, cancelled: !!node.cancelledAt,
+      note: 'فيه حركة بوسطة (صافي بعد الرسوم) — المقارنة مع شوبيفاي مابتنطبقش' };
+  }
 
   const net = money(node.netPaymentSet), ship = money(node.totalShippingPriceSet);
   const retFees = (node.returns?.nodes || []).flatMap(r => r.returnShippingFees || []).reduce((s, f) => s + money(f.amountSet), 0);
