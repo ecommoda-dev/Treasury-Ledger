@@ -52,8 +52,8 @@ check('الدخول ناجح', await page.locator('#loginOverlay.hidden').count(
 await page.waitForSelector('.cg');
 
 check('مندوب واحد وجدول واحد (من غير تأكيد منفصل للجلسة)', await page.locator('.cg').count() === 1 && await page.locator('.sess-dt').count() === 1 && (await page.locator('.cg-head').innerText()).includes('Abo Yassin'));
-check('المتوقع = 24,400.00 (بعد خصم الشحن الإضافي)', (await page.locator('.cg-total .amt').innerText()).includes('24,400.00'));
-check('قسم «بانتظار التسجيل» ظاهر والجدول مفتوح تلقائي', (await page.locator('.cg-sec').first().innerText()).includes('بانتظار التسجيل') && await page.locator('.sess-dt').isVisible());
+check('المتوقع = 24,400 (بعد خصم الشحن الإضافي)', (await page.locator('.cg-total .amt').innerText()).includes('24,400'));
+check('الجدول مفتوح تلقائي ومفيش صف «بانتظار التسجيل» فوقه', await page.locator('.sess-dt').isVisible() && await page.locator('.cg-sec').count() === 0);
 check('الحالة «لم يتم التسجيل» على كل الصفوف', (await page.locator('.sess-dt tbody .badge-warn:text("لم يتم التسجيل")').count()) === 4);
 check('خانة المبلغ المستلم فاضية وزرار التأكيد مقفول', (await page.inputValue('#camt-0-0')) === '' && await page.locator('#ccbtn-0-0').isDisabled());
 check('صف الشحن الإضافي ظاهر بملاحظة حمراء', (await page.locator('tr.xs').innerText()).includes('Extra Shipping') && await page.locator('tr.xs .note-red').count() === 1);
@@ -71,10 +71,10 @@ await page.fill('#camt-0-0', '24000');
 check('الزرار اتفتح بعد كتابة رقم', await page.locator('#ccbtn-0-0').isEnabled());
 await page.click('#ccbtn-0-0');
 await page.waitForSelector('#summaryOverlay.open');
-check('الفرق: رسالة بالنقص 400.00 والتسجيل اتمنع', (await page.locator('#smBody').innerText()).includes('-400.00') && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
+check('الفرق: رسالة بالنقص 400 والتسجيل اتمنع', (await page.locator('#smBody').innerText()).includes('-400') && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
 await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
 await page.waitForSelector('.sess-dt .badge-danger');
-check('الحالة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.sess-dt .note-box.red').innerText()).includes('24,000.00'));
+check('الحالة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.sess-dt .note-box.red').innerText()).includes('24,000'));
 if (shots) await page.screenshot({ path: `${shots}/02-diff.png`, fullPage: true });
 
 // صح: 24400
@@ -94,12 +94,12 @@ if (shots) await page.screenshot({ path: `${shots}/03-confirmed.png`, fullPage: 
 // سجل الأوردر + التصحيح
 await page.click('#tabOrder'); await page.fill('#orderQ', '61774'); await page.click('#orderGo');
 await page.waitForSelector('#orderResult table.dt');
-check('سجل الأوردر: حركة Extra Shipping بقيمة -75.00', (await page.locator('#orderResult').innerText()).includes('-75.00'));
+check('سجل الأوردر: حركة Extra Shipping بقيمة -75', (await page.locator('#orderResult').innerText()).includes('-75'));
 await page.click('#orderResult button:text("تصحيح")'); await page.waitForSelector('#confirmOverlay.open'); await page.fill('#cfReason', 'اختبار'); await page.click('#cfOk');
 await page.waitForSelector('#summaryOverlay.open');   // مفيش Shopify في الاختبار → تصحيح مع تحذير المرآة (الملخص إلزامي)
 await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
 await page.waitForFunction(() => document.querySelector('#orderResult')?.innerText.includes('اتلغت'));
-check('التصحيح: صف REVERSAL والإجمالي صفر', DB.raw.prepare("SELECT COUNT(*) n FROM treasury_ledger WHERE kind='REVERSAL'").get().n === 1 && (await page.locator('#orderResult .chip').first().innerText()).includes('0.00'));
+check('التصحيح: صف REVERSAL والإجمالي صفر', DB.raw.prepare("SELECT COUNT(*) n FROM treasury_ledger WHERE kind='REVERSAL'").get().n === 1 && (await page.locator('#orderResult .chip').first().innerText()).includes('0'));
 if (shots) await page.screenshot({ path: `${shots}/04-order.png`, fullPage: true });
 
 // معلّق + تنبيهات + سجل
