@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.1.0)
+// EcomModa — Treasury-Ledger (v1.2.0)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.1.0';
+const WORKER_VERSION = '1.2.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -18,6 +18,13 @@ const MIN_DATE    = '2026-10-01';         // أول يوم مسموح بتوقي
 
 const KIND = { IN: 'CASH_IN', OUT: 'CASH_OUT', REV: 'REVERSAL' };
 const NOTE_EXTRA_SHIPPING = 'Extra Shipping';   // D15 — بالحرف، الأداة بتعتمد عليه في المقارنة
+
+// 🆕 v1.2.0 — التسوية التاريخية (قرار أحمد 05-11-2026): جلسات قبل التشغيل الفعلي اتوردت بالطريقة القديمة
+//    ومستحيل تتعدّ تاني. بتتسجّل في الدفتر **من غير عدّ** بعلامة historical — أحمد بس + PIN، ويوم بيوم.
+//    الجلسات المرفوضة/الناقصة/اللي عليها محاولة بفرق **مستثناة** وبتتعالج يدوي (قرار أحمد).
+const SETTLE_ADMINS   = new Set(['Ahmed_Ibraheem']);
+const NOTE_HISTORICAL = 'تسوية تاريخية';
+const FLAG_HISTORICAL = 'historical';
 
 const MF_LOG   = { namespace: 'custom', key: 'treasury_log',   type: 'multi_line_text_field' };
 const MF_TOTAL = { namespace: 'custom', key: 'treasury_total', type: 'number_decimal' };
@@ -152,7 +159,7 @@ function resolveAuthTool(appId) { return AUTH_APPS.has(appId) ? appId : TOOL_NAM
 // مبني من log-values.json (check-log-values.mjs بيتأكد إنهم متطابقين). مفيش رفض كتابة أبدًا.
 // ══════════════════════════════════════════════════════════════
 const LOG_REGISTRY = {
-  "treasury_ledger": new Set(["confirm_failed", "confirm_mismatch", "entry_reversed", "login", "logout", "mirror_rebuilt", "session_already_confirmed", "session_blocked", "session_confirmed"]),
+  "treasury_ledger": new Set(["confirm_failed", "confirm_mismatch", "entry_reversed", "login", "logout", "mirror_rebuilt", "historical_settle_rejected", "historical_settled", "session_already_confirmed", "session_blocked", "session_confirmed"]),
 };
 const isRegisteredLogValue = (tool, type) => !!LOG_REGISTRY[tool]?.has(type);
 
@@ -909,19 +916,68 @@ async function fetchShopifyOrders(env, token, orderIds, costLog = null) {
 
 function money(m) { return toPiastres(m?.shopMoney?.amount) ?? 0; }
 
-function compareOrder(entries, node, preWindow) {
+// 🆕 v1.2.0 — «الرجل المعلّقة»: صفوف تحصيل للأوردر جوه النافذة، مش في الدفتر، وجلستها لسه ما اتأكدتش.
+//    مثال #63567: تحصيل +2,600 يوم 03-11 (معلّق) + استرداد −2,600 يوم 04-11 (اتسجّل) → الدفتر −2,600 مؤقتًا.
+//    من غير ده المقارنة بتقول SHORT كاذب؛ بيها بتقول «مستني تسجيل جلسة 03-11» والمتوقع بعد التسجيل.
+//    صفوف جلسة **اتأكدت** ومش في الدفتر (صف اتضاف لجلسة ناقصة بعد تأكيدها) مش معلّقة — مش هتتسجّل أبدًا، فبتفضل فرق حقيقي.
+function pendingLegsFrom(rows, ledgerLogIds, confirmedBatches) {
+  const out = { piastres: 0, count: 0, days: [], bosta: false };
+  const days = new Set();
+  for (const r of rows) {
+    if (ledgerLogIds.has(r.id)) continue;
+    if (r.batch_id && confirmedBatches.has(String(r.batch_id))) continue;
+    const p = toPiastres(r.cc);
+    if (p === null) continue;
+    out.piastres += p; out.count++;
+    days.add(cairoDayOf(r.timestamp));
+    if (r.src === BOSTA_SRC) out.bosta = true;
+  }
+  out.days = [...days].sort();
+  return out.count ? out : null;
+}
+
+// صفوف التحصيل جوه النافذة لمجموعة أوردرات → Map(orderId → pending|null)
+async function loadPendingLegs(db, orderIds, ledgerByOrder) {
+  const ids = [...new Set(orderIds.map(String))];
+  const rowsBy = new Map();
+  const from = cairoDayBoundsUTC(MIN_DATE).start;
+  for (const part of chunk(ids, BIND_CHUNK)) {
+    const { results } = await db.prepare(
+      `SELECT id, timestamp, order_id, json_extract(extra,'$.courierCollect') AS cc,
+              json_extract(extra,'$.batchId') AS batch_id, json_extract(extra,'$.source') AS src
+         FROM logs WHERE tool = ? AND type IN ('payment','refund') AND timestamp >= ?
+          AND order_id IN (${part.map(() => '?').join(',')}) ORDER BY id`
+    ).bind(SOURCE_TOOL, from, ...part).all();
+    for (const r of results || []) {
+      const k = String(r.order_id);
+      if (!rowsBy.has(k)) rowsBy.set(k, []);
+      rowsBy.get(k).push(r);
+    }
+  }
+  const batchIds = [...new Set([...rowsBy.values()].flat().map(r => r.batch_id).filter(Boolean).map(String))];
+  const confs = batchIds.length ? await loadConfirmations(db, batchIds) : new Map();
+  const out = new Map();
+  for (const id of ids) {
+    const logIds = new Set((ledgerByOrder.get(id) || []).map(e => e.source_log_id).filter(x => x !== null && x !== undefined));
+    out.set(id, pendingLegsFrom(rowsBy.get(id) || [], logIds, confs));
+  }
+  return out;
+}
+
+function compareOrder(entries, node, preWindow, pending = null) {
   const byId = new Map(entries.map(e => [e.id, e]));
   const isXs = (e) => e.source === 'cod_extra_shipping' ||
     (e.reverses_id && byId.get(e.reverses_id)?.source === 'cod_extra_shipping');
   const cashEntries = entries.filter(e => !isXs(e));
   const ledgerNet = cashEntries.reduce((s, e) => s + e.amount_piastres, 0);
 
-  if (!node) return { status: 'UNKNOWN', ledger: fmtMoney(ledgerNet), shopify: null, diff: null, reason: 'الأوردر مش لاقيه على شوبيفاي' };
+  const pendingOut = pending ? { amount: fmtSigned(pending.piastres), count: pending.count, days: pending.days } : null;
+  if (!node) return { status: 'UNKNOWN', ledger: fmtMoney(ledgerNet), shopify: null, diff: null, pending: pendingOut, reason: 'الأوردر مش لاقيه على شوبيفاي' };
 
   // 🆕 حركة بوسطة = Net Value (بعد رسوم الشحن/التأمين/VAT…) مش مبلغ شوبيفاي — المقارنة بالمعادلة تحت
   //    هتطلّع SHORT/OVER كاذب على كل أوردر بوسطة. فبنعرض الرقم من غير حكم (قرار أحمد 04-11-2026).
-  if (cashEntries.some(e => e.source === BOSTA_SRC)) {
-    return { status: 'BOSTA_NET', ledger: fmtMoney(ledgerNet), shopify: null, diff: null,
+  if (cashEntries.some(e => e.source === BOSTA_SRC) || pending?.bosta) {
+    return { status: 'BOSTA_NET', ledger: fmtMoney(ledgerNet), shopify: null, diff: null, pending: pendingOut,
       financialStatus: node.displayFinancialStatus, cancelled: !!node.cancelledAt,
       note: 'فيه حركة بوسطة (صافي بعد الرسوم) — المقارنة مع شوبيفاي مابتنطبقش' };
   }
@@ -933,8 +989,11 @@ function compareOrder(entries, node, preWindow) {
   const diff = ledgerNet - shopExpected;             // موجب = الخزنة أكتر
   const inProgress = node.displayFinancialStatus === 'PARTIALLY_PAID' || money(node.totalOutstandingSet) > 0;
 
+  // الرجل المعلّقة ليها الأولوية: الحكم النهائي بعد ما الجلسة المعلّقة تتسجّل
+  const projectedDiff = pending ? diff + pending.piastres : null;
   let status;
-  if (diff === 0) status = 'MATCH';
+  if (pending) status = 'AWAITING_LEG';
+  else if (diff === 0) status = 'MATCH';
   else if (inProgress) status = 'IN_PROGRESS';
   else if (preWindow) status = 'PRE_WINDOW';
   else if (!cashEntries.length) status = 'NOT_IN_LEDGER';
@@ -943,6 +1002,10 @@ function compareOrder(entries, node, preWindow) {
 
   return {
     status, ledger: fmtMoney(ledgerNet), shopify: fmtMoney(shopExpected), diff: fmtMoney(diff),
+    pending: pendingOut,
+    projectedLedger: pending ? fmtMoney(ledgerNet + pending.piastres) : null,
+    projectedDiff: pending ? fmtMoney(projectedDiff) : null,
+    willMatch: pending ? projectedDiff === 0 : null,
     parts: { netPayment: fmtMoney(net), shipping: fmtMoney(ship), returnFees: fmtMoney(retFees) },
     financialStatus: node.displayFinancialStatus, cancelled: !!node.cancelledAt,
     note: unreliable ? 'فيه أكتر من 10 مرتجعات على الأوردر — المقارنة غير مكتملة' : null,
@@ -1100,6 +1163,17 @@ if (action === 'get_employees') {
         const confs = await loadConfirmations(env.DB, sessions.map(s => s.batchId));
         const mism  = await loadMismatches(env.DB, cairoDayBoundsUTC(date).start);
         const views = sessions.map(s => sessionView(s, confs.get(s.batchId), mism.get(s.batchId)));
+        // 🆕 v1.2.0 — حركات الأوردر المتسجّلة في جلسات تانية (مثلاً استرداد اتسجّل والتحصيل الأصلي لسه هنا):
+        //    الدفتر على الأوردر ده ناقص لحد ما الجلسة دي تتسجّل → علامة أولوية في الواجهة
+        const openViews = views.filter(v => v.status !== 'confirmed');
+        if (openViews.length) {
+          const led = await loadLedgerByOrderIds(env.DB, openViews.flatMap(v => v.rows.map(r => r.orderId)));
+          for (const v of openViews) for (const r of v.rows) {
+            const other = (led.get(String(r.orderId)) || []).filter(e => e.source_batch_id !== v.batchId);
+            const sum = other.reduce((t, e) => t + e.amount_piastres, 0);
+            if (sum !== 0) r.elsewhere = fmtSigned(sum);
+          }
+        }
         const tally = { total: views.length, confirmed: 0, pending: 0, diff: 0, blocked: 0 };
         for (const v of views) tally[v.status]++;
         return json({ ok: true, date, sessions: views, tally }, 200, request);
@@ -1238,6 +1312,103 @@ if (action === 'get_employees') {
         }, 200, request);
       }
 
+      // ─── §LEDGER::settle_historical — تسوية تاريخية ليوم واحد (أحمد بس + PIN) · 🆕 v1.2.0 ───
+      // الجلسات دي اتوردت بالطريقة القديمة قبل تشغيل الأداة — بتتسجّل من غير عدّ (استثناء صريح من D16/D17 بقرار أحمد 05-11-2026).
+      // dryRun:true = معاينة من غير أي كتابة. التنفيذ = كل جلسات اليوم المؤهلة في db.batch() واحد (يا كلها يا ولا حاجة).
+      // المستثنى (بيتعالج يدوي): blocked · incomplete (ومنها بوسطة الناقصة) · اللي عليها محاولة بفرق · النهارده.
+      // المرآة مش هنا — الواجهة بتبنيها بعدها على دفعات بـ rebuild_mirror (orderIds راجعة في الرد).
+      if (action === 'settle_historical') {
+        if (request.method !== 'POST') return json({ error: 'POST required' }, 405, request);
+        const body = await request.json().catch(() => ({}));
+        const { date, employee } = body;
+        const dryRun = body.dryRun === true;
+        const reject = async (error, code = 200, stage = 'preflight') => {
+          const logged = dryRun ? false : await safeLog(env.DB, { type: 'historical_settle_rejected', employee: employee || null,
+            notes: String(error).slice(0, 250), extra: { result: 'rejected', stage, day: date || null } });
+          return json({ ok: false, status: 'rejected', stage, logged, error }, code, request);
+        };
+        const bad = checkDate(date);
+        if (bad) return reject(bad, 400);
+        if (date >= cairoDate()) return reject('النهارده مينفعش يتسوّى — بيتسجّل بالعدّ زي العادي', 400);
+        if (!employee || !SETTLE_ADMINS.has(employee)) return reject('التسوية التاريخية مسموحة لأحمد بس', 403);
+        let who = null;
+        try { who = await verifyEmployee(env.DB, employee, String(body.pin ?? '')); }
+        catch (e) { return reject(e.message, 403); }
+        if (!who) return reject('الـ PIN غلط', 403);
+
+        const sessions = await loadDaySessions(env.DB, date);
+        const confs = await loadConfirmations(env.DB, sessions.map(s => s.batchId));
+        const mism  = await loadMismatches(env.DB, cairoDayBoundsUTC(date).start);
+        const eligible = [], skipped = [];
+        let alreadyConfirmed = 0;
+        for (const s of sessions) {
+          if (confs.has(s.batchId)) { alreadyConfirmed++; continue; }
+          const base = { batchId: s.batchId, courier: s.courier, collector: s.collector, rowsCount: s.rowsCount, expected: fmtMoney(s.expectedPiastres) };
+          if (!s.valid)                { skipped.push({ ...base, reason: 'blocked',    detail: s.problems.join(' | ') }); continue; }
+          if (s.incomplete)            { skipped.push({ ...base, reason: 'incomplete', detail: `صفوف D1 ${s.rowsCount} من ${s.batchExpected?.orders ?? '؟'}` }); continue; }
+          if (mism.has(s.batchId))     { const m = mism.get(s.batchId);
+                                         skipped.push({ ...base, reason: 'diff', detail: `محاولة بفرق: المتوقع ${m.expected} — المكتوب ${m.received}` }); continue; }
+          const entries = buildEntries(s);
+          if (entries.reduce((t, e) => t + e.amount_piastres, 0) !== s.expectedPiastres) {
+            skipped.push({ ...base, reason: 'blocked', detail: 'فحص التوازن فشل' }); continue;
+          }
+          eligible.push({ s, entries });
+        }
+        const totalP = eligible.reduce((t, x) => t + x.s.expectedPiastres, 0);
+        const orderIds = [...new Set(eligible.flatMap(x => x.entries.map(e => e.order_id)))];
+        const summary = {
+          day: date, sessions: eligible.length, entries: eligible.reduce((t, x) => t + x.entries.length, 0),
+          orders: orderIds.length, expected: fmtMoney(totalP), expectedPiastres: totalP, alreadyConfirmed,
+          eligible: eligible.map(({ s, entries }) => ({ batchId: s.batchId, courier: s.courier, collector: s.collector,
+            rowsCount: s.rowsCount, entries: entries.length, expected: fmtMoney(s.expectedPiastres), warnings: s.warnings })),
+          skipped,
+        };
+        if (dryRun) return json({ ok: true, status: 'preview', ...summary }, 200, request);
+        if (!eligible.length) return json({ ok: true, status: 'nothing', ...summary, orderIds: [],
+          message: 'مفيش جلسات مؤهلة للتسوية في اليوم ده' }, 200, request);
+
+        const now = new Date().toISOString();
+        const stmts = [];
+        for (const { s, entries } of eligible) {
+          const flags = [FLAG_HISTORICAL, s.warnings.length ? 'warnings' : null].filter(Boolean).join(',');
+          stmts.push(env.DB.prepare(
+            `INSERT INTO treasury_confirmations
+               (batch_id, confirmed_at, cairo_day, courier, collector_employee, treasury_employee,
+                expected_piastres, received_piastres, rows_count, session_flags)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(s.batchId, now, s.day, s.courier, s.collector, employee, s.expectedPiastres, s.expectedPiastres, entries.length, flags));
+          for (const e of entries) {
+            const note = e.note ? `${NOTE_HISTORICAL} · ${e.note}` : NOTE_HISTORICAL;
+            stmts.push(env.DB.prepare(
+              `INSERT INTO treasury_ledger
+                 (created_at, order_id, order_name, kind, amount_piastres, note, source, source_log_id,
+                  source_batch_id, courier, collector_employee, treasury_employee, confirmation_id, reverses_id, idempotency_key)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT id FROM treasury_confirmations WHERE batch_id = ?), NULL, ?)`
+            ).bind(now, e.order_id, e.order_name, e.kind, e.amount_piastres, note, e.source, e.source_log_id,
+                   s.batchId, s.courier, s.collector, employee, s.batchId, e.idempotency_key));
+          }
+        }
+        try {
+          await env.DB.batch(stmts);
+        } catch (e) {
+          const dup = /UNIQUE/i.test(e.message || '');
+          const logged = await safeLog(env.DB, { type: 'confirm_failed', employee, notes: String(e.message).slice(0, 250),
+            extra: { result: 'error', stage: 'write', day: date, historical: true } });
+          return json({ ok: false, status: 'error', stage: 'write', logged,
+            error: (dup ? 'جلسة من اليوم ده اتأكدت من جهاز تاني أثناء التسوية — ' : 'فشلت كتابة الدفتر — ') +
+                   'مفيش حاجة اتسجّلت. اعمل معاينة تاني.' + (dup ? '' : ' ' + e.message) }, 500, request);
+        }
+        const logged = await safeLog(env.DB, {
+          type: 'historical_settled', employee, valueAfter: totalP / 100,
+          notes: `تسوية ${date}: ${eligible.length} جلسة · ${summary.entries} حركة · ${fmtMoney(totalP)}` + (skipped.length ? ` · مستثنى ${skipped.length}` : ''),
+          extra: { result: 'success', stage: 'write', day: date, sessions: eligible.length, entries: summary.entries,
+                   expected: fmtMoney(totalP), batchIds: eligible.map(x => x.s.batchId).slice(0, 60),
+                   skipped: skipped.map(x => ({ batchId: x.batchId, reason: x.reason })).slice(0, 30) },
+        });
+        return json({ ok: true, status: 'success', logged, ...summary, orderIds,
+          message: `اتسوّت ${eligible.length} جلسة (${fmtMoney(totalP)}) — اكتب المرآة على ${orderIds.length} أوردر` }, 200, request);
+      }
+
       // ─── §LEDGER::reverse_entry — تصحيح بصف REVERSAL جديد (الأصل ما بيتغيّرش) ───
       if (action === 'reverse_entry') {
         if (request.method !== 'POST') return json({ error: 'POST required' }, 405, request);
@@ -1307,7 +1478,7 @@ if (action === 'get_employees') {
         const { results: ledger } = await env.DB.prepare('SELECT * FROM treasury_ledger WHERE order_name = ? ORDER BY id').bind(name).all();
         const { results: src } = await env.DB.prepare(
           `SELECT id, timestamp, type, employee, json_extract(extra,'$.batchId') AS batch_id, json_extract(extra,'$.courier') AS courier,
-                  json_extract(extra,'$.courierCollect') AS cc
+                  json_extract(extra,'$.courierCollect') AS cc, json_extract(extra,'$.source') AS src
              FROM logs WHERE tool = ? AND type IN ('payment','refund') AND timestamp >= ? AND order_name = ? ORDER BY id`
         ).bind(SOURCE_TOOL, ORDER_HISTORY_FROM, name).all();
         const confs = await loadConfirmations(env.DB, [...new Set(src.map(r => r.batch_id).filter(Boolean))]);
@@ -1315,6 +1486,9 @@ if (action === 'get_employees') {
           courierCollect: toPiastres(r.cc) === null ? null : fmtMoney(toPiastres(r.cc)), batchId: r.batch_id,
           confirmed: confs.has(r.batch_id), inLedger: ledger.some(l => l.source_log_id === r.id) }));
         const orderId = ledger[0]?.order_id ?? null;
+        const winStart = cairoDayBoundsUTC(MIN_DATE).start;
+        const pending = pendingLegsFrom(src.filter(r => r.timestamp >= winStart),
+          new Set(ledger.map(l => l.source_log_id).filter(x => x !== null)), confs);
 
         let shopify = null, shopifyError = null, orderIdOut = orderId;
         try {
@@ -1331,7 +1505,7 @@ if (action === 'get_employees') {
             const costLog = [];
             const map = await fetchShopifyOrders(env, token, [id], costLog);
             const pre = await preWindowOrderSet(env.DB, [name]);
-            shopify = compareOrder(ledger, map.get(String(id)) || null, pre.has(name));
+            shopify = compareOrder(ledger, map.get(String(id)) || null, pre.has(name), pending);
           }
         } catch (e) { shopifyError = e.message; }
 
@@ -1365,10 +1539,11 @@ if (action === 'get_employees') {
         const nodes = await fetchShopifyOrders(env, token, ids, costLog);
         const names = [...ledger.values()].map(rows => rows[0].order_name);
         const pre = await preWindowOrderSet(env.DB, names);
+        const legs = await loadPendingLegs(env.DB, ids, ledger);
         const results = ids.map(id => {
           const entries = ledger.get(id) || [];
           const nm = entries[0]?.order_name || null;
-          return { orderId: id, orderName: nm, ...compareOrder(entries, nodes.get(id) || null, nm ? pre.has(nm) : false) };
+          return { orderId: id, orderName: nm, ...compareOrder(entries, nodes.get(id) || null, nm ? pre.has(nm) : false, legs.get(id)) };
         });
         return json({ ok: true, results, queryCost: costLog }, 200, request);
       }
@@ -1394,7 +1569,7 @@ if (action === 'get_employees') {
 
       // ─── §LEDGER::get_config ───
       if (action === 'get_config') {
-        return json({ ok: true, version: WORKER_VERSION, tool: TOOL_NAME, minDate: MIN_DATE }, 200, request);
+        return json({ ok: true, version: WORKER_VERSION, tool: TOOL_NAME, minDate: MIN_DATE, settleAdmins: [...SETTLE_ADMINS] }, 200, request);
       }
 
       // ─── §DIAG — فحص ذاتي من غير أي كتابة · ممنوع يعرض قيمة أي سر ───

@@ -11,6 +11,8 @@
     "confirm_mismatch":          { "result": "rejected",  "stage": "lookup",  "desc": "المبلغ المكتوب ≠ المتوقع — التسجيل ممنوع (D17) والمحاولة بتفضل تنبيه لحد ما الجلسة تتأكد" },
     "confirm_failed":            { "result": "error",     "stage": "write",   "desc": "كتابة الدفتر في D1 فشلت — مفيش حاجة اتسجّلت" },
     "entry_reversed":            { "result": ["success", "warning"], "stage": "write", "desc": "تصحيح بصف REVERSAL جديد — warning = المرآة ما اتحدّثتش" },
-    "mirror_rebuilt":            { "result": ["success", "warning", "error"], "stage": "write", "desc": "إعادة بناء ميتافيلدز الأوردر من D1" }
+    "mirror_rebuilt":            { "result": ["success", "warning", "error"], "stage": "write", "desc": "إعادة بناء ميتافيلدز الأوردر من D1" },
+    "historical_settled":        { "result": "success",   "stage": "write",   "desc": "تسوية تاريخية ليوم (v1.2.0): جلسات قبل تشغيل الأداة اتسجّلت في الدفتر من غير عدّ بعلامة historical — أحمد بس" },
+    "historical_settle_rejected":{ "result": "rejected",  "stage": "preflight", "desc": "محاولة تسوية تاريخية مرفوضة (مش أحمد · PIN غلط · النهارده · تاريخ غلط)" }
   }
 }

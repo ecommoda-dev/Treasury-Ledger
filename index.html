@@ -746,6 +746,24 @@ table.dt tr.xs td { background: var(--amber-light); }
       <div class="bar-row" id="dayTally"></div>
     </div>
   </div>
+  <!-- 🆕 v1.4.0 — تسوية تاريخية (أحمد بس · بتظهر في «كل الأيام المعلّقة») -->
+  <div class="panel-card" id="settleCard" style="display:none">
+    <div class="bar-row">
+      <strong>🗂️ تسوية تاريخية</strong>
+      <span class="sub" style="font-size:12px;color:var(--text-secondary)">للجلسات اللي اتوردت بالطريقة القديمة قبل تشغيل الأداة — بتتسجّل <strong>من غير عدّ</strong> بملاحظة «تسوية تاريخية». المرفوضة والناقصة (ومنها بوسطة) واللي عليها محاولة بفرق بتفضل معلّقة للمعالجة اليدوي.</span>
+    </div>
+    <div class="bar-row" style="margin-top:10px;align-items:flex-end">
+      <div><span class="field-label">من</span><input type="date" class="inp" id="stFrom" disabled /></div>
+      <div><span class="field-label">لحد (شامل)</span><input type="date" class="inp lockable" id="stTo" onclick="openPicker(this)" onchange="resetSettlePreview()" /></div>
+      <div><span class="field-label">PIN بتاعك</span><input type="password" class="inp lockable" id="stPin" inputmode="numeric" maxlength="4" autocomplete="off" style="width:110px" oninput="resetSettlePreview()" onkeydown="if(event.key==='Enter'){event.preventDefault();previewSettle()}" /></div>
+      <button class="btn btn-sm lockable" id="stPreviewBtn" onclick="previewSettle()">معاينة</button>
+      <button class="btn btn-primary btn-sm lockable" id="stRunBtn" data-dis="1" disabled onclick="runSettle()">تنفيذ التسوية</button>
+      <span class="grow"></span>
+      <button class="btn btn-sm lockable" id="stMirrorBtn" onclick="rebuildSettleMirror()" title="لو الصفحة اتقفلت قبل ما المرآة تخلص">إعادة كتابة مرآة النطاق</button>
+    </div>
+    <div class="bar-row" id="stProgressRow" style="display:none;margin-top:10px"><div class="progress"><i id="stBar"></i></div><span class="chip" id="stProgressTxt">—</span></div>
+    <div id="stResult" style="margin-top:10px"></div>
+  </div>
   <div id="daySessions"><div class="empty-box">اختار يوم لعرض جلسات التحصيل</div></div>
 </div>
 
@@ -869,6 +887,15 @@ table.dt tr.xs td { background: var(--amber-light); }
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">05-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>«تسوية تاريخية» (أحمد بس + PIN) في «كل الأيام المعلّقة»: الجلسات اللي اتوردت قبل تشغيل الأداة بتتسجّل من غير عدّ بملاحظة «تسوية تاريخية» — معاينة الأول، وكل يوم ذرّي لوحده، وبعدها المرآة على كل الأوردرات على دفعات. المرفوضة والناقصة واللي عليها فرق بتفضل معلّقة للمعالجة اليدوي</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>مقارنة Shopify: أوردر ليه صف تحصيل في جلسة لسه ما اتسجّلتش = «⏳ مستني تسجيل جلسة» بدل «الخزنة أقل» الكاذب، مع الفرق المتوقع بعد التسجيل وزرار يفتح اليوم</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>في جدول الجلسة المعلّقة: «⚠️ عليه … متسجّل في جلسة تانية» على الأوردر اللي رجله التانية (استرداد مثلاً) اتسجّلت خلاص</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>يتطلب Worker v1.2.0</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.3.0</span><span class="cl-ver-date">05-11-2026</span></div>
+        <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>الأرقام: العلامة العشرية تظهر بس لو فيه كسر (2400 مش 2400.00)</span></li>
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>شريط المندوب بخلايا: (الاسم · عدد الأوردرات · الإجمالي) | (خانة المبلغ بـ«ج.م» + «تسجيل توريد المندوب») | سهم طي/فتح</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>شريط «تسجيل توريد اليوم بالكامل» فوق مناديب اليوم</span></li>
@@ -931,6 +958,7 @@ table.dt tr.xs td { background: var(--amber-light); }
             <tr><td><code>get_order</code></td><td>حركات الأوردر + مقارنة Shopify + مقارنة أداة التحصيل</td></tr>
             <tr><td><code>get_alerts</code> · <code>compare_orders</code> · <code>list_ledger_orders</code></td><td>الفروق المفتوحة + مقارنة Shopify على دفعات</td></tr>
             <tr><td><code>rebuild_mirror</code></td><td>إعادة بناء الميتافيلدين من D1</td></tr>
+            <tr><td><code>settle_historical</code></td><td>تسوية تاريخية ليوم (أحمد + PIN · معاينة <code>dryRun</code> · من غير عدّ بعلامة <code>historical</code>)</td></tr>
             <tr><td><code>get_logs</code> · <code>get_logs_count</code> · <code>get_logs_export</code></td><td>سجل العمليات</td></tr>
             <tr><td><code>diag</code> · <code>get_config</code></td><td>فحص ذاتي · نسخة الـ Worker</td></tr>
           </table>
@@ -1086,8 +1114,8 @@ table.dt tr.xs td { background: var(--amber-light); }
 // ══════════════════════════════════════════════════════
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
-const MIN_WORKER_VERSION = '1.0.1'; // 1.0.1 = الـ Worker بيقبل 100 أوردر في compare_orders (الواجهة بتبعتهم دفعة واحدة)
-const TOOL_VERSION = 'v1.3.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const MIN_WORKER_VERSION = '1.2.0'; // 1.2.0 = settle_historical + AWAITING_LEG + علامة elsewhere في get_day
+const TOOL_VERSION = 'v1.4.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -1265,6 +1293,7 @@ async function apiGet(action, params = {}) {
 
 // ── حارس نسخة الـ Worker — حد أدنى، مش تطابق ──
 let workerVersion = null;
+let settleAdmins = [];        // من get_config — مين يقدر يعمل تسوية تاريخية (الـ Worker هو الحارس الفعلي)
 function cmpVersion(a, b) {
   const pa = String(a).replace(/^v/, '').split('.').map(Number);
   const pb = String(b).replace(/^v/, '').split('.').map(Number);
@@ -1276,6 +1305,8 @@ async function checkWorkerVersion() {
   try {
     const d = await apiGet('get_config');
     workerVersion = d.version || null;
+    settleAdmins = Array.isArray(d.settleAdmins) ? d.settleAdmins : [];
+    updateSettleCard();
     const stale = workerVersion && cmpVersion(workerVersion, MIN_WORKER_VERSION) < 0;
     const btn = document.getElementById('verStaleBtn');
     if (btn) btn.style.display = stale ? '' : 'none';
@@ -1911,6 +1942,7 @@ function updateScopeUI() {
   document.getElementById('segDay').classList.toggle('on', !pend);
   document.getElementById('segPending').classList.toggle('on', pend);
   document.getElementById('dayControls').style.display = pend ? 'none' : '';
+  updateSettleCard();
 }
 function reloadConfirmView() { return confScope === 'pending' ? loadPendingScope() : loadDay(); }
 
@@ -1995,7 +2027,9 @@ function sessionNotes(s) {
   for (const w of s.warnings || []) notes += `<div class="note-box amber">${esc(w)}</div>`;
   if (s.status === 'blocked') notes += `<div class="note-box red">⛔ مينفعش يتسجّل: ${(s.problems || []).map(esc).join(' · ')}</div>`;
   if (s.status === 'diff' && s.mismatch) notes += `<div class="note-box red">🔴 آخر محاولة (${esc(employeeDisplayName(s.mismatch.by))}): المتوقع ${fmtNum(s.mismatch.expected)} — المكتوب ${fmtNum(s.mismatch.received)}${s.mismatch.diff ? ` — الفرق ${fmtSignedNum(s.mismatch.diff)}` : ''}. التسجيل ممنوع لحد ما المبلغ يكمل.</div>`;
-  if (s.status === 'confirmed' && s.confirmation) notes += `<div class="note-box green">✓ اتسجّلت بواسطة ${esc(employeeDisplayName(s.confirmation.by))} — ${esc(formatDateTime(s.confirmation.at))} — المستلم ${fmtNum(s.confirmation.received)}</div>`;
+  if (s.status === 'confirmed' && s.confirmation && String(s.confirmation.flags || '').split(',').includes('historical'))
+    notes += `<div class="note-box blue">🗂️ تسوية تاريخية (من غير عدّ — اتوردت قبل تشغيل الأداة) بواسطة ${esc(employeeDisplayName(s.confirmation.by))} — ${esc(formatDateTime(s.confirmation.at))}</div>`;
+  else if (s.status === 'confirmed' && s.confirmation) notes += `<div class="note-box green">✓ اتسجّلت بواسطة ${esc(employeeDisplayName(s.confirmation.by))} — ${esc(formatDateTime(s.confirmation.at))} — المستلم ${fmtNum(s.confirmation.received)}</div>`;
   return notes;
 }
 // جدول واحد (الموظف · الوقت · الجلسة مدموجين على أوردرات الجلسة) — لا يظهر فيه أي تأكيد منفصل للجلسة
@@ -2013,7 +2047,7 @@ function sessionsTable(list) {
       if (it.r) {
         const r = it.r;
         return `<tr class="${cls}">${lead}<td>${orderLink(r.orderName, r.orderId)}</td><td>${typeBadges(r)}</td>
-          <td class="num ${amtClass(r.amount)}">${fmtSignedNum(r.amount)}</td><td>${r.note ? `<span class="note-red">${esc(r.note)}</span>` : ''}</td><td>${status}</td></tr>`;
+          <td class="num ${amtClass(r.amount)}">${fmtSignedNum(r.amount)}</td><td>${r.note ? `<span class="note-red">${esc(r.note)}</span>` : ''}${r.elsewhere ? `${r.note ? '<br>' : ''}<span class="note-red" title="الأوردر ده عليه حركة اتسجّلت في جلسة تانية — دفتره ناقص لحد ما الجلسة دي تتسجّل">⚠️ عليه ${fmtSignedNum(r.elsewhere)} متسجّل في جلسة تانية</span>` : ''}</td><td>${status}</td></tr>`;
       }
       const x = it.x;
       return `<tr class="xs ${cls}">${lead}<td>${orderLink(x.orderName, x.orderId)}</td><td><span class="badge badge-warn">شحن إضافي</span></td>
@@ -2192,6 +2226,183 @@ async function rebuildMirror(orderIds) {
   finally { setUpdateLock(false); }
 }
 
+// ══════════════════════════════════════════════════════
+// §TOOL-JS::settle — تسوية تاريخية (أحمد بس · 🆕 v1.4.0)
+// الـ Worker هو الحارس (أحمد + PIN + مش النهارده)؛ الواجهة: معاينة ← تأكيد ← يوم بيوم ← المرآة على دفعات
+// ══════════════════════════════════════════════════════
+let settlePlan = null;                 // { from, to, pin, plan: [{ day, p }] } — بيتصفّر مع أي تغيير
+let settleMirrorFailed = [];
+const SETTLE_MIRROR_CHUNK = 40;        // = CHUNK_MIRROR_UI (سلسلة السقوف في الـ Worker)
+const SKIP_LABEL = { blocked: '⛔ مرفوضة (بيانات مصدر)', incomplete: '⚠️ ناقصة', diff: '🔴 عليها محاولة بفرق' };
+const isSettleAdmin = () => !!currentEmployee && settleAdmins.includes(currentEmployee.username);
+
+function updateSettleCard() {
+  const card = document.getElementById('settleCard');
+  if (!card) return;
+  const show = confScope === 'pending' && isSettleAdmin();
+  card.style.display = show ? '' : 'none';
+  if (!show) return;
+  const to = document.getElementById('stTo'), yest = addDays(cairoDateStr(), -1);
+  document.getElementById('stFrom').value = MIN_DATE;
+  to.min = MIN_DATE; to.max = yest;
+  if (!to.value || to.value > yest || to.value < MIN_DATE) to.value = yest;
+}
+function resetSettlePreview() {
+  settlePlan = null;
+  const b = document.getElementById('stRunBtn');
+  b.dataset.dis = '1'; b.disabled = true;
+  document.getElementById('stResult').innerHTML = '';
+}
+function settleInputs() {
+  const to = document.getElementById('stTo').value, pin = document.getElementById('stPin').value.trim();
+  if (!to || to < MIN_DATE || to >= cairoDateStr()) { showToast('اختار «لحد» يوم قبل النهارده', 'warning'); return null; }
+  if (!/^\d{4}$/.test(pin)) { showToast('اكتب الـ PIN بتاعك (4 أرقام)', 'warning'); return null; }
+  return { from: MIN_DATE, to, pin };
+}
+function stProgress(done, total, label) {
+  document.getElementById('stProgressRow').style.display = total ? '' : 'none';
+  document.getElementById('stBar').style.width = total ? `${Math.round(done / total * 100)}%` : '0%';
+  document.getElementById('stProgressTxt').textContent = `${label}: ${done} / ${total}`;
+}
+const piToNum = p => fmtNum((p / 100).toFixed(2));
+
+async function previewSettle() {
+  if (isUpdating) return;
+  const inp = settleInputs();
+  if (!inp) return;
+  resetSettlePreview();
+  const out = document.getElementById('stResult');
+  out.innerHTML = '<div class="empty-box"><span class="spinner"></span> جارٍ المعاينة (من غير أي كتابة)…</div>';
+  setUpdateLock(true);
+  try {
+    const pend = await apiGet('get_pending');
+    const days = (pend.days || []).map(d => d.day).filter(d => d >= inp.from && d <= inp.to).sort();
+    if (!days.length) { out.innerHTML = '<div class="empty-box">✅ مفيش جلسات معلّقة في النطاق ده</div>'; return; }
+    const plan = [];
+    for (let i = 0; i < days.length; i += 4) {
+      const res = await Promise.all(days.slice(i, i + 4).map(day =>
+        apiPost('settle_historical', { date: day, employee: currentEmployee.username, pin: inp.pin, dryRun: true })));
+      res.forEach((r, j) => { if (!r.ok) throw new Error(r.error || 'المعاينة اترفضت'); plan.push({ day: days[i + j], p: r }); });
+      stProgress(plan.length, days.length, 'معاينة');
+    }
+    settlePlan = { ...inp, plan };
+    renderSettlePreview();
+  } catch (e) { out.innerHTML = `<div class="note-box red">❌ ${esc(e.message)}</div>`; }
+  finally { setUpdateLock(false); stProgress(0, 0, ''); }
+}
+function settleTotals(plan) {
+  return plan.reduce((t, x) => ({ sessions: t.sessions + x.p.sessions, entries: t.entries + x.p.entries, orders: t.orders + x.p.orders,
+    pi: t.pi + x.p.expectedPiastres, skipped: t.skipped + x.p.skipped.length }), { sessions: 0, entries: 0, orders: 0, pi: 0, skipped: 0 });
+}
+function renderSettlePreview() {
+  const { plan, from, to } = settlePlan, t = settleTotals(plan);
+  const rows = plan.map(x => `<tr><td>${esc(dmy(x.day))}</td><td class="num">${x.p.sessions}</td><td class="num">${x.p.entries}</td><td class="num">${x.p.orders}</td>
+    <td class="num ${amtClass(x.p.expected)}">${fmtNum(x.p.expected)}</td>
+    <td>${x.p.skipped.length ? x.p.skipped.map(k => `<span class="badge ${k.reason === 'incomplete' ? 'badge-warn' : 'badge-danger'}" title="${esc(k.detail || '')}">${esc(SKIP_LABEL[k.reason] || k.reason)} · ${esc(k.courier || '—')} · ${fmtNum(k.expected)}</span>`).join(' ') : '—'}</td>
+    <td><button class="btn btn-sm" onclick="openDay('${esc(x.day)}')">فتح اليوم</button></td></tr>`).join('');
+  document.getElementById('stResult').innerHTML = `
+    <div class="bar-row"><span class="chip">النطاق: <strong>${esc(dmy(from))} ← ${esc(dmy(to))}</strong></span>
+      <span class="chip ok">للتسوية: <strong>${t.sessions}</strong> جلسة · <strong>${t.entries}</strong> حركة · <strong>${t.orders}</strong> أوردر</span>
+      <span class="chip">الإجمالي: <strong>${piToNum(t.pi)}</strong></span>
+      ${t.skipped ? `<span class="chip bad">مستثنى (يدوي): <strong>${t.skipped}</strong></span>` : ''}</div>
+    <div class="tbl-wrap" style="margin-top:8px"><table class="dt"><thead><tr><th>اليوم</th><th class="num">جلسات</th><th class="num">حركات</th><th class="num">أوردرات</th><th class="num">المبلغ</th><th>مستثنى — بيفضل معلّق</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const b = document.getElementById('stRunBtn');
+  b.dataset.dis = t.sessions ? '0' : '1'; b.disabled = isUpdating || !t.sessions;
+}
+
+// المرآة على دفعات — بترجع { written, failed[] }
+async function mirrorInChunks(ids, label) {
+  let written = 0; const failed = [];
+  for (let i = 0; i < ids.length; i += SETTLE_MIRROR_CHUNK) {
+    const part = ids.slice(i, i + SETTLE_MIRROR_CHUNK);
+    try {
+      const m = await apiPost('rebuild_mirror', { orderIds: part, employee: currentEmployee.username });
+      written += m.written || 0; failed.push(...(m.failed || []));
+      if (m.ok === false && !(m.failed || []).length) failed.push(...part.map(orderId => ({ orderId, error: m.error || 'فشل' })));
+    } catch (e) { failed.push(...part.map(orderId => ({ orderId, error: e.message }))); }
+    stProgress(Math.min(i + SETTLE_MIRROR_CHUNK, ids.length), ids.length, label);
+  }
+  return { written, failed };
+}
+
+async function runSettle() {
+  if (isUpdating || !settlePlan) return;
+  const { from, to, pin } = settlePlan, plan = settlePlan.plan.filter(x => x.p.sessions > 0), t = settleTotals(settlePlan.plan);
+  if (!plan.length) return;
+  const r = await askConfirm({ header: '⚠️ تأكيد التسوية التاريخية', lead: `من ${dmy(from)} لحد ${dmy(to)} — ${plan.length} يوم`,
+    lines: [
+      { text: `🗂️ ${t.sessions} جلسة · ${t.entries} حركة · ${t.orders} أوردر`, strong: true },
+      { text: `💰 الإجمالي ${piToNum(t.pi)} — هيتسجّل في الدفتر من غير عدّ بملاحظة «تسوية تاريخية»` },
+      ...(t.skipped ? [{ text: `⏭️ ${t.skipped} جلسة مستثناة (مرفوضة/ناقصة/بفرق) — هتفضل في «لم يتم التسجيل» للمعالجة اليدوي`, soft: true }] : []),
+      { text: 'كل يوم بيتسجّل ذرّيًا لوحده، وبعدها المرآة بتتكتب على الأوردرات على دفعات. أي تصحيح بعدين بـ REVERSAL.', soft: true },
+    ], okLabel: `تأكيد — سوّي ${piToNum(t.pi)}` });
+  if (!r.ok) return;
+  setUpdateLock(true);
+  const done = [], ids = new Set();
+  let stopped = null, mirror = { written: 0, failed: [] };
+  try {
+    for (let i = 0; i < plan.length; i++) {
+      const { day } = plan[i];
+      try {
+        const res = await apiPost('settle_historical', { date: day, employee: currentEmployee.username, pin });
+        if (!res.ok) { stopped = { day, err: res.error || 'اترفض' }; break; }
+        done.push({ day, res }); (res.orderIds || []).forEach(id => ids.add(String(id)));
+      } catch (e) { stopped = { day, err: e.message }; break; }
+      stProgress(i + 1, plan.length, 'تسوية الأيام');
+    }
+    if (ids.size) mirror = await mirrorInChunks([...ids], 'المرآة على الأوردرات');
+  } finally { setUpdateLock(false); stProgress(0, 0, ''); }
+  settleMirrorFailed = mirror.failed.map(f => f.orderId);
+  document.getElementById('stPin').value = '';
+  resetSettlePreview();
+  const sumPi = done.reduce((a, x) => a + (x.res.expectedPiastres || 0), 0), sessN = done.reduce((a, x) => a + (x.res.sessions || 0), 0);
+  playBeep(stopped || mirror.failed.length ? 'error' : 'success');
+  openSummary(stopped ? '⚠️ التسوية ما كملتش' : '✓ تمت التسوية التاريخية',
+    `<div class="note-box ${stopped ? 'amber' : 'green'}">اتسوّى ${done.length} من ${plan.length} يوم — ${sessN} جلسة — ${piToNum(sumPi)}</div>` +
+    (stopped ? `<div class="note-box red">وقفت عند يوم ${esc(dmy(stopped.day))}: ${esc(stopped.err)} — <strong>اعمل معاينة تاني</strong> (الأيام اللي اتسوّت مش هتتكرر).</div>` : '') +
+    `<div class="note-box ${mirror.failed.length ? 'amber' : 'green'}">المرآة: اتكتبت على ${mirror.written} أوردر${mirror.failed.length ? ` — فشلت على ${mirror.failed.length}` : ' ✓'}</div>` +
+    (mirror.failed.length ? `<div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="retrySettleMirror()">إعادة المحاولة على ${mirror.failed.length} أوردر</button></div>` : '') +
+    (t.skipped ? `<p style="margin-top:10px;font-size:13px">الجلسات المستثناة لسه في «لم يتم التسجيل» — بتتعالج يدوي.</p>` : ''));
+  await reloadConfirmView();
+}
+async function retrySettleMirror() {
+  if (isUpdating || !settleMirrorFailed.length) return;
+  closeSummary(); setUpdateLock(true);
+  let m;
+  try { m = await mirrorInChunks(settleMirrorFailed, 'المرآة'); }
+  finally { setUpdateLock(false); stProgress(0, 0, ''); }
+  settleMirrorFailed = m.failed.map(f => f.orderId);
+  if (!m.failed.length) { playBeep('success'); showToast(`المرآة اتكتبت على ${m.written} أوردر ✓`, 'success'); return; }
+  openSummary('⚠️ المرآة', `<div class="note-box amber">اتكتبت ${m.written} — فشلت ${m.failed.length}:<br>${m.failed.slice(0, 10).map(f => `${esc(f.orderId)}: ${esc(f.error)}`).join('<br>')}</div>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="retrySettleMirror()">إعادة المحاولة</button></div>`);
+}
+// لو الصفحة اتقفلت قبل ما المرآة تخلص: يعيد كتابة مرآة كل أوردرات الأيام المتسجّلة في النطاق (rebuild_mirror بالتاريخ)
+async function rebuildSettleMirror() {
+  if (isUpdating) return;
+  const to = document.getElementById('stTo').value;
+  if (!to) return;
+  const days = []; for (let d = MIN_DATE; d <= to; d = addDays(d, 1)) days.push(d);
+  const r = await askConfirm({ header: 'إعادة كتابة مرآة النطاق', lead: `${dmy(MIN_DATE)} ← ${dmy(to)} (${days.length} يوم)`,
+    lines: [{ text: 'هيعيد كتابة الميتافيلدين على كل أوردر ليه حركة متسجّلة في الأيام دي — من D1، من غير أي تغيير في الدفتر', soft: true }], okLabel: 'ابدأ' });
+  if (!r.ok) return;
+  setUpdateLock(true);
+  let written = 0; const failed = [];
+  try {
+    for (let i = 0; i < days.length; i++) {
+      try {
+        const m = await apiPost('rebuild_mirror', { date: days[i], employee: currentEmployee.username });
+        written += m.written || 0; failed.push(...(m.failed || []));
+        if (m.ok === false && !/مفيش أوردرات/.test(m.error || '') && !(m.failed || []).length) failed.push({ orderId: dmy(days[i]), error: m.error || 'فشل' });
+      } catch (e) { failed.push({ orderId: dmy(days[i]), error: e.message }); }
+      stProgress(i + 1, days.length, 'الأيام');
+    }
+  } finally { setUpdateLock(false); stProgress(0, 0, ''); }
+  settleMirrorFailed = failed.filter(f => /^\d+$/.test(String(f.orderId))).map(f => f.orderId);
+  if (!failed.length) { playBeep('success'); showToast(`المرآة اتكتبت على ${written} أوردر ✓`, 'success', 5000); return; }
+  openSummary('⚠️ مرآة النطاق', `<div class="note-box amber">اتكتبت ${written} — فشل ${failed.length}:<br>${failed.slice(0, 12).map(f => `${esc(f.orderId)}: ${esc(f.error)}`).join('<br>')}</div>` +
+    (settleMirrorFailed.length ? `<div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="retrySettleMirror()">إعادة المحاولة على ${settleMirrorFailed.length} أوردر</button></div>` : ''));
+}
+
 function openDay(day) { if (isUpdating) return; confScope = 'day'; dayDate = day; switchMainTab('confirm'); loadDay(); }
 
 // ══════════════════════════════════════════════════════
@@ -2201,8 +2412,14 @@ let lastOrderQuery = '';
 const CMP_BADGE = {
   MATCH: ['badge-success', 'مطابق'], SHORT: ['badge-danger', 'الخزنة أقل'], OVER: ['badge-danger', 'الخزنة أكتر'],
   NOT_IN_LEDGER: ['badge-warn', 'مش في الدفتر'], LEDGER_ONLY: ['badge-warn', 'في الدفتر بس'],
+  AWAITING_LEG: ['badge-info', '⏳ مستني تسجيل جلسة'],
   BOSTA_NET: ['badge-neutral', 'بوسطة (صافي بعد الرسوم — بلا مقارنة)'], IN_PROGRESS: ['badge-info', 'قيد التنفيذ'], PRE_WINDOW: ['badge-neutral', 'قبل 01-10 (الدفتر ناقص بطبيعته)'], UNKNOWN: ['badge-danger', 'مش لاقيه على Shopify'],
 };
+// AWAITING_LEG ليها نصّين: هيتطابق بعد التسجيل / هيفضل فيه فرق بعد التسجيل
+function cmpBadge(r) {
+  if (r.status === 'AWAITING_LEG') return r.willMatch ? ['badge-info', '⏳ هيتطابق بعد تسجيل الجلسة المعلّقة'] : ['badge-warn', '⏳ مستني تسجيل جلسة — وبعدها فيه فرق'];
+  return CMP_BADGE[r.status] || ['badge-neutral', r.status];
+}
 async function lookupOrder(q) {
   const raw = (q ?? document.getElementById('orderQ').value).trim().replace(/^#/, '');
   const box = document.getElementById('orderResult');
@@ -2226,12 +2443,16 @@ function renderOrder(d) {
   }).join('');
   let shop = '';
   if (d.shopify) {
-    const [c, t] = CMP_BADGE[d.shopify.status] || ['badge-neutral', d.shopify.status];
+    const [c, t] = cmpBadge(d.shopify);
+    const pd = d.shopify.pending;
+    const pendNote = pd ? `<div class="note-box ${d.shopify.willMatch ? 'blue' : 'amber'}">⏳ فيه ${esc(pd.count)} صف تحصيل لسه ما اتسجّلش في الخزنة (${fmtSignedNum(pd.amount)}) — يوم ${pd.days.map(x => esc(dmy(x))).join(' · ')}.
+      ${d.shopify.projectedLedger != null ? `بعد التسجيل: الدفتر ${fmtNum(d.shopify.projectedLedger)} والفرق ${fmtNum(d.shopify.projectedDiff)}${d.shopify.willMatch ? ' ✓ مطابق' : ''}.` : ''}
+      ${pd.days.map(x => `<button class="btn btn-sm" style="margin-inline-start:6px" onclick="openDay('${esc(x)}')">فتح يوم ${esc(dmy(x))}</button>`).join('')}</div>` : '';
     shop = `<div class="panel-card"><div class="bar-row"><strong>المقارنة مع Shopify</strong><span class="badge ${c}">${t}</span>
       ${d.shopify.financialStatus ? `<span class="chip">${esc(d.shopify.financialStatus)}${d.shopify.cancelled ? ' · ملغي' : ''}</span>` : ''}</div>
       ${d.shopify.shopify !== null ? `<div class="cmp-grid">${sumCell('الدفتر (من غير الشحن الإضافي)', fmtNum(d.shopify.ledger))}${sumCell('المتوقع من Shopify', fmtNum(d.shopify.shopify))}${sumCell('الفرق', `<span class="${amtClass(d.shopify.diff)}">${fmtNum(d.shopify.diff)}</span>`)}
         ${d.shopify.parts ? sumCell('netPayment', fmtNum(d.shopify.parts.netPayment)) + sumCell('الشحن', fmtNum(d.shopify.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(d.shopify.parts.returnFees)) : ''}</div>` : `<div class="note-box amber">${esc(d.shopify.reason || '')}</div>`}
-      ${d.shopify.note ? `<div class="note-box amber">${esc(d.shopify.note)}</div>` : ''}</div>`;
+      ${pendNote}${d.shopify.note ? `<div class="note-box amber">${esc(d.shopify.note)}</div>` : ''}</div>`;
   } else if (d.shopifyError) shop = `<div class="note-box amber">⚠️ مقارنة Shopify مش متاحة: ${esc(d.shopifyError)}</div>`;
   const src = (d.sources || []).map(r => `<tr><td class="num">${r.logId}</td><td>${esc(formatDateTime(r.timestamp))}</td><td>${r.type === 'refund' ? 'استرداد' : 'تحصيل'}</td>
       <td>${esc(employeeDisplayName(r.collector))}</td><td>${esc(r.courier || '')}</td><td class="num">${r.courierCollect === null ? '—' : fmtSignedNum(r.courierCollect)}</td>
@@ -2316,10 +2537,12 @@ async function runCompareAll() {
 }
 function renderCompare(bad, counts, stopped) {
   const chips = Object.entries(counts).map(([k, n]) => { const [c, t] = CMP_BADGE[k] || ['badge-neutral', k]; return `<span class="badge ${c}">${t}: ${n}</span>`; }).join(' ');
-  bad.sort((a, b) => (a.status === 'IN_PROGRESS' || a.status === 'PRE_WINDOW') - (b.status === 'IN_PROGRESS' || b.status === 'PRE_WINDOW'));
+  // الحقيقي الأول (SHORT/OVER…)، وبعده اللي مستني جلسة معلّقة / قيد التنفيذ / قبل النافذة
+  const soft = r => r.status === 'IN_PROGRESS' || r.status === 'PRE_WINDOW' || (r.status === 'AWAITING_LEG' && r.willMatch);
+  bad.sort((a, b) => soft(a) - soft(b));
   document.getElementById('cmpResult').innerHTML = `<div class="bar-row">${chips}${stopped ? '<span class="badge badge-warn">اتوقفت قبل ما تخلص</span>' : ''}</div>` +
     (bad.length ? `<div class="tbl-wrap" style="margin-top:8px"><table class="dt"><thead><tr><th>الأوردر</th><th>الحالة</th><th class="num">الدفتر</th><th class="num">Shopify</th><th class="num">الفرق</th><th></th></tr></thead><tbody>
-      ${bad.map(r => { const [c, t] = CMP_BADGE[r.status] || ['badge-neutral', r.status];
+      ${bad.map(r => { const [c, t] = cmpBadge(r);
         return `<tr><td>${orderLink(r.orderName || r.orderId, r.orderId)}</td><td><span class="badge ${c}">${t}</span></td><td class="num">${r.ledger ? fmtNum(r.ledger) : '—'}</td><td class="num">${r.shopify ? fmtNum(r.shopify) : '—'}</td><td class="num ${r.diff ? amtClass(r.diff) : ''}">${r.diff ? fmtNum(r.diff) : '—'}</td>
           <td><button class="btn btn-sm" onclick="gotoOrder('${esc(String(r.orderName || '').replace('#', ''))}')">سجل الأوردر</button></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="note-box green" style="margin-top:8px">✓ كل الأوردرات مطابقة</div>');
 }
@@ -2332,6 +2555,7 @@ const LOG_PAGE_SIZE = 100;
 const LOG_TYPES = [
   ['session_confirmed', 'تأكيد جلسة'], ['confirm_mismatch', 'محاولة بفرق'], ['session_already_confirmed', 'متأكدة قبل كده'],
   ['session_blocked', 'جلسة مرفوضة'], ['confirm_failed', 'فشل كتابة الدفتر'], ['entry_reversed', 'تصحيح'], ['mirror_rebuilt', 'إعادة المرآة'],
+  ['historical_settled', 'تسوية تاريخية'], ['historical_settle_rejected', 'تسوية مرفوضة'],
 ];
 const TYPE_LABEL = Object.fromEntries(LOG_TYPES);
 let logPage = 1, logTotal = 0, logSearchTimer = null, logSort = { key: null, dir: null }, logPreset = '';
@@ -2523,6 +2747,8 @@ function resetToolState() {
   const b = document.getElementById('activeUserBtn'); b.style.display = 'none';
   views = []; confScope = 'day'; EMP_NAMES = {}; lastOrderQuery = '';
   for (const k of Object.keys(tabLoaded)) delete tabLoaded[k];
+  settleAdmins = []; settlePlan = null; updateSettleCard();
+  { const r = document.getElementById('stResult'); if (r) r.innerHTML = ''; const pin = document.getElementById('stPin'); if (pin) pin.value = ''; }
   for (const id of ['daySessions', 'pendingList', 'orderResult', 'alertsList', 'cmpResult', 'logChips', 'dayTally', 'pendingTally', 'alertsTally', 'diagResult'])
     { const el = document.getElementById(id); if (el) el.innerHTML = ''; }
   document.getElementById('logBody').innerHTML = '<tr><td colspan="7" class="empty-box">اضغط تحديث لتحميل السجل</td></tr>';

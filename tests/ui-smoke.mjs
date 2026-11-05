@@ -12,7 +12,7 @@ const shots = process.argv[2]; if (shots) mkdirSync(shots, { recursive: true });
 const schema = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
 const DB = makeDB(schema);
 const env = { DB, WORKER_SECRET: 'sek' };            // مفيش Shopify → المرآة warning (مقصود)
-DB.raw.exec(`INSERT INTO employees (username, display_name, pin, is_active) VALUES ('Sara_Cash','سارة','1234',1)`);
+DB.raw.exec(`INSERT INTO employees (username, display_name, pin, is_active) VALUES ('Sara_Cash','سارة','1234',1),('Ahmed_Ibraheem','أحمد','9999',1)`);
 
 const today = new Date(); const ts = new Date(Math.min(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 10, 0, 0), Date.now() - 5000)).toISOString();   // مش في المستقبل (get_pending بيقرا لحد دلوقتي)
 const XS = [{ orderId: '9001', orderName: '#61774', courier: 'Abo Yassin', amount: '75.00' }];
@@ -63,6 +63,7 @@ if (shots) await page.screenshot({ path: `${shots}/01-day.png`, fullPage: true }
 // كل الأيام المعلّقة: نفس الكارت ونفس خانة التأكيد
 await page.click('#segPending'); await page.waitForSelector('.day-head');
 check('كل الأيام المعلّقة: فيها المندوب وخانة المبلغ', await page.locator('#camt-0-0').count() === 1 && !(await page.locator('#dayControls').isVisible()));
+check('التسوية التاريخية مش ظاهرة لغير أحمد', !(await page.locator('#settleCard').isVisible()));
 await page.click('#segDay'); await page.waitForSelector('.cg');
 check('الرجوع ليوم واحد', await page.locator('#dayControls').isVisible());
 
@@ -122,6 +123,42 @@ if (shots) await page.screenshot({ path: `${shots}/05-log.png`, fullPage: true }
 // خروج بلا تأكيد + مسح الشاشة
 await page.click('#activeUserBtn');
 check('الخروج اليدوي فوري ومسح الأرقام من الشاشة', await page.locator('#loginOverlay:not(.hidden)').count() === 1 && (await page.locator('#daySessions').innerHTML()) === '');
+
+// ─── v1.4.0 — التسوية التاريخية (أحمد) + علامة «متسجّل في جلسة تانية» ───
+const histRow = (t, type, oid, nm, cc, batchId, courier = 'Magdy', extra = {}) => ins.run(t, type, oid, nm, JSON.stringify({ result: 'success', batchId, courier, courierCollect: cc,
+  extraShipping: [], extraShippingTotal: '0.00', preRegistered: false, hasReturn: false, ...extra }));
+histRow('2026-10-05T09:00:00.000Z', 'payment', '63', '#63567', 2600, 'hist-a');
+histRow('2026-10-05T09:00:01.000Z', 'payment', '70', '#700', 1000, 'hist-a');
+histRow('2026-10-06T09:00:00.000Z', 'refund', '63', '#63567', -2600, 'hist-ref');
+histRow('2026-10-06T10:00:00.000Z', 'payment', '71', '#701', null, 'hist-blk', 'Saif');          // مرفوضة (courierCollect فاضي)
+await worker.fetch(new Request('https://w.test/?action=confirm_session', { method: 'POST', headers: { Authorization: 'Bearer sek', 'Content-Type': 'application/json' },
+  body: JSON.stringify({ batchId: 'hist-ref', date: '2026-10-06', employee: 'Sara_Cash', receivedAmount: '-2600' }) }), env);
+await page.selectOption('#loginSelect', 'Ahmed_Ibraheem');
+await page.waitForSelector('#pinZone.visible');
+for (const d of '9999') await page.click(`#pinKeypad .pin-key:text-is("${d}")`);
+await page.waitForSelector('#loginOverlay.hidden', { state: 'attached' });
+await page.click('#tabPending'); await page.waitForSelector('.day-head');
+await page.waitForSelector('#settleCard', { state: 'visible' });
+check('أحمد: كارت التسوية التاريخية ظاهر في «كل الأيام المعلّقة»', await page.locator('#settleCard').isVisible() && (await page.inputValue('#stFrom')) === '2026-10-01');
+check('علامة «متسجّل في جلسة تانية» على #63567', (await page.locator('#daySessions').innerText()).includes('متسجّل في جلسة تانية'));
+check('زرار التنفيذ مقفول قبل المعاينة', await page.locator('#stRunBtn').isDisabled());
+await page.fill('#stPin', '9999'); await page.click('#stPreviewBtn');
+await page.waitForSelector('#stResult table');
+const pv = await page.locator('#stResult').innerText();
+check('المعاينة: جلسة واحدة للتسوية بـ 3,600 والمرفوضة مستثناة', pv.includes('3,600') && pv.includes('مرفوضة') && await page.locator('#stRunBtn').isEnabled());
+check('المعاينة ما كتبتش حاجة', DB.raw.prepare("SELECT COUNT(*) n FROM treasury_confirmations WHERE session_flags LIKE '%historical%'").get().n === 0);
+if (shots) await page.screenshot({ path: `${shots}/06-settle-preview.png`, fullPage: true });
+await page.click('#stRunBtn'); await page.waitForSelector('#confirmOverlay.open');
+check('نافذة تأكيد التسوية بالأرقام', (await page.locator('#cfLines').innerText()).includes('1 جلسة'));
+await page.click('#cfOk'); await page.waitForSelector('#summaryOverlay.open');
+check('ملخص التسوية', (await page.locator('#smHeader').innerText()).includes('تمت') && (await page.locator('#smBody').innerText()).includes('اتسوّى 1 من 1'));
+check('الدفتر: حركتين «تسوية تاريخية» و#63567 رصيده صفر', DB.raw.prepare("SELECT COUNT(*) n FROM treasury_ledger WHERE note LIKE 'تسوية تاريخية%'").get().n === 2
+  && DB.raw.prepare("SELECT SUM(amount_piastres) s FROM treasury_ledger WHERE order_name='#63567'").get().s === 0);
+if (shots) await page.screenshot({ path: `${shots}/07-settle-done.png`, fullPage: true });
+await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
+await page.waitForSelector('.day-head');
+check('المرفوضة لسه في «لم يتم التسجيل»', (await page.locator('#daySessions').innerText()).includes('Saif'));
+await page.click('#activeUserBtn');
 
 check('صفر أخطاء JS في الكونسول', errors.length === 0, errors.join(' | '));
 await browser.close();

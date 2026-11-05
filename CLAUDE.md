@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.3.0-blue)
+![version](https://img.shields.io/badge/version-v1.4.0-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -26,6 +26,7 @@
 | D5 | الميتافيلدز **مش** Filterable (سلوتات Orders كلها مستهلكة) |
 | ✅ 04-11 | **أي موظف نشط** يقدر يدخل الأداة ويعمل `REVERSAL` |
 | ✅ 04-11 | الأداة **مستقلة بس** — مفيش صفحة في أي هب حاليًا |
+| ✅ 05-11 | **تسوية تاريخية**: الجلسات من 01-10 اللي اتوردت قبل تشغيل الأداة بتتسجّل **من غير عدّ** (استثناء صريح من D16/D17) — **أحمد بس + PIN**، والمرفوضة/الناقصة (ومنها بوسطة)/اللي عليها محاولة بفرق **تتعالج يدوي**، والمرآة تتكتب على **كل** الأوردرات |
 | ✅ 04-11 | `Treasury-COD` القديمة **ما بتتلمسش** (أحمد هيمسحها بنفسه) — ولا نقل بيانات ولا كتابة على `custom.treasury_amount/count/last_updated` ولا `tool='treasury'` |
 
 ## الدفتر (`schema.sql`)
@@ -59,15 +60,27 @@
 - 05-11 (بعد القرار): زرار «تسجيل توريد المندوب» (وزرار «تسجيل توريد اليوم بالكامل») **مقفول لحد ما المبلغ يطابق المطلوب بالظبط**، والفرق (ناقص/زيادة) بيظهر لحظيًا تحت الخانة؛ Enter في الخانة = تسجيل (لما يطابق). فمحاولات الفرق ما بتتبعتش من الواجهة (الـ Worker لسه بيسجّل `confirm_mismatch` لو اتنادى بفرق).
 - النصوص: «لم يتم التسجيل» / «تم التسجيل»، الوقت `🕐 01:25 م/ص`، عمود «ملاحظات» بالأحمر (القيم: استرداد · مسجل مسبقاً · بوسطة — صافي بعد الرسوم · Extra Shipping).
 
+## 🆕 التسوية التاريخية + الرجل المعلّقة (Worker v1.2.0 · واجهة v1.4.0 · 05-11-2026)
+**المشكلة:** الأداة بتبدأ 01-10 لكن أول تأكيد فعلي كان 04-11 (≈240 جلسة / ≈3 مليون معلّقين). والأوردر الواحد ممكن يتوزّع على جلسات في أيام مختلفة،
+فلو الاسترداد اتسجّل والتحصيل الأصلي لسه معلّق (مثال `#63567`: +2,600 يوم 03-11 معلّق، −2,600 يوم 04-11 متسجّل) الدفتر يبقى −2,600 والمقارنة كانت بتقول `SHORT` كاذب.
+- `settle_historical` (POST `{date, employee, pin, dryRun}`): **يوم واحد** في النداء. الحارس: `SETTLE_ADMINS` (`Ahmed_Ibraheem`) + `verifyEmployee` بالـ PIN + مش النهارده.
+  `dryRun:true` = معاينة بلا كتابة. التنفيذ = كل جلسات اليوم المؤهلة في `db.batch()` واحد: صف تأكيد `session_flags='historical'` (`received = expected`) + نفس حركات `buildEntries` بنفس `idempotency_key` و**نفس `source`** (عشان استثناء الشحن الإضافي و`BOSTA_NET` يفضلوا شغالين) وملاحظة `تسوية تاريخية · <الملاحظة الأصلية>`.
+  المستثنى: `blocked` · `incomplete` · عليها `confirm_mismatch`. المرآة **مش** جوه النداء — الواجهة بتبنيها بعده بـ `rebuild_mirror` على دفعات 40 (وفيه زرار «إعادة كتابة مرآة النطاق» بالتاريخ لو الصفحة اتقفلت).
+  لوج: `historical_settled` / `historical_settle_rejected`.
+- الواجهة: كارت «🗂️ تسوية تاريخية» في «كل الأيام المعلّقة» — بيظهر لأحمد بس (`get_config.settleAdmins`): من 01-10 (ثابت) لحد يوم يختاره (الافتراضي امبارح) + PIN ← معاينة لكل يوم (مؤهل/مستثنى بالسبب) ← تأكيد بالأرقام ← يوم بيوم ← المرآة ← ملخص.
+- `AWAITING_LEG` في `compareOrder`: لو للأوردر صفوف تحصيل جوه النافذة مش في الدفتر وجلستها لسه ما اتأكدتش ← الحالة دي **قبل أي حكم**، مع `pending{amount,count,days}` و`projectedDiff`/`willMatch`. صف في جلسة **متأكدة** ومش في الدفتر مش معلّق (فرق حقيقي).
+- `get_day`: كل صف في جلسة غير مؤكدة عليه `elsewhere` = Σ حركات الأوردر في جلسات تانية (لو ≠ 0) ← الواجهة: «⚠️ عليه … متسجّل في جلسة تانية».
+- القياس قبل التشغيل (D1 قراءة 05-11): 240 جلسة في النافذة · 2 مؤكدين · 1 ناقصة (5,400) · صفر مرفوضة · صفر بوسطة · 2 محاولة بفرق (على الجلسات اللي اتأكدت).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
-`get_day` · `get_pending` · `confirm_session` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
+`get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
 `get_logs` · `get_logs_count` · `get_logs_export` · `get_config` · `diag`.
 CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## المقارنة مع Shopify (قراءة فقط)
 `المتوقع = netPaymentSet − totalShippingPriceSet − Σ returns[].returnShippingFees` ويتقارن بـ Σ حركات الأوردر **من غير** Extra Shipping.
-الحالات: `MATCH` · `SHORT` · `OVER` · `NOT_IN_LEDGER` · `LEDGER_ONLY` · `BOSTA_NET` · `IN_PROGRESS` (`PARTIALLY_PAID`/outstanding>0) · `PRE_WINDOW` (ليه صفوف تحصيل قبل 01-10).
+الحالات: `AWAITING_LEG` (رجل معلّقة — ليها الأولوية) · `MATCH` · `SHORT` · `OVER` · `NOT_IN_LEDGER` · `LEDGER_ONLY` · `BOSTA_NET` · `IN_PROGRESS` (`PARTIALLY_PAID`/outstanding>0) · `PRE_WINDOW` (ليه صفوف تحصيل قبل 01-10).
 `COMPARE_PER_QUERY = 100` (قرار أحمد 04-11-2026) **غير مقيس** — لو النداء اترفض لتجاوز سقف التكلفة (١٠٠٠ نقطة) قلّل الرقم في `index.js` (مع `MAX_ORDER_IDS`) وفي `CMP_CHUNK` بالواجهة؛ القياس من `?action=diag` (`actualQueryCost`).
 
 ## قبل أول نشر
@@ -75,7 +88,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## الاختبارات
 ```bash
-npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 15 اختبار
+npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 17 اختبار
 node check-log-values.mjs
 npm i --no-save postcss && npm run check:ui     # فحص CSS (parser) + ربط JS
 node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الواجهة الحقيقية ↔ الـ Worker الحقيقي
@@ -100,9 +113,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 04-11-2026 · `index.js` v1.1.0 · `index.html` v1.3.0
+آخر مطابقة: 05-11-2026 · `index.js` v1.2.0 · `index.html` v1.4.0
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 05-11-2026 — `index.html` v1.3.0 (شريط المندوب بخلايا G + «ج.م» + توريد اليوم بالكامل + الزر مقفول لحد المطابقة + أرقام بدون .00)
+آخر تحديث: 05-11-2026 — Worker v1.2.0 + `index.html` v1.4.0 (تسوية تاريخية لأحمد + `AWAITING_LEG` + علامة «متسجّل في جلسة تانية»)
 
 </div>
