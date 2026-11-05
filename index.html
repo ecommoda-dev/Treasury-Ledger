@@ -2022,7 +2022,7 @@ function courierCard(vi, gi, courier, list, pendingScope) {
   const openPi = open.reduce((t, s) => t + s.expectedPiastres, 0), donePi = done.reduce((t, s) => t + s.expectedPiastres, 0);
   const totalPi = open.length ? openPi : donePi, closed = closedCg.has(key);
   const box = open.length
-    ? `<div class="cg-confirm-inline"><span class="inw"><input type="text" class="inp lockable" id="camt-${vi}-${gi}" inputmode="decimal" autocomplete="off" aria-label="المبلغ المستلم من ${esc(courier)}" oninput="onCourierAmtInput(${vi},${gi})" onkeydown="if(event.key==='Enter')startCourierConfirm(${vi},${gi})" /><i class="cur">ج.م</i></span>
+    ? `<div class="cg-confirm-inline"><span class="inw"><input type="text" class="inp lockable" id="camt-${vi}-${gi}" inputmode="decimal" autocomplete="off" aria-label="المبلغ المستلم من ${esc(courier)}" oninput="onCourierAmtInput(${vi},${gi})" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('ccbtn-${vi}-${gi}').disabled)startCourierConfirm(${vi},${gi})}" /><i class="cur">ج.م</i></span>
         <button class="btn btn-primary lockable" id="ccbtn-${vi}-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${vi},${gi})">تسجيل توريد المندوب</button>
         <span class="grow" id="chint-${vi}-${gi}"></span></div>`
     : `<span class="badge ${allOk ? 'badge-success' : 'badge-danger'}">${allOk ? '✓ تم تسجيل الكل' : '⛔ مفيش حاجة تتسجّل — فيها مشكلة'}</span>`;
@@ -2051,7 +2051,7 @@ function dayBar(vi) {
   if (!open.length) return '';
   const totalPi = open.reduce((t, s) => t + s.expectedPiastres, 0);
   return `<div class="day-bar"><span class="lbl">توريد اليوم بالكامل</span>
-    <span class="inw"><input type="text" class="inp lockable" id="damt-${vi}" inputmode="decimal" autocomplete="off" aria-label="إجمالي المبلغ المستلم لليوم" oninput="onDayAmtInput(${vi})" onkeydown="if(event.key==='Enter')startDayConfirm(${vi})" /><i class="cur">ج.م</i></span>
+    <span class="inw"><input type="text" class="inp lockable" id="damt-${vi}" inputmode="decimal" autocomplete="off" aria-label="إجمالي المبلغ المستلم لليوم" oninput="onDayAmtInput(${vi})" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('dbtn-${vi}').disabled)startDayConfirm(${vi})}" /><i class="cur">ج.م</i></span>
     <button class="btn btn-primary lockable" id="dbtn-${vi}" data-dis="1" disabled onclick="startDayConfirm(${vi})">تسجيل توريد اليوم بالكامل</button>
     <span class="grow" id="dhint-${vi}" style="font-size:12.5px;font-weight:700;color:var(--text-secondary)"></span>
     <span class="sp" style="flex:1"></span><span class="amt ${amtClass(totalPi)}" style="font-family:var(--font-mono);font-weight:800;direction:ltr">${fmtNum((totalPi / 100).toFixed(2))}</span></div>`;
@@ -2079,21 +2079,30 @@ function renderViews() {
 }
 const toPi = v => Math.round(parseFloat(v) * 100);
 function courierOpen(vi, gi) { return (views[vi]?.groups?.[gi]?.[1] || []).filter(isOpenSess); }
-function onCourierAmtInput(vi, gi) {
-  const inp = document.getElementById(`camt-${vi}-${gi}`), btn = document.getElementById(`ccbtn-${vi}-${gi}`), hint = document.getElementById(`chint-${vi}-${gi}`);
-  if (!inp || !btn) return;
-  const raw = inp.value.trim(), ok = raw !== '' && parseAmount(raw) !== null;
+// الزرار يتفعّل بس لما المبلغ = المطلوب بالظبط؛ غير كده بيظهر الفرق لحظيًا تحت الخانة
+function amtGate(inp, btn, hint, expectedPi) {
+  const raw = inp.value.trim(), amt = raw === '' ? null : parseAmount(raw);
+  let ok = false, msg = '';
+  if (raw !== '' && amt === null) msg = 'اكتب رقم (بحد أقصى قرشين)';
+  else if (amt !== null) {
+    const diffPi = toPi(amt) - expectedPi;
+    if (diffPi === 0) ok = true;
+    else msg = `${diffPi < 0 ? 'ناقص' : 'زيادة'} ${fmtNum((Math.abs(diffPi) / 100).toFixed(2))}`;
+  }
   btn.dataset.dis = ok ? '0' : '1'; btn.disabled = isUpdating || !ok;
   inp.classList.toggle('has-value', !!raw);
-  if (hint) hint.textContent = (raw && !ok) ? 'اكتب رقم (بحد أقصى قرشين)' : '';
+  if (hint) { hint.textContent = msg; hint.style.color = msg ? 'var(--red-dark)' : ''; }
+  return ok;
+}
+function onCourierAmtInput(vi, gi) {
+  const inp = document.getElementById(`camt-${vi}-${gi}`), btn = document.getElementById(`ccbtn-${vi}-${gi}`);
+  if (!inp || !btn) return;
+  amtGate(inp, btn, document.getElementById(`chint-${vi}-${gi}`), courierOpen(vi, gi).reduce((t, s) => t + s.expectedPiastres, 0));
 }
 function onDayAmtInput(vi) {
-  const inp = document.getElementById(`damt-${vi}`), btn = document.getElementById(`dbtn-${vi}`), hint = document.getElementById(`dhint-${vi}`);
+  const inp = document.getElementById(`damt-${vi}`), btn = document.getElementById(`dbtn-${vi}`);
   if (!inp || !btn) return;
-  const raw = inp.value.trim(), ok = raw !== '' && parseAmount(raw) !== null;
-  btn.dataset.dis = ok ? '0' : '1'; btn.disabled = isUpdating || !ok;
-  inp.classList.toggle('has-value', !!raw);
-  if (hint) hint.textContent = (raw && !ok) ? 'اكتب رقم (بحد أقصى قرشين)' : '';
+  amtGate(inp, btn, document.getElementById(`dhint-${vi}`), (views[vi].sessions || []).filter(isOpenSess).reduce((t, s) => t + s.expectedPiastres, 0));
 }
 function refreshAllAmountState() { views.forEach((v, vi) => { onDayAmtInput(vi); (v.groups || []).forEach((_, gi) => onCourierAmtInput(vi, gi)); }); }
 

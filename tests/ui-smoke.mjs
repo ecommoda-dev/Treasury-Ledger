@@ -66,20 +66,21 @@ check('كل الأيام المعلّقة: فيها المندوب وخانة ا
 await page.click('#segDay'); await page.waitForSelector('.cg');
 check('الرجوع ليوم واحد', await page.locator('#dayControls').isVisible());
 
-// فرق: 24000
+// فرق: 24000 — الزرار يفضل مقفول والفرق يظهر لحظيًا، ومفيش تسجيل
 await page.fill('#camt-0-0', '24000');
-check('الزرار اتفتح بعد كتابة رقم', await page.locator('#ccbtn-0-0').isEnabled());
-await page.click('#ccbtn-0-0');
-await page.waitForSelector('#summaryOverlay.open');
-check('الفرق: رسالة بالنقص 400 والتسجيل اتمنع', (await page.locator('#smBody').innerText()).includes('-400') && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
-await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
+check('فرق: الزرار مقفول والفرق ظاهر «ناقص 400»', await page.locator('#ccbtn-0-0').isDisabled() && (await page.locator('#chint-0-0').innerText()).includes('ناقص 400'));
+await page.press('#camt-0-0', 'Enter');
+check('Enter مع فرق مابيسجّلش حاجة', await page.locator('#confirmOverlay.open').count() === 0 && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
+// محاولة بفرق عن طريق الـ API مباشرة (بتتسجّل confirm_mismatch والجلسة تحمّر)
+await page.evaluate(async () => { const s = views[0].sessions[0]; await apiPost('confirm_session', { batchId: s.batchId, date: s.day, employee: currentEmployee.username, receivedAmount: '24000' }); await reloadConfirmView(); });
 await page.waitForSelector('.sess-dt .badge-danger');
 check('الحالة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.sess-dt .note-box.red').innerText()).includes('24,000'));
 if (shots) await page.screenshot({ path: `${shots}/02-diff.png`, fullPage: true });
 
 // صح: 24400
 await page.fill('#camt-0-0', '24,400');
-await page.click('#ccbtn-0-0'); await page.waitForSelector('#confirmOverlay.open');
+check('مطابق: الزرار اتفتح', await page.locator('#ccbtn-0-0').isEnabled());
+await page.press('#camt-0-0', 'Enter'); await page.waitForSelector('#confirmOverlay.open');
 check('نافذة التأكيد بتسمّي الأثر بالأرقام', (await page.locator('#cfLines').innerText()).includes('4 حركة'));
 await page.click('#cfOk');
 await page.waitForSelector('#summaryOverlay.open');
