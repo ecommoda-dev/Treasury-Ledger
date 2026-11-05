@@ -1095,7 +1095,7 @@ function cairoParts(d) {
 function cairoDateStr(d = new Date()) { const p = cairoParts(d); return `${p.year}-${p.month}-${p.day}`; }
 function addDays(s, n) { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
 function pad2(n) { return String(n).padStart(2, '0'); }
-function ampm12(p) { let h = +p.hour; const s = h >= 12 ? 'مساءً' : 'صباحاً'; h = h % 12 || 12; return `${pad2(h)}:${p.minute} ${s}`; }
+function ampm12(p) { let h = +p.hour; const s = h >= 12 ? 'م' : 'ص'; h = h % 12 || 12; return `${pad2(h)}:${p.minute} ${s}`; }
 // حارس Invalid Date: صف واحد بتاريخ باظ مايوقّعش الجدول كله
 function safeParts(iso) { const d = new Date(iso); return isNaN(d) ? null : cairoParts(d); }
 function formatDateTime(iso) { const p = safeParts(iso); return p ? `📅 ${p.day}/${p.month}/${p.year} 🕐 ${ampm12(p)}` : '—'; }
@@ -1936,7 +1936,7 @@ function renderDay() {
       </div>
       <div class="cg-sessions">${list.map(([s, idx]) => sessionRow(s, idx)).join('')}</div>
       ${open.length ? `<div class="cg-confirm">
-        <div><span class="field-label">المبلغ المستلم من ${esc(courier)} — إجمالي ${open.length} جلسة (اللي عدّيته بإيدك)</span>
+        <div><span class="field-label">المبلغ المستلم من ${esc(courier)} — إجمالي ${open.length} جلسة</span>
           <input type="text" class="inp lockable" id="camt-${gi}" inputmode="decimal" autocomplete="off" oninput="onCourierAmtInput(${gi})" onkeydown="if(event.key==='Enter')startCourierConfirm(${gi})" /></div>
         <button class="btn btn-primary lockable" id="ccbtn-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${gi})">تأكيد توريد المندوب كله</button>
         <span class="grow" id="chint-${gi}"></span>
