@@ -371,6 +371,9 @@ body {
 .cg-sec.done { border-bottom: 0; border-inline-end: 0; border-inline-start: 0; cursor: pointer; }
 .cg-sec.done:hover { background: var(--surface-hover); }
 .cg-sec .car { font-size: 11px; color: var(--text-muted); }
+.inw { position: relative; display: inline-flex; align-items: center; }
+.inw .inp { direction: ltr; text-align: right; padding-inline-end: 46px; }
+.inw .cur { position: absolute; inset-inline-end: 12px; font-style: normal; font-size: 13px; font-weight: 700; color: var(--text-muted); pointer-events: none; }
 .cg-arrow { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent-dark); background: var(--surface); color: var(--accent-dark); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex: none; }
 .cg-arrow:hover { background: var(--accent-light); }
 .cg-arrow svg { width: 16px; height: 16px; }
@@ -2019,7 +2022,7 @@ function courierCard(vi, gi, courier, list, pendingScope) {
   const openPi = open.reduce((t, s) => t + s.expectedPiastres, 0), donePi = done.reduce((t, s) => t + s.expectedPiastres, 0);
   const totalPi = open.length ? openPi : donePi, closed = closedCg.has(key);
   const box = open.length
-    ? `<div class="cg-confirm-inline"><input type="text" class="inp lockable" id="camt-${vi}-${gi}" inputmode="decimal" autocomplete="off" placeholder="المبلغ المستلم" aria-label="المبلغ المستلم من ${esc(courier)}" oninput="onCourierAmtInput(${vi},${gi})" onkeydown="if(event.key==='Enter')startCourierConfirm(${vi},${gi})" />
+    ? `<div class="cg-confirm-inline"><span class="inw"><input type="text" class="inp lockable" id="camt-${vi}-${gi}" inputmode="decimal" autocomplete="off" aria-label="المبلغ المستلم من ${esc(courier)}" oninput="onCourierAmtInput(${vi},${gi})" onkeydown="if(event.key==='Enter')startCourierConfirm(${vi},${gi})" /><i class="cur">ج.م</i></span>
         <button class="btn btn-primary lockable" id="ccbtn-${vi}-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${vi},${gi})">تسجيل توريد المندوب</button>
         <span class="grow" id="chint-${vi}-${gi}"></span></div>`
     : `<span class="badge ${allOk ? 'badge-success' : 'badge-danger'}">${allOk ? '✓ تم تسجيل الكل' : '⛔ مفيش حاجة تتسجّل — فيها مشكلة'}</span>`;
@@ -2048,7 +2051,7 @@ function dayBar(vi) {
   if (!open.length) return '';
   const totalPi = open.reduce((t, s) => t + s.expectedPiastres, 0);
   return `<div class="day-bar"><span class="lbl">توريد اليوم بالكامل</span>
-    <input type="text" class="inp lockable" id="damt-${vi}" inputmode="decimal" autocomplete="off" placeholder="إجمالي المبلغ المستلم" aria-label="إجمالي المبلغ المستلم لليوم" oninput="onDayAmtInput(${vi})" onkeydown="if(event.key==='Enter')startDayConfirm(${vi})" />
+    <span class="inw"><input type="text" class="inp lockable" id="damt-${vi}" inputmode="decimal" autocomplete="off" aria-label="إجمالي المبلغ المستلم لليوم" oninput="onDayAmtInput(${vi})" onkeydown="if(event.key==='Enter')startDayConfirm(${vi})" /><i class="cur">ج.م</i></span>
     <button class="btn btn-primary lockable" id="dbtn-${vi}" data-dis="1" disabled onclick="startDayConfirm(${vi})">تسجيل توريد اليوم بالكامل</button>
     <span class="grow" id="dhint-${vi}" style="font-size:12.5px;font-weight:700;color:var(--text-secondary)"></span>
     <span class="sp" style="flex:1"></span><span class="amt ${amtClass(totalPi)}" style="font-family:var(--font-mono);font-weight:800;direction:ltr">${fmtNum((totalPi / 100).toFixed(2))}</span></div>`;
