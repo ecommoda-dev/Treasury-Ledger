@@ -14,7 +14,7 @@ const DB = makeDB(schema);
 const env = { DB, WORKER_SECRET: 'sek' };            // مفيش Shopify → المرآة warning (مقصود)
 DB.raw.exec(`INSERT INTO employees (username, display_name, pin, is_active) VALUES ('Sara_Cash','سارة','1234',1)`);
 
-const today = new Date(); const ts = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 10, 0, 0)).toISOString();
+const today = new Date(); const ts = new Date(Math.min(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 10, 0, 0), Date.now() - 5000)).toISOString();   // مش في المستقبل (get_pending بيقرا لحد دلوقتي)
 const XS = [{ orderId: '9001', orderName: '#61774', courier: 'Abo Yassin', amount: '75.00' }];
 const ins = DB.raw.prepare(`INSERT INTO logs (timestamp, tool, type, employee, order_id, order_name, extra) VALUES (?, 'cod_payment', ?, 'Fady_Mostafa', ?, ?, ?)`);
 for (const [oid, nm, cc, type] of [['1', '#63798', 2800, 'payment'], ['2', '#63800', 22200, 'payment'], ['3', '#61954', -525, 'refund']])
@@ -51,38 +51,44 @@ await page.waitForSelector('#loginOverlay.hidden', { state: 'attached' });
 check('الدخول ناجح', await page.locator('#loginOverlay.hidden').count() === 1);
 await page.waitForSelector('.cg');
 
-check('جلسة واحدة تحت المندوب', await page.locator('.srow').count() === 1 && (await page.locator('.cg-head').innerText()).includes('Abo Yassin'));
+check('مندوب واحد وجدول واحد (من غير تأكيد منفصل للجلسة)', await page.locator('.cg').count() === 1 && await page.locator('.sess-dt').count() === 1 && (await page.locator('.cg-head').innerText()).includes('Abo Yassin'));
 check('المتوقع = 24,400.00 (بعد خصم الشحن الإضافي)', (await page.locator('.cg-total .amt').innerText()).includes('24,400.00'));
-check('جدول الأوردرات مطوي تلقائي', !(await page.locator('.srow-body').first().isVisible()));
-await page.click('.srow-line');
-check('فتح الجلسة بالضغط يعرض الأوردرات', await page.locator('.srow-body').first().isVisible());
-check('خانة المبلغ المستلم فاضية وزرار التأكيد مقفول', (await page.inputValue('#camt-0')) === '' && await page.locator('#ccbtn-0').isDisabled());
-check('صف الشحن الإضافي ظاهر', (await page.locator('tr.xs').innerText()).includes('Extra Shipping'));
+check('قسم «بانتظار التسجيل» ظاهر والجدول مفتوح تلقائي', (await page.locator('.cg-sec').first().innerText()).includes('بانتظار التسجيل') && await page.locator('.sess-dt').isVisible());
+check('الحالة «لم يتم التسجيل» على كل الصفوف', (await page.locator('.sess-dt tbody .badge-warn:text("لم يتم التسجيل")').count()) === 4);
+check('خانة المبلغ المستلم فاضية وزرار التأكيد مقفول', (await page.inputValue('#camt-0-0')) === '' && await page.locator('#ccbtn-0-0').isDisabled());
+check('صف الشحن الإضافي ظاهر بملاحظة حمراء', (await page.locator('tr.xs').innerText()).includes('Extra Shipping') && await page.locator('tr.xs .note-red').count() === 1);
+check('مفيش أي تأكيد لكل جلسة لوحدها', await page.locator('[id^="amt-"], [id^="cbtn-"]').count() === 0);
 if (shots) await page.screenshot({ path: `${shots}/01-day.png`, fullPage: true });
 
+// كل الأيام المعلّقة: نفس الكارت ونفس خانة التأكيد
+await page.click('#segPending'); await page.waitForSelector('.day-head');
+check('كل الأيام المعلّقة: فيها المندوب وخانة المبلغ', await page.locator('#camt-0-0').count() === 1 && !(await page.locator('#dayControls').isVisible()));
+await page.click('#segDay'); await page.waitForSelector('.cg');
+check('الرجوع ليوم واحد', await page.locator('#dayControls').isVisible());
+
 // فرق: 24000
-await page.fill('#camt-0', '24000');
-check('الزرار اتفتح بعد كتابة رقم', await page.locator('#ccbtn-0').isEnabled());
-await page.click('#ccbtn-0');
+await page.fill('#camt-0-0', '24000');
+check('الزرار اتفتح بعد كتابة رقم', await page.locator('#ccbtn-0-0').isEnabled());
+await page.click('#ccbtn-0-0');
 await page.waitForSelector('#summaryOverlay.open');
 check('الفرق: رسالة بالنقص 400.00 والتسجيل اتمنع', (await page.locator('#smBody').innerText()).includes('-400.00') && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
 await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
-await page.waitForSelector('.srow.st-diff');
-check('الجلسة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.srow.st-diff .note-box.red').innerText()).includes('24,000.00'));
+await page.waitForSelector('.sess-dt .badge-danger');
+check('الحالة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.sess-dt .note-box.red').innerText()).includes('24,000.00'));
 if (shots) await page.screenshot({ path: `${shots}/02-diff.png`, fullPage: true });
 
 // صح: 24400
-await page.fill('#camt-0', '24,400');
-await page.click('#ccbtn-0'); await page.waitForSelector('#confirmOverlay.open');
+await page.fill('#camt-0-0', '24,400');
+await page.click('#ccbtn-0-0'); await page.waitForSelector('#confirmOverlay.open');
 check('نافذة التأكيد بتسمّي الأثر بالأرقام', (await page.locator('#cfLines').innerText()).includes('4 حركة'));
 await page.click('#cfOk');
 await page.waitForSelector('#summaryOverlay.open');
 const sm = await page.locator('#smBody').innerText();
-check('التأكيد الصح: الملخص ظاهر (تحذير المرآة لأن مفيش Shopify في الاختبار)', (await page.locator('#smHeader').innerText()).includes('تحذير') && sm.includes('اتأكدت 1 من 1'));
+check('التأكيد الصح: الملخص ظاهر (تحذير المرآة لأن مفيش Shopify في الاختبار)', (await page.locator('#smHeader').innerText()).includes('تحذير') && sm.includes('اتسجّلت 1 من 1'));
 check('الدفتر: 4 حركات مجموعها 24400', DB.raw.prepare('SELECT COUNT(*) n, SUM(amount_piastres) s FROM treasury_ledger').get().s === 2440000);
 await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
-await page.waitForSelector('.srow.st-confirmed');
-check('الجلسة خضرا مقفولة (مفيش خانة مبلغ)', await page.locator('.srow.st-confirmed #amt-0, #camt-0').count() === 0);
+await page.waitForSelector('.cg.all-ok');
+check('المندوب كله اتسجّل: مفيش خانة مبلغ وقسم «تم تسجيله» مفتوح بحالة خضرا', await page.locator('#camt-0-0').count() === 0 && (await page.locator('.cg-sec.done').innerText()).includes('تم تسجيله') && await page.locator('.sess-dt .badge-success:text("تم التسجيل")').count() === 4);
 if (shots) await page.screenshot({ path: `${shots}/03-confirmed.png`, fullPage: true });
 
 // سجل الأوردر + التصحيح
@@ -97,8 +103,8 @@ check('التصحيح: صف REVERSAL والإجمالي صفر', DB.raw.prepare(
 if (shots) await page.screenshot({ path: `${shots}/04-order.png`, fullPage: true });
 
 // معلّق + تنبيهات + سجل
-await page.click('#tabPending'); await page.waitForSelector('#pendingList .empty-box, #pendingList .day-head');
-check('لسه ماتأكدش: فاضي بعد التأكيد', (await page.locator('#pendingList').innerText()).includes('اتأكدت'));
+await page.click('#tabPending'); await page.waitForFunction(() => document.querySelector('#daySessions .empty-box')?.innerText.includes('اتسجّلت'));
+check('كل الأيام المعلّقة: فاضي بعد التأكيد', (await page.locator('#daySessions').innerText()).includes('اتسجّلت'));
 await page.click('#tabAlerts'); await page.waitForSelector('#alertsList .empty-box, #alertsList table');
 await page.click('#tabLog'); await page.waitForSelector('#logBody tr');
 await page.waitForFunction(() => document.querySelector('#logCount').textContent !== '—');

@@ -53,6 +53,7 @@
   --red-dark:           #b91c1c;   /* hover الزرار الأحمر */
   --amber-dark:         #92400e;   /* نص كهرماني فوق خلفية فاتحة */
   --purple-dark:        #4c1d95;   /* نص بنفسجي فوق خلفية فاتحة */
+  --sc:             var(--accent);   /* لون شريط الجلسة في جدول المندوب (بيتغيّر لكل جلسة inline) */
   --radius:         12px;
   --radius-sm:      8px;
   --shadow:         0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
@@ -364,21 +365,32 @@ body {
 .cg-total { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
 .cg-total .k { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
 .cg-total .amt { font-family: var(--font-mono); font-size: 20px; font-weight: 800; direction: ltr; }
-.cg-sessions { padding: 4px 14px; }
-.srow { border-bottom: 1px solid var(--border); }
-.srow:last-child { border-bottom: 0; }
-.srow-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 0; cursor: pointer; }
-.srow-line .meta { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
-.srow-line .sp { flex: 1; }
-.srow-line .amt { font-family: var(--font-mono); font-weight: 800; font-size: 14px; direction: ltr; min-width: 90px; text-align: left; }
-.srow-line .caret { display: inline-block; transition: transform .15s; font-size: 11px; color: var(--text-muted); }
-.srow.open .caret { transform: rotate(90deg); }
-.srow-body { display: none; padding: 0 0 12px; }
-.srow.open .srow-body { display: block; }
-.srow.st-diff .srow-line, .srow.st-blocked .srow-line { background: var(--red-light); margin: 0 -14px; padding-inline: 14px; }
-.cg-confirm { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-top: 1px dashed var(--border-strong); background: var(--surface-2); }
-.cg-confirm .inp { width: 200px; font-size: 16px; font-weight: 700; }
-.cg-confirm .grow { flex: 1; font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+.cg-sec { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--border); border-inline-start: 4px solid var(--amber-border); background: var(--surface-2); font-size: 13px; font-weight: 800; width: 100%; text-align: start; font-family: inherit; color: inherit; }
+.cg-sec .sub { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.cg-sec .amt { margin-inline-start: auto; font-family: var(--font-mono); direction: ltr; font-weight: 800; }
+.cg-sec.done { border-inline-start-color: var(--green-border); border-top: 1px solid var(--border); border-bottom: 0; border-inline-end: 0; cursor: pointer; }
+.cg-sec.done:hover { background: var(--surface-hover); }
+.cg-sec .car { font-size: 11px; color: var(--text-muted); }
+.cg-progress { height: 4px; background: var(--border); }
+.cg-progress > i { display: block; height: 100%; background: var(--green); }
+.cg-confirm-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cg-confirm-inline .inp { width: 170px; font-size: 15px; font-weight: 700; }
+.cg-confirm-inline .grow { font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
+.cg-err { padding: 8px 14px; }
+table.sess-dt td.sg { background: var(--surface-2); vertical-align: middle; }
+table.sess-dt td.sg-emp { border-inline-start: 4px solid var(--sc); font-weight: 700; white-space: nowrap; }
+table.sess-dt td.sg-time { white-space: nowrap; color: var(--text-secondary); }
+table.sess-dt .sid { font-family: var(--font-mono); direction: ltr; display: inline-block; color: var(--text-secondary); }
+table.sess-dt .sg-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+table.sess-dt tr.row-done td:not(.sg) { opacity: .65; }
+table.sess-dt tr.alrow td { background: var(--surface); padding: 4px 10px 8px; }
+table.sess-dt tr.alrow .note-box { margin-top: 4px; }
+.note-red { color: var(--red-dark); font-weight: 700; }
+.seg { display: inline-flex; border: 1.5px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.seg-btn { padding: 6px 14px; border: 0; background: var(--surface); font-family: inherit; font-size: 12px; font-weight: 700; color: var(--text-secondary); cursor: pointer; }
+.seg-btn + .seg-btn { border-inline-start: 1px solid var(--border-strong); }
+.seg-btn:hover { background: var(--surface-2); }
+.seg-btn.on { background: var(--accent); color: var(--on-accent); }
 
 /* بطاقات الجلسات */
 .courier-group { margin-bottom: 18px; }
@@ -695,7 +707,7 @@ table.dt tr.xs td { background: var(--amber-light); }
 
   <div class="main-tabs-bar" id="mainTabsBar">
     <button class="main-tab-btn active" id="tabConfirm" onclick="switchMainTab('confirm')">✅ تأكيد التوريد</button>
-    <button class="main-tab-btn" id="tabPending" onclick="switchMainTab('pending')">⏳ لسه ماتأكدش</button>
+    <button class="main-tab-btn" id="tabPending" onclick="switchMainTab('pending')">⏳ لم يتم التسجيل</button>
     <button class="main-tab-btn" id="tabOrder"   onclick="switchMainTab('order')">🔎 سجل الأوردر</button>
     <button class="main-tab-btn" id="tabAlerts"  onclick="switchMainTab('alerts')">🚨 التنبيهات</button>
     <button class="main-tab-btn" id="tabLog"     onclick="switchMainTab('log')">📜 سجل العمليات</button>
@@ -706,30 +718,24 @@ table.dt tr.xs td { background: var(--amber-light); }
 <div class="tab-panel active" id="panelConfirm">
   <div class="panel-card">
     <div class="bar-row">
-      <button class="btn btn-sm" id="dayPrev" onclick="shiftDay(-1)" title="اليوم السابق">→ السابق</button>
-      <div>
-        <span class="field-label">اليوم (بتوقيت القاهرة)</span>
-        <input type="date" class="inp" id="dayInput" onchange="onDayInput()" onclick="openPicker(this)" />
+      <div class="seg" role="group" aria-label="نطاق العرض">
+        <button class="seg-btn on" id="segDay" onclick="switchMainTab('confirm')">يوم واحد</button>
+        <button class="seg-btn" id="segPending" onclick="switchMainTab('pending')">كل الأيام المعلّقة</button>
       </div>
-      <button class="btn btn-sm" id="dayNext" onclick="shiftDay(1)" title="اليوم التالي">التالي ←</button>
-      <button class="btn btn-sm" id="dayToday" onclick="goToday()">اليوم</button>
+      <div class="bar-row" id="dayControls">
+        <button class="btn btn-sm" id="dayPrev" onclick="shiftDay(-1)" title="اليوم السابق">→ السابق</button>
+        <div>
+          <span class="field-label">اليوم (بتوقيت القاهرة)</span>
+          <input type="date" class="inp" id="dayInput" onchange="onDayInput()" onclick="openPicker(this)" />
+        </div>
+        <button class="btn btn-sm" id="dayNext" onclick="shiftDay(1)" title="اليوم التالي">التالي ←</button>
+        <button class="btn btn-sm" id="dayToday" onclick="goToday()">اليوم</button>
+      </div>
       <span class="grow"></span>
       <div class="bar-row" id="dayTally"></div>
     </div>
   </div>
   <div id="daySessions"><div class="empty-box">اختار يوم لعرض جلسات التحصيل</div></div>
-</div>
-
-<!-- ───────── §TOOL::pendingPanel ───────── -->
-<div class="tab-panel" id="panelPending">
-  <div class="panel-card">
-    <div class="bar-row">
-      <strong>كل الجلسات غير المؤكدة من 01-10-2026</strong>
-      <span class="grow"></span>
-      <div class="bar-row" id="pendingTally"></div>
-    </div>
-  </div>
-  <div id="pendingList"><div class="empty-box">جارٍ التحميل…</div></div>
 </div>
 
 <!-- ───────── §TOOL::orderPanel ───────── -->
@@ -850,7 +856,16 @@ table.dt tr.xs td { background: var(--amber-light); }
     <div class="eco-modal-hdr"><span>📋 سجل التحديثات</span><button class="modal-close-x" onclick="closeChangelog()">✕</button></div>
     <div class="eco-modal-body">
       <div class="cl-version-block">
-        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">04-11-2026</span></div>
+        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">05-11-2026</span></div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>شاشة التأكيد: لكل مندوب جدول أوردرات واحد (الموظف · الوقت · الجلسة · الحالة) بدل بطاقة لكل جلسة، والتأكيد في شريط المندوب نفسه</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>قسمين جوه كل مندوب: «بانتظار التسجيل» (مفتوح) و«تم تسجيله» (مطوي)، والمبلغ المطلوب عدّه = المعلّق بس</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تبديل «يوم واحد / كل الأيام المعلّقة» في نفس الشاشة، والتأكيد جوه حدود كل يوم</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>نصوص: «لم يتم التسجيل» / «تم التسجيل»، عمود «ملاحظات» بالأحمر، الوقت بصيغة 🕐 01:25 م / ص</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.1.0</span><span class="cl-ver-date">04-11-2026</span></div>
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تحصيلات بوسطة (Cash-out): الجلسة كل صفوف التحويل، والمتوقع = مجموع Net Value (بعد رسوم بوسطة). تظهر «ناقصة» لحد ما كل الصفوف تتسجّل — أكّد بعد الاكتمال. مقارنة Shopify بتعرض «بوسطة (صافي بعد الرسوم)» بدل فرق كاذب (يتطلب Worker v1.1.0)</span></li>
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>مقارنة Shopify بتبعت 100 أوردر في النداء الواحد بدل 10 (يتطلب Worker v1.0.1)</span></li>
@@ -880,10 +895,10 @@ table.dt tr.xs td { background: var(--amber-light); }
           <p><strong>المستخدمون:</strong> موظفو الخزنة (أي موظف نشط يقدر يدخل ويصحّح). موظف التحصيل بيسجّل على Shopify من أداة التحصيل — الأداة دي مستقلة عنها.</p>
           <h4>كيف تعمل — Workflow</h4>
           <ol>
-            <li>اختار اليوم (من 01-10-2026) — الأداة بتسحب جلسات التحصيل من D1 وتجمّعها بالجلسة تحت كل مندوب.</li>
+            <li>اختار اليوم (من 01-10-2026) أو «كل الأيام المعلّقة» — الأداة بتسحب جلسات التحصيل من D1 وتعرضها في جدول واحد تحت كل مندوب (الموظف · الوقت · الجلسة · الحالة)، مقسوم لـ «بانتظار التسجيل» و«تم تسجيله».</li>
             <li>عدّ الفلوس واكتب «المبلغ المستلم» بإيدك في خانة فاضية (مفيش رقم بيتملا أوتوماتيك).</li>
             <li>لو المبلغ = المتوقع بالقرش: نافذة تأكيد بالأثر ← تسجيل الحركات والتأكيد في نداء ذرّي ← كتابة المرآة على الأوردرات ← ملخص.</li>
-            <li>لو فيه أي فرق: التسجيل ممنوع، والمحاولة بتتسجل، والجلسة تفضل حمرا في «لسه ماتأكدش» والتنبيهات لحد ما المبلغ يكمل.</li>
+            <li>لو فيه أي فرق: التسجيل ممنوع، والمحاولة بتتسجل، والجلسة تفضل حمرا في «بانتظار التسجيل» والتنبيهات لحد ما المبلغ يكمل.</li>
             <li>تصحيح غلط: «سجل الأوردر» ← تصحيح = صف REVERSAL جديد (الأصل ما بيتغيّرش).</li>
           </ol>
           <h4>الـ Endpoints الرئيسية</h4>
@@ -1052,7 +1067,7 @@ table.dt tr.xs td { background: var(--amber-light); }
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.0.1'; // 1.0.1 = الـ Worker بيقبل 100 أوردر في compare_orders (الواجهة بتبعتهم دفعة واحدة)
-const TOOL_VERSION = 'v1.1.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.2.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -1095,7 +1110,7 @@ function cairoParts(d) {
 function cairoDateStr(d = new Date()) { const p = cairoParts(d); return `${p.year}-${p.month}-${p.day}`; }
 function addDays(s, n) { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
 function pad2(n) { return String(n).padStart(2, '0'); }
-function ampm12(p) { let h = +p.hour; const s = h >= 12 ? 'مساءً' : 'صباحاً'; h = h % 12 || 12; return `${pad2(h)}:${p.minute} ${s}`; }
+function ampm12(p) { let h = +p.hour; const s = h >= 12 ? 'م' : 'ص'; h = h % 12 || 12; return `${pad2(h)}:${p.minute} ${s}`; }
 // حارس Invalid Date: صف واحد بتاريخ باظ مايوقّعش الجدول كله
 function safeParts(iso) { const d = new Date(iso); return isNaN(d) ? null : cairoParts(d); }
 function formatDateTime(iso) { const p = safeParts(iso); return p ? `📅 ${p.day}/${p.month}/${p.year} 🕐 ${ampm12(p)}` : '—'; }
@@ -1253,20 +1268,26 @@ function showWorkerStale() {
 // ── Tabs + Freeze on Scroll ───────────────────────────────────
 const TAB_IDS = ['confirm', 'pending', 'order', 'alerts', 'log'];
 const TAB_BTN = { confirm: 'tabConfirm', pending: 'tabPending', order: 'tabOrder', alerts: 'tabAlerts', log: 'tabLog' };
-const TAB_PANEL = { confirm: 'panelConfirm', pending: 'panelPending', order: 'panelOrder', alerts: 'panelAlerts', log: 'panelLog' };
+const TAB_PANEL = { confirm: 'panelConfirm', pending: 'panelConfirm', order: 'panelOrder', alerts: 'panelAlerts', log: 'panelLog' };
 let currentTab = 'confirm';
+let confScope = 'day';      // 'day' = يوم واحد · 'pending' = كل الأيام المعلّقة (نفس الشاشة)
+let views = [];             // [{ day, sessions, groups: [[courier, [session…]]…] }]
 const tabLoaded = {};
 
 function switchMainTab(tab) {
   currentTab = tab;
+  const panelId = TAB_PANEL[tab];
   for (const id of TAB_IDS) {
     document.getElementById(TAB_BTN[id]).classList.toggle('active', id === tab);
-    document.getElementById(TAB_PANEL[id]).classList.toggle('active', id === tab);
+    document.getElementById(TAB_PANEL[id]).classList.toggle('active', TAB_PANEL[id] === panelId);
   }
   updateTabChip(); closeTabChipMenu();
   if (!currentEmployee) return;
-  if (tab === 'confirm' && !tabLoaded.confirm) loadDay();
-  if (tab === 'pending') loadPending();
+  if (tab === 'confirm' || tab === 'pending') {
+    const sc = tab === 'pending' ? 'pending' : 'day', changed = sc !== confScope;
+    confScope = sc; updateScopeUI();
+    if (changed || !tabLoaded.confirm) reloadConfirmView();
+  }
   if (tab === 'alerts') loadAlerts();
   if (tab === 'log' && !tabLoaded.log) { initLogControls(); fetchLog(); }
 }
@@ -1342,8 +1363,7 @@ async function doRefresh() {
   if (!currentEmployee || isUpdating) return;
   setRefreshing(true);
   try {
-    if (currentTab === 'confirm') await loadDay();
-    else if (currentTab === 'pending') await loadPending();
+    if (currentTab === 'confirm' || currentTab === 'pending') await reloadConfirmView();
     else if (currentTab === 'alerts') await loadAlerts();
     else if (currentTab === 'log') await fetchLog();
     else if (currentTab === 'order' && lastOrderQuery) await lookupOrder(lastOrderQuery);
@@ -1849,7 +1869,6 @@ function parseAmount(raw) {
 // §TOOL-JS::confirm — اليوم والجلسات والتأكيد
 // ══════════════════════════════════════════════════════
 let dayDate = cairoDateStr();
-let daySessions = [];
 let dayReq = 0;
 
 function initDayInput() {
@@ -1866,16 +1885,25 @@ function onDayInput() {
   dayDate = v; loadDay();
 }
 
+// ── نطاق العرض: يوم واحد / كل الأيام المعلّقة (نفس الشاشة · التأكيد دايمًا جوه حدود اليوم) ──
+function updateScopeUI() {
+  const pend = confScope === 'pending';
+  document.getElementById('segDay').classList.toggle('on', !pend);
+  document.getElementById('segPending').classList.toggle('on', pend);
+  document.getElementById('dayControls').style.display = pend ? 'none' : '';
+}
+function reloadConfirmView() { return confScope === 'pending' ? loadPendingScope() : loadDay(); }
+
 async function loadDay() {
   const my = ++dayReq, box = document.getElementById('daySessions');
-  initDayInput();
+  initDayInput(); updateScopeUI();
   box.innerHTML = '<div class="empty-box"><span class="spinner"></span> جارٍ تحميل جلسات اليوم…</div>';
   try {
     const d = await apiGet('get_day', { date: dayDate });
-    if (my !== dayReq) return;
-    daySessions = d.sessions || [];
+    if (my !== dayReq || confScope !== 'day') return;
+    views = [{ day: dayDate, sessions: d.sessions || [] }];
     renderTally(d.tally);
-    renderDay();
+    renderViews();
     tabLoaded.confirm = true;
   } catch (e) {
     if (my !== dayReq) return;
@@ -1883,104 +1911,191 @@ async function loadDay() {
     document.getElementById('dayTally').innerHTML = '';
   }
 }
+// كل الأيام المعلّقة: get_pending بيحدد الأيام، وبعدين get_day لكل يوم (بالصفوف) — من غير أي تغيير في الـ Worker
+async function loadPendingScope() {
+  const my = ++dayReq, box = document.getElementById('daySessions');
+  updateScopeUI();
+  box.innerHTML = '<div class="empty-box"><span class="spinner"></span> جارٍ تحميل كل الأيام المعلّقة…</div>';
+  try {
+    const p = await apiGet('get_pending');
+    const days = (p.days || []).map(d => d.day), out = [];
+    for (let i = 0; i < days.length; i += 4) {
+      const res = await Promise.all(days.slice(i, i + 4).map(day => apiGet('get_day', { date: day })));
+      if (my !== dayReq || confScope !== 'pending') return;
+      res.forEach((r, j) => out.push({ day: days[i + j], sessions: r.sessions || [] }));
+    }
+    views = out;
+    document.getElementById('dayTally').innerHTML =
+      `<span class="chip ${p.count ? 'warn' : 'ok'}">جلسات لم يتم تسجيلها: <strong>${p.count || 0}</strong></span>` +
+      `<span class="chip">أيام: <strong>${days.length}</strong></span>`;
+    renderViews();
+    tabLoaded.confirm = true;
+  } catch (e) {
+    if (my !== dayReq) return;
+    box.innerHTML = `<div class="note-box red">❌ تعذّر تحميل الأيام المعلّقة: ${esc(e.message)}</div>`;
+    document.getElementById('dayTally').innerHTML = '';
+  }
+}
 function renderTally(t) {
   if (!t) { document.getElementById('dayTally').innerHTML = ''; return; }
   document.getElementById('dayTally').innerHTML =
     `<span class="chip">الجلسات: <strong>${t.total}</strong></span>` +
-    `<span class="chip ok">مؤكدة: <strong>${t.confirmed}</strong></span>` +
-    `<span class="chip warn">لسه: <strong>${t.pending}</strong></span>` +
+    `<span class="chip ok">تم التسجيل: <strong>${t.confirmed}</strong></span>` +
+    `<span class="chip warn">لم يتم التسجيل: <strong>${t.pending}</strong></span>` +
     (t.diff ? `<span class="chip bad">بفرق: <strong>${t.diff}</strong></span>` : '') +
     (t.blocked ? `<span class="chip bad">مرفوضة: <strong>${t.blocked}</strong></span>` : '');
 }
 
 const SESSION_BADGE = {
-  confirmed: ['badge-success', '✓ مؤكدة'], pending: ['badge-warn', '⏳ لسه ماتأكدتش'],
+  confirmed: ['badge-success', '✓ تم التسجيل'], pending: ['badge-warn', '⏳ لم يتم التسجيل'],
   diff: ['badge-danger', '🔴 فرق في المبلغ'], blocked: ['badge-danger', '⛔ بيانات المصدر فيها مشكلة'],
 };
-const openSess = new Set();     // الجلسات المفتوحة (الافتراضي: كلها مطوية)
-function toggleSess(batchId) {
-  openSess.has(batchId) ? openSess.delete(batchId) : openSess.add(batchId);
-  document.querySelectorAll('.srow').forEach(el => { if (el.dataset.batch === batchId) el.classList.toggle('open', openSess.has(batchId)); });
+const SESS_COLORS = ['var(--accent)', 'var(--purple)', 'var(--amber)', 'var(--green)', 'var(--text-muted)'];
+const closedCg = new Set();     // مناديب مطويّين (مفتاح: يوم|مندوب)
+const openDone = new Set();     // أقسام «تم تسجيله» المفتوحة (الافتراضي: مطوية)
+const isOpenSess = s => s.status === 'pending' || s.status === 'diff';
+const cgKey = (vi, gi) => `${views[vi].day}|${views[vi].groups[gi][0]}`;
+const sessOrderIds = s => [...(s.rows || []).map(r => r.orderId), ...(s.extraShipping || []).map(x => x.orderId)];
+const countOrders = list => new Set(list.flatMap(sessOrderIds)).size;
+function toggleCourier(vi, gi) { const k = cgKey(vi, gi); closedCg.has(k) ? closedCg.delete(k) : closedCg.add(k); renderViews(); }
+function toggleDone(vi, gi) { const k = cgKey(vi, gi); openDone.has(k) ? openDone.delete(k) : openDone.add(k); renderViews(); }
+
+// صفوف الجلسة: الشحن الإضافي تحت أوردر البند نفسه (D15)؛ اللي ملوش بند بيتحط في الآخر
+function sessionItems(s) {
+  const xs = [...(s.extraShipping || [])], used = new Set(), out = [];
+  for (const r of s.rows || []) {
+    out.push({ r });
+    xs.forEach((x, i) => { if (!used.has(i) && x.orderId === r.orderId) { used.add(i); out.push({ x }); } });
+  }
+  xs.forEach((x, i) => { if (!used.has(i)) out.push({ x }); });
+  return out;
 }
-function expandCourier(i, on) {
-  document.querySelectorAll(`.cg[data-cg="${i}"] .srow`).forEach(el => {
-    on ? openSess.add(el.dataset.batch) : openSess.delete(el.dataset.batch); el.classList.toggle('open', on);
-  });
+function sessionNotes(s) {
+  let notes = '';
+  if (s.incomplete) notes += `<div class="note-box amber">⚠️ جلسة ناقصة: صفوف D1 ${s.rowsCount} من ${esc(s.batchExpected?.orders ?? '؟')} (المتوقع عند التحصيل ${esc(s.batchExpected?.collect ?? '؟')}). المتوقع هنا = اللي اتسجّل فعلاً. التنبيه بيفضل لحد ما الأوردر الناقص يظهر في جلسة تانية أو تتراجع.</div>`;
+  for (const w of s.warnings || []) notes += `<div class="note-box amber">${esc(w)}</div>`;
+  if (s.status === 'blocked') notes += `<div class="note-box red">⛔ مينفعش يتسجّل: ${(s.problems || []).map(esc).join(' · ')}</div>`;
+  if (s.status === 'diff' && s.mismatch) notes += `<div class="note-box red">🔴 آخر محاولة (${esc(employeeDisplayName(s.mismatch.by))}): المتوقع ${fmtNum(s.mismatch.expected)} — المكتوب ${fmtNum(s.mismatch.received)}${s.mismatch.diff ? ` — الفرق ${fmtSignedNum(s.mismatch.diff)}` : ''}. التسجيل ممنوع لحد ما المبلغ يكمل.</div>`;
+  if (s.status === 'confirmed' && s.confirmation) notes += `<div class="note-box green">✓ اتسجّلت بواسطة ${esc(employeeDisplayName(s.confirmation.by))} — ${esc(formatDateTime(s.confirmation.at))} — المستلم ${fmtNum(s.confirmation.received)}</div>`;
+  return notes;
 }
-let courierGroups = [];
-function renderDay() {
-  const box = document.getElementById('daySessions');
-  if (!daySessions.length) { box.innerHTML = `<div class="empty-box">مفيش جلسات تحصيل يوم ${dmy(dayDate)}</div>`; return; }
-  const groups = new Map();
-  daySessions.forEach((s, idx) => { const k = s.courier || 'بدون مندوب'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push([s, idx]); });
-  courierGroups = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ar'));
-  box.innerHTML = courierGroups.map(([courier, list], gi) => {
-    const open = list.filter(([s]) => s.status === 'pending' || s.status === 'diff');
-    const sum = open.reduce((t, [s]) => t + s.expectedPiastres, 0);
-    const all = list.reduce((t, [s]) => t + s.expectedPiastres, 0);
-    const orders = list.reduce((t, [s]) => t + s.rowsCount, 0);
-    const done = list.filter(([s]) => s.status === 'confirmed').length;
-    const hasDiff = list.some(([s]) => s.status === 'diff'), blocked = list.some(([s]) => s.status === 'blocked');
-    const allOk = done === list.length;
-    const [bcls, btxt] = allOk ? ['badge-success', '✓ كلها مؤكدة'] : hasDiff ? ['badge-danger', '🔴 فيه فرق'] : blocked ? ['badge-danger', '⛔ فيها مشكلة'] : ['badge-warn', `⏳ لسه ${open.length}`];
-    const totalPi = allOk || !open.length ? all : sum;
-    return `<div class="cg ${allOk ? 'all-ok' : ''}" data-cg="${gi}">
-      <div class="cg-head">
-        <span class="cg-name">🛵 ${esc(courier)}</span>
-        <span class="badge ${bcls}">${btxt}</span>
-        <span class="chip">${list.length} جلسة</span><span class="chip">${orders} أوردر</span><span class="chip ok">مؤكدة <strong>${done}/${list.length}</strong></span>
-        <span class="sp"></span>
-        <button class="btn btn-sm" onclick="expandCourier(${gi}, true)">فتح كل الأوردرات</button>
-        <button class="btn btn-sm" onclick="expandCourier(${gi}, false)">طيّ</button>
-        <span class="cg-total"><span class="k">${allOk ? 'إجمالي المندوب (مؤكد)' : 'المتوقع توريده'}</span><span class="amt ${amtClass(totalPi)}">${fmtNum((totalPi / 100).toFixed(2))}</span></span>
-      </div>
-      <div class="cg-sessions">${list.map(([s, idx]) => sessionRow(s, idx)).join('')}</div>
-      ${open.length ? `<div class="cg-confirm">
-        <div><span class="field-label">المبلغ المستلم من ${esc(courier)} — إجمالي ${open.length} جلسة (اللي عدّيته بإيدك)</span>
-          <input type="text" class="inp lockable" id="camt-${gi}" inputmode="decimal" autocomplete="off" oninput="onCourierAmtInput(${gi})" onkeydown="if(event.key==='Enter')startCourierConfirm(${gi})" /></div>
-        <button class="btn btn-primary lockable" id="ccbtn-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${gi})">تأكيد توريد المندوب كله</button>
-        <span class="grow" id="chint-${gi}"></span>
-      </div>` : ''}
-    </div>`;
+// جدول واحد (الموظف · الوقت · الجلسة مدموجين على أوردرات الجلسة) — لا يظهر فيه أي تأكيد منفصل للجلسة
+function sessionsTable(list) {
+  const body = list.map((s, si) => {
+    const items = sessionItems(s), n = items.length || 1;
+    const [bcls, btxt] = SESSION_BADGE[s.status] || SESSION_BADGE.pending;
+    const status = `<span class="badge ${bcls}">${btxt}</span>`;
+    const merged = `<td rowspan="${n}" class="sg sg-emp" style="--sc:${SESS_COLORS[si % SESS_COLORS.length]}">${esc(employeeDisplayName(s.collector))}</td>
+      <td rowspan="${n}" class="sg sg-time">${esc(formatTimeOnly(s.firstTimestamp))}</td>
+      <td rowspan="${n}" class="sg"><span class="sid">${esc(String(s.batchId).slice(0, 8))}</span><div class="sg-sub">${countOrders([s])} أوردر · ${fmtNum(s.expected)}</div>${s.incomplete ? '<span class="badge badge-warn">ناقصة</span>' : ''}</td>`;
+    const cls = s.status === 'confirmed' ? 'row-done' : '';
+    const rows = items.map((it, i) => {
+      const lead = i === 0 ? merged : '';
+      if (it.r) {
+        const r = it.r;
+        return `<tr class="${cls}">${lead}<td>${orderLink(r.orderName, r.orderId)}</td><td>${typeBadges(r)}</td>
+          <td class="num ${amtClass(r.amount)}">${fmtSignedNum(r.amount)}</td><td>${r.note ? `<span class="note-red">${esc(r.note)}</span>` : ''}</td><td>${status}</td></tr>`;
+      }
+      const x = it.x;
+      return `<tr class="xs ${cls}">${lead}<td>${orderLink(x.orderName, x.orderId)}</td><td><span class="badge badge-warn">شحن إضافي</span></td>
+        <td class="num neg">${fmtSignedNum('-' + x.amount)}</td><td><span class="note-red">Extra Shipping</span></td><td>${status}</td></tr>`;
+    }).join('');
+    const notes = sessionNotes(s);
+    return rows + (notes ? `<tr class="alrow"><td colspan="8">${notes}</td></tr>` : '');
   }).join('');
+  return `<div class="tbl-wrap"><table class="dt sess-dt"><thead><tr><th>الموظف</th><th>الوقت</th><th>الجلسة</th><th>الأوردر</th><th>النوع</th><th class="num">المبلغ</th><th>ملاحظات</th><th>الحالة</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function courierCard(vi, gi, courier, list, pendingScope) {
+  const key = cgKey(vi, gi);
+  const open = list.filter(isOpenSess), pend = list.filter(s => s.status !== 'confirmed'), done = list.filter(s => s.status === 'confirmed');
+  const allN = countOrders(list), doneN = countOrders(done), allOk = !pend.length;
+  const openPi = open.reduce((t, s) => t + s.expectedPiastres, 0), donePi = done.reduce((t, s) => t + s.expectedPiastres, 0);
+  const totalPi = open.length ? openPi : donePi, closed = closedCg.has(key);
+  const box = open.length
+    ? `<div class="cg-confirm-inline"><input type="text" class="inp lockable" id="camt-${vi}-${gi}" inputmode="decimal" autocomplete="off" placeholder="المبلغ المستلم" aria-label="المبلغ المستلم من ${esc(courier)}" oninput="onCourierAmtInput(${vi},${gi})" onkeydown="if(event.key==='Enter')startCourierConfirm(${vi},${gi})" />
+        <button class="btn btn-primary lockable" id="ccbtn-${vi}-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${vi},${gi})">تأكيد توريد المندوب كله</button>
+        <span class="grow" id="chint-${vi}-${gi}"></span></div>`
+    : `<span class="badge ${allOk ? 'badge-success' : 'badge-danger'}">${allOk ? '✓ تم تسجيل الكل' : '⛔ مفيش حاجة تتسجّل — فيها مشكلة'}</span>`;
+  const blockedN = pend.length - open.length;
+  const pendSec = pend.length ? `<div class="cg-sec"><span>⏳ بانتظار التسجيل</span>
+      <span class="sub">${countOrders(pend)} أوردر${blockedN ? ` · منهم ${blockedN} جلسة مرفوضة (خارج المبلغ)` : ''}</span>
+      <span class="amt ${amtClass(openPi)}">${fmtNum((openPi / 100).toFixed(2))}</span></div>${sessionsTable(pend)}` : '';
+  const isDoneOpen = openDone.has(key);
+  const doneSec = (!pendingScope && done.length) ? `<button type="button" class="cg-sec done" aria-expanded="${isDoneOpen}" onclick="toggleDone(${vi},${gi})">
+      <span class="car">${isDoneOpen ? '▼' : '◀'}</span><span>✓ تم تسجيله</span><span class="sub">${countOrders(done)} أوردر</span>
+      <span class="amt ${amtClass(donePi)}">${fmtNum((donePi / 100).toFixed(2))}</span></button>${isDoneOpen ? sessionsTable(done) : ''}` : '';
+  return `<div class="cg ${allOk ? 'all-ok' : ''}" data-cg="${vi}-${gi}">
+    <div class="cg-head">
+      <span class="cg-name">🛵 ${esc(courier)}</span>
+      <span class="chip"><strong>${allN}</strong> أوردر</span><span class="chip ok">تم تسجيل <strong>${doneN}/${allN}</strong></span>
+      ${box}
+      <span class="sp"></span>
+      <span class="cg-total"><span class="k">${open.length ? 'المطلوب عدّه' : 'إجمالي المسجّل'}</span><span class="amt ${amtClass(totalPi)}">${fmtNum((totalPi / 100).toFixed(2))}</span></span>
+      <button class="btn btn-sm" onclick="toggleCourier(${vi},${gi})">${closed ? 'فتح' : 'طيّ'}</button>
+    </div>
+    <div class="cg-progress"><i style="width:${allN ? Math.round(doneN / allN * 100) : 0}%"></i></div>
+    ${closed ? '' : pendSec + doneSec}
+  </div>`;
+}
+
+function renderViews() {
+  const box = document.getElementById('daySessions'), pendingScope = confScope === 'pending';
+  let html = '';
+  views.forEach((v, vi) => {
+    const groups = new Map();
+    v.sessions.forEach(s => { const k = s.courier || 'بدون مندوب'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); });
+    v.groups = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ar'));
+    const cards = v.groups.map(([courier, list], gi) => (pendingScope && list.every(s => s.status === 'confirmed')) ? '' : courierCard(vi, gi, courier, list, pendingScope)).join('');
+    if (pendingScope) {
+      const ps = v.sessions.filter(s => s.status !== 'confirmed');
+      if (!ps.length) return;
+      const exp = ps.filter(isOpenSess).reduce((t, s) => t + s.expectedPiastres, 0);
+      html += `<div class="day-head">📅 ${esc(dmy(v.day))}<span class="chip">${ps.length} جلسة لم يتم تسجيلها</span><span class="chip">المتوقع <strong>${fmtNum((exp / 100).toFixed(2))}</strong></span>
+        <button class="btn btn-sm btn-primary" onclick="openDay('${esc(v.day)}')">فتح اليوم</button></div>${cards}`;
+    } else html += cards;
+  });
+  if (!html) html = pendingScope ? `<div class="empty-box">✅ كل الجلسات من ${esc(dmy(MIN_DATE))} اتسجّلت</div>` : `<div class="empty-box">مفيش جلسات تحصيل يوم ${dmy(dayDate)}</div>`;
+  box.innerHTML = html;
   refreshAllAmountState();
 }
-function courierOpen(gi) { return (courierGroups[gi]?.[1] || []).filter(([s]) => s.status === 'pending' || s.status === 'diff'); }
 const toPi = v => Math.round(parseFloat(v) * 100);
-function onCourierAmtInput(gi) {
-  const inp = document.getElementById(`camt-${gi}`), btn = document.getElementById(`ccbtn-${gi}`), hint = document.getElementById(`chint-${gi}`);
+function courierOpen(vi, gi) { return (views[vi]?.groups?.[gi]?.[1] || []).filter(isOpenSess); }
+function onCourierAmtInput(vi, gi) {
+  const inp = document.getElementById(`camt-${vi}-${gi}`), btn = document.getElementById(`ccbtn-${vi}-${gi}`), hint = document.getElementById(`chint-${vi}-${gi}`);
   if (!inp || !btn) return;
   const raw = inp.value.trim(), ok = raw !== '' && parseAmount(raw) !== null;
   btn.dataset.dis = ok ? '0' : '1'; btn.disabled = isUpdating || !ok;
   inp.classList.toggle('has-value', !!raw);
   if (hint) hint.textContent = (raw && !ok) ? 'اكتب رقم (بحد أقصى قرشين)' : '';
 }
-async function startCourierConfirm(gi) {
+function refreshAllAmountState() { views.forEach((v, vi) => (v.groups || []).forEach((_, gi) => onCourierAmtInput(vi, gi))); }
+
+async function startCourierConfirm(vi, gi) {
   if (isUpdating) return;
-  const open = courierOpen(gi); if (!open.length) return;
-  const courier = courierGroups[gi][0];
-  const amt = parseAmount(document.getElementById(`camt-${gi}`)?.value);
+  const v = views[vi], courier = v.groups[gi][0], list = v.groups[gi][1];
+  const sessions = courierOpen(vi, gi); if (!sessions.length) return;
+  const amt = parseAmount(document.getElementById(`camt-${vi}-${gi}`)?.value);
   if (amt === null) { showToast('اكتب المبلغ المستلم كرقم صحيح', 'warning'); return; }
-  const expectedPi = open.reduce((t, [s]) => t + s.expectedPiastres, 0), recvPi = toPi(amt);
-  const sessions = open.map(([s]) => s);
-  const blocked = daySessions.filter(s => (s.courier || 'بدون مندوب') === courier && s.status === 'blocked').length;
+  const expectedPi = sessions.reduce((t, s) => t + s.expectedPiastres, 0), recvPi = toPi(amt);
+  const blocked = list.filter(s => s.status === 'blocked').length;
   if (recvPi !== expectedPi) {
     // أي فرق = ممنوع. المحاولة بتتسجّل على أول جلسة مفتوحة مبلغها مختلف عن المكتوب (عشان ما تتأكدش بالغلط)
     const probe = sessions.find(s => s.expectedPiastres !== recvPi);
     if (probe) { setUpdateLock(true); try { await apiPost('confirm_session', { batchId: probe.batchId, date: probe.day, employee: currentEmployee.username, receivedAmount: amt }); } catch (_) {} finally { setUpdateLock(false); } }
     playBeep('error');
-    openSummary('🔴 التسجيل ممنوع — فيه فرق', `<div class="note-box red">${esc(courier)}: المتوقع ${fmtNum((expectedPi / 100).toFixed(2))} — المكتوب ${fmtNum(amt)} — الفرق ${fmtSignedNum(((recvPi - expectedPi) / 100).toFixed(2))}</div><p style="margin-top:10px;font-size:13px">لما المبلغ يكمل اكتبه كامل وتتسجّل كل الجلسات مرة واحدة.</p>`);
-    await loadDay(); return;
+    openSummary('🔴 التسجيل ممنوع — فيه فرق', `<div class="note-box red">${esc(courier)}: المتوقع ${fmtNum((expectedPi / 100).toFixed(2))} — المكتوب ${fmtNum(amt)} — الفرق ${fmtSignedNum(((recvPi - expectedPi) / 100).toFixed(2))}</div><p style="margin-top:10px;font-size:13px">لما المبلغ يكمل اكتبه كامل ويتسجّل كله مرة واحدة.</p>`);
+    await reloadConfirmView(); return;
   }
   const ins = sessions.reduce((t, s) => t + s.rows.filter(r => r.kind === 'CASH_IN').length, 0), outs = sessions.reduce((t, s) => t + s.rows.filter(r => r.kind === 'CASH_OUT').length, 0), xs = sessions.reduce((t, s) => t + s.extraShipping.length, 0);
   const lines = [
     { text: `💰 المستلم: ${fmtNum(amt)}  —  المتوقع: ${fmtNum((expectedPi / 100).toFixed(2))}`, strong: true },
-    { text: `🧾 ${sessions.length} جلسة · هيتسجل ${ins + outs + xs} حركة: ${ins} دخول · ${outs} خروج · ${xs} شحن إضافي`, },
-    { text: 'كل جلسة بتتسجّل لوحدها بمبلغها المتوقع — التسجيل بيتكتب في الدفتر ومبيتعدّلش (التصحيح بـ REVERSAL)', soft: true },
+    { text: `🧾 هيتسجل ${ins + outs + xs} حركة: ${ins} دخول · ${outs} خروج · ${xs} شحن إضافي`, },
+    { text: 'التسجيل بيتكتب في الدفتر ومبيتعدّلش (التصحيح بـ REVERSAL)', soft: true },
   ];
   if (blocked) lines.push({ text: `⚠️ فيه ${blocked} جلسة مرفوضة (بيانات مصدر) مش داخلة في التأكيد`, soft: true });
   if (sessions.some(s => s.incomplete)) lines.push({ text: '⚠️ فيه جلسة ناقصة — التأكيد على الصفوف المسجّلة بس', soft: true });
-  const r = await askConfirm({ header: '⚠️ تأكيد توريد المندوب', lead: `${courier} — يوم ${dmy(dayDate)}`, lines, okLabel: `تأكيد — سجّل ${fmtNum(amt)}` });
+  const r = await askConfirm({ header: '⚠️ تأكيد توريد المندوب', lead: `${courier} — يوم ${dmy(v.day)}`, lines, okLabel: `تأكيد — سجّل ${fmtNum(amt)}` });
   if (!r.ok) return;
   setUpdateLock(true);
   const results = [];
@@ -1993,17 +2108,18 @@ async function startCourierConfirm(gi) {
   const okN = results.filter(x => x.r && (x.r.status === 'success' || x.r.status === 'warning' || x.r.status === 'already')).length;
   const warns = results.filter(x => x.r && x.r.status === 'warning');
   const bad = results.filter(x => x.err || !x.r || x.r.status === 'rejected' || x.r.status === 'error' || x.r.ok === false);
-  if (!bad.length && !warns.length) { playBeep('success'); showToast(`✓ اتأكدت ${okN} جلسة للمندوب ${courier}`, 'success', 5000); }
+  if (!bad.length && !warns.length) { playBeep('success'); showToast(`✓ تم تسجيل توريد المندوب ${courier}`, 'success', 5000); }
   else {
     playBeep(bad.length ? 'error' : 'success');
     const failed = warns.flatMap(x => (x.r.mirror?.failed || []));
     openSummary(bad.length ? '❌ التأكيد ما كملش' : '⚠️ تم مع تحذير',
-      `<div class="note-box ${bad.length ? 'red' : 'amber'}">اتأكدت ${okN} من ${sessions.length} جلسة.</div>` +
+      `<div class="note-box ${bad.length ? 'red' : 'amber'}">اتسجّلت ${okN} من ${sessions.length} جلسة.</div>` +
       bad.map(x => `<div class="note-box red">${esc(String(x.s.batchId).slice(0, 8))}: ${esc(x.err || x.r?.error || 'فشل')}</div>`).join('') +
       (failed.length ? `<div class="note-box amber">⚠️ الدفتر اتسجّل ✓ — لكن المرآة على ${failed.length} أوردر ما اتكتبتش</div><div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="rebuildMirror(${JSON.stringify(failed.map(f => f.orderId)).replace(/"/g, '&quot;')})">إعادة بناء المرآة</button></div>` : '') +
-      (bad.length ? '<p style="margin-top:10px;font-size:13px">راجع حالة الجلسات بعد التحديث — <strong>متعيدش المحاولة قبل ما تراجع</strong>.</p>' : ''));
+      (bad.length ? '<p style="margin-top:10px;font-size:13px">راجع الحالة بعد التحديث — <strong>متعيدش المحاولة قبل ما تراجع</strong>.</p>' : ''));
   }
-  await loadDay();
+  if (confScope === 'day') openDone.add(`${v.day}|${courier}`);
+  await reloadConfirmView();
 }
 function typeBadges(r) {
   let h = r.srcType === 'refund' ? '<span class="badge badge-warn">استرداد</span>' : '<span class="badge badge-success">تحصيل</span>';
@@ -2011,117 +2127,7 @@ function typeBadges(r) {
   if (r.hasReturn) h += ' <span class="badge badge-info">مرتجع</span>';
   return h;
 }
-function sessionRow(s, idx) {
-  const [bcls, btxt] = SESSION_BADGE[s.status] || SESSION_BADGE.pending;
-  const rows = (s.rows || []).map(r => `<tr>
-      <td>${orderLink(r.orderName, r.orderId)}</td><td>${typeBadges(r)}</td>
-      <td class="num ${amtClass(r.amount)}">${fmtSignedNum(r.amount)}</td><td>${esc(r.note || '')}</td></tr>`).join('');
-  const xs = (s.extraShipping || []).map(x => `<tr class="xs">
-      <td>${orderLink(x.orderName, x.orderId)}</td><td><span class="badge badge-warn">شحن إضافي</span></td>
-      <td class="num neg">${fmtSignedNum('-' + x.amount)}</td><td>Extra Shipping</td></tr>`).join('');
-  let notes = '';
-  if (s.incomplete) notes += `<div class="note-box amber">⚠️ جلسة ناقصة: صفوف D1 ${s.rowsCount} من ${esc(s.batchExpected?.orders ?? '؟')} (المتوقع عند التحصيل ${esc(s.batchExpected?.collect ?? '؟')}). المتوقع هنا = اللي اتسجّل فعلاً. التنبيه بيفضل لحد ما الأوردر الناقص يظهر في جلسة تانية أو تتراجع.</div>`;
-  for (const w of s.warnings || []) notes += `<div class="note-box amber">${esc(w)}</div>`;
-  if (s.status === 'blocked') notes += `<div class="note-box red">⛔ مينفعش تتأكد: ${(s.problems || []).map(esc).join(' · ')}</div>`;
-  if (s.status === 'diff' && s.mismatch) notes += `<div class="note-box red">🔴 آخر محاولة (${esc(employeeDisplayName(s.mismatch.by))}): المتوقع ${fmtNum(s.mismatch.expected)} — المكتوب ${fmtNum(s.mismatch.received)}${s.mismatch.diff ? ` — الفرق ${fmtSignedNum(s.mismatch.diff)}` : ''}. التسجيل ممنوع لحد ما المبلغ يكمل.</div>`;
-  if (s.status === 'confirmed' && s.confirmation) notes += `<div class="note-box green">✓ اتأكدت بواسطة ${esc(employeeDisplayName(s.confirmation.by))} — ${esc(formatDateTime(s.confirmation.at))} — المستلم ${fmtNum(s.confirmation.received)}</div>`;
-  const canConfirm = s.status === 'pending' || s.status === 'diff';
-  return `<div class="srow st-${s.status} ${openSess.has(s.batchId) ? 'open' : ''}" data-batch="${esc(s.batchId)}" data-idx="${idx}">
-    <div class="srow-line" onclick="toggleSess('${esc(s.batchId)}')">
-      <span class="caret">◀</span>
-      <span class="badge ${bcls}">${btxt}</span>
-      ${s.incomplete ? '<span class="badge badge-warn">ناقصة</span>' : ''}
-      <span class="meta">👤 ${esc(employeeDisplayName(s.collector))}</span>
-      <span class="meta">${esc(formatTimeOnly(s.firstTimestamp))}</span>
-      <span class="meta">${s.rowsCount} أوردر</span>
-      <span class="meta" style="font-family:var(--font-mono);direction:ltr">${esc(String(s.batchId).slice(0, 8))}</span>
-      <span class="sp"></span>
-      <span class="amt ${amtClass(s.expected)}">${fmtNum(s.expected)}</span>
-    </div>
-    <div class="srow-body">
-      <div class="tbl-wrap"><table class="dt"><thead><tr><th>الأوردر</th><th>النوع</th><th class="num">المبلغ</th><th>ملاحظة</th></tr></thead>
-        <tbody>${rows}${xs}</tbody></table></div>
-      <div class="sess-total"><span>الصافي المتوقع (بعد الشحن الإضافي ${fmtNum(s.extraShippingTotal)})</span><span class="amt ${amtClass(s.expected)}">${fmtNum(s.expected)}</span></div>
-      ${notes}
-      ${canConfirm ? `<div class="confirm-row">
-        <div><span class="field-label">تأكيد الجلسة دي لوحدها — المبلغ المستلم</span>
-          <input type="text" class="inp lockable" id="amt-${idx}" inputmode="decimal" autocomplete="off" oninput="onAmtInput(${idx})" onkeydown="if(event.key==='Enter')startConfirm(${idx})" /></div>
-        <button class="btn btn-primary lockable" id="cbtn-${idx}" data-dis="1" disabled onclick="startConfirm(${idx})">تأكيد وتسجيل</button>
-        <span class="meta" id="amtHint-${idx}" style="font-size:12px;color:var(--text-secondary);font-weight:600"></span>
-      </div>` : ''}
-    </div></div>`;
-}
-function onAmtInput(idx) {
-  const inp = document.getElementById(`amt-${idx}`); if (!inp) return;
-  inp.classList.toggle('has-value', !!inp.value.trim());
-  refreshAmountState(idx);
-}
-function refreshAmountState(idx) {
-  const inp = document.getElementById(`amt-${idx}`), btn = document.getElementById(`cbtn-${idx}`), hint = document.getElementById(`amtHint-${idx}`);
-  if (!inp || !btn) return;
-  const raw = inp.value.trim(), ok = raw !== '' && parseAmount(raw) !== null;
-  btn.dataset.dis = ok ? '0' : '1'; btn.disabled = isUpdating || !ok;
-  if (hint) hint.textContent = (raw && !ok) ? 'اكتب رقم (بحد أقصى قرشين)' : '';
-}
-function refreshAllAmountState() { daySessions.forEach((_, i) => refreshAmountState(i)); courierGroups.forEach((_, g) => onCourierAmtInput(g)); }
 
-async function startConfirm(idx) {
-  if (isUpdating) return;
-  const s = daySessions[idx]; if (!s) return;
-  const amt = parseAmount(document.getElementById(`amt-${idx}`)?.value);
-  if (amt === null) { showToast('اكتب المبلغ المستلم كرقم صحيح', 'warning'); return; }
-  const ins = s.rows.filter(r => r.kind === 'CASH_IN').length, outs = s.rows.filter(r => r.kind === 'CASH_OUT').length, xs = s.extraShipping.length;
-  const orders = new Set([...s.rows.map(r => r.orderId), ...s.extraShipping.map(x => x.orderId)]).size;
-  const lines = [
-    { text: `💰 المستلم: ${fmtNum(amt)}  —  المتوقع: ${fmtNum(s.expected)}`, strong: true },
-    { text: `🧾 هيتسجل ${ins + outs + xs} حركة في الدفتر: ${ins} دخول · ${outs} خروج (استرداد/مرتجع) · ${xs} شحن إضافي (CASH_OUT)` },
-    { text: `🏷️ المرآة (سجل الخزنة والإجمالي) هتتكتب على ${orders} أوردر على Shopify`, soft: true },
-    { text: 'التسجيل بيتكتب في الدفتر ومبيتعدّلش — التصحيح بيبقى بحركة REVERSAL جديدة', soft: true },
-  ];
-  if (s.incomplete) lines.push({ text: '⚠️ الجلسة ناقصة عن اللي اتحقق عليه وقت التحصيل — التأكيد على الصفوف المسجّلة بس', soft: true });
-  const r = await askConfirm({ header: '⚠️ تأكيد توريد الجلسة', lead: `${s.courier || 'بدون مندوب'} — موظف التحصيل ${employeeDisplayName(s.collector)} — يوم ${dmy(s.day)}`, lines, okLabel: `تأكيد — سجّل ${fmtNum(amt)}` });
-  if (!r.ok) return;
-  await doConfirm(idx, amt);
-}
-
-async function doConfirm(idx, amt) {
-  const s = daySessions[idx];
-  setUpdateLock(true);
-  try {
-    const r = await apiPost('confirm_session', { batchId: s.batchId, date: s.day, employee: currentEmployee.username, receivedAmount: amt });
-    await handleConfirmResult(r);
-  } catch (e) {
-    playBeep('error');
-    openSummary('❓ معرفناش نتأكد', `<div class="note-box red">${esc(e.message)}</div><p style="margin-top:10px;font-size:13px">اتأكد من حالة الجلسة بعد ما الشاشة تتحدّث (لو اتسجّلت هتظهر خضرا) — <strong>متعيدش المحاولة قبل ما تراجع</strong>.</p>`);
-  } finally {
-    setUpdateLock(false);
-    await loadDay();
-  }
-}
-async function handleConfirmResult(r) {
-  if (r.status === 'rejected') {
-    playBeep('error');
-    if (r.expected !== undefined) { showToast(`المتوقع ${fmtNum(r.expected)} — المكتوب ${fmtNum(r.received)}`, 'error', 6000); openSummary('🔴 التسجيل ممنوع — فيه فرق', `<div class="note-box red">${esc(r.error)}</div><p style="margin-top:10px;font-size:13px">الجلسة هتفضل حمرا في «لسه ماتأكدش» والتنبيهات. لما الباقي يتورد اكتب المبلغ كامل وتتسجّل عادي.</p>`); }
-    else openSummary('⛔ الجلسة مرفوضة', `<div class="note-box red">${esc(r.error)}</div>`);
-    return;
-  }
-  if (r.status === 'already') { showToast(r.message || 'الجلسة اتأكدت قبل كده', 'neutral', 4500); return; }
-  if (r.status === 'error' || r.ok === false) { playBeep('error'); openSummary('❌ فشل', `<div class="note-box red">${esc(r.error || 'فشل غير معروف')}</div>`); return; }
-  playBeep('success');
-  showMirrorSummary(r);
-}
-function showMirrorSummary(r) {
-  const s = r.summary || {}, warn = r.status === 'warning', failed = (r.mirror && r.mirror.failed) || [];
-  let html = `<div class="sum-grid">${sumCell('المندوب', esc(s.courier || '—'))}${sumCell('موظف التحصيل', esc(employeeDisplayName(s.collector)))}${sumCell('اليوم', esc(dmy(s.day)))}
-    ${sumCell('الحركات', esc(s.entries))}${sumCell('الأوردرات', esc(s.orders))}${sumCell('الشحن الإضافي', fmtNum(s.extraShipping))}${sumCell('صافي التوريد', `<span class="${amtClass(s.net)}">${fmtNum(s.net)}</span>`)}</div>`;
-  if (s.incomplete) html += `<div class="note-box amber">⚠️ الجلسة كانت ناقصة — متسجّلة على الصفوف الموجودة بس، والتنبيه باقي.</div>`;
-  if (r.logged === false) html += `<div class="note-box amber">⚠️ العملية تمت لكن ما اتسجلتش في سجل العمليات.</div>`;
-  if (warn) {
-    html += `<div class="note-box amber">⚠️ الدفتر اتسجّل ✓ — لكن المرآة على ${failed.length} أوردر على Shopify ما اتكتبتش:<br>${failed.slice(0, 10).map(f => `${esc(f.orderId)}: ${esc(f.error)}`).join('<br>')}</div>
-      <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="rebuildMirror(${JSON.stringify(failed.map(f => f.orderId)).replace(/"/g, '&quot;')})">إعادة بناء المرآة</button></div>`;
-  } else html += `<div class="note-box green">✓ الدفتر والمرآة على ${esc(r.mirror?.written ?? 0)} أوردر اتسجلوا</div>`;
-  openSummary(warn ? '⚠️ تم مع تحذير' : '✅ تم تسجيل التوريد', html);
-}
 async function rebuildMirror(orderIds) {
   if (isUpdating) return;
   setUpdateLock(true);
@@ -2133,27 +2139,7 @@ async function rebuildMirror(orderIds) {
   finally { setUpdateLock(false); }
 }
 
-// ══════════════════════════════════════════════════════
-// §TOOL-JS::pending — كل الجلسات غير المؤكدة
-// ══════════════════════════════════════════════════════
-async function loadPending() {
-  const box = document.getElementById('pendingList');
-  box.innerHTML = '<div class="empty-box"><span class="spinner"></span> جارٍ التحميل…</div>';
-  try {
-    const d = await apiGet('get_pending');
-    document.getElementById('pendingTally').innerHTML = `<span class="chip ${d.count ? 'warn' : 'ok'}">جلسات معلّقة: <strong>${d.count}</strong></span>`;
-    if (!d.days.length) { box.innerHTML = '<div class="empty-box">✅ كل الجلسات من 01-10-2026 اتأكدت</div>'; return; }
-    box.innerHTML = d.days.map(day => `
-      <div class="day-head">📅 ${esc(dmy(day.day))}<span class="chip">${day.sessions.length} جلسة</span><span class="chip">المتوقع <strong>${fmtNum(day.expectedTotal)}</strong></span>
-        <button class="btn btn-sm btn-primary" onclick="openDay('${esc(day.day)}')">فتح اليوم</button></div>
-      <div class="panel-card" style="padding:0"><div class="tbl-wrap"><table class="dt"><thead><tr><th>المندوب</th><th>موظف التحصيل</th><th>الوقت</th><th>الأوردرات</th><th class="num">المتوقع</th><th>الحالة</th></tr></thead><tbody>
-        ${day.sessions.map(s => { const [c, t] = SESSION_BADGE[s.status] || SESSION_BADGE.pending;
-          return `<tr><td>${esc(s.courier || '—')}</td><td>${esc(employeeDisplayName(s.collector))}</td><td>${esc(formatTimeOnly(s.firstTimestamp))}</td><td>${s.rowsCount}</td>
-            <td class="num ${amtClass(s.expected)}">${fmtNum(s.expected)}</td><td><span class="badge ${c}">${t}</span>${s.incomplete ? ' <span class="badge badge-warn">ناقصة</span>' : ''}</td></tr>`; }).join('')}
-      </tbody></table></div></div>`).join('');
-  } catch (e) { box.innerHTML = `<div class="note-box red">❌ ${esc(e.message)}</div>`; }
-}
-function openDay(day) { if (isUpdating) return; dayDate = day; switchMainTab('confirm'); loadDay(); }
+function openDay(day) { if (isUpdating) return; confScope = 'day'; dayDate = day; switchMainTab('confirm'); loadDay(); }
 
 // ══════════════════════════════════════════════════════
 // §TOOL-JS::order — سجل الأوردر + المقارنات + التصحيح
@@ -2477,12 +2463,12 @@ async function onLoggedIn() {
   const b = document.getElementById('activeUserBtn');
   b.style.display = ''; b.textContent = `👤 ${currentEmployee.displayName}`;
   await loadEmployeeNames();
-  dayDate = cairoDateStr(); tabLoaded.confirm = false;
+  dayDate = cairoDateStr(); tabLoaded.confirm = false; confScope = 'day';
   switchMainTab('confirm'); loadDay(); checkWorkerVersion();
 }
 function resetToolState() {
   const b = document.getElementById('activeUserBtn'); b.style.display = 'none';
-  daySessions = []; EMP_NAMES = {}; lastOrderQuery = '';
+  views = []; confScope = 'day'; EMP_NAMES = {}; lastOrderQuery = '';
   for (const k of Object.keys(tabLoaded)) delete tabLoaded[k];
   for (const id of ['daySessions', 'pendingList', 'orderResult', 'alertsList', 'cmpResult', 'logChips', 'dayTally', 'pendingTally', 'alertsTally', 'diagResult'])
     { const el = document.getElementById(id); if (el) el.innerHTML = ''; }
@@ -2491,8 +2477,8 @@ function resetToolState() {
   for (const id of ['confirmOverlay', 'summaryOverlay', 'settingsOverlay', 'aboutOverlay', 'changelogOverlay']) document.getElementById(id).classList.remove('open');
   clearExportWarn(); closeAllMs();
   currentTab = 'confirm';
-  for (const id of TAB_IDS) { document.getElementById(TAB_BTN[id]).classList.toggle('active', id === 'confirm'); document.getElementById(TAB_PANEL[id]).classList.toggle('active', id === 'confirm'); }
-  updateTabChip();
+  for (const id of TAB_IDS) { document.getElementById(TAB_BTN[id]).classList.toggle('active', id === 'confirm'); document.getElementById(TAB_PANEL[id]).classList.toggle('active', TAB_PANEL[id] === TAB_PANEL.confirm); }
+  updateScopeUI(); updateTabChip();
 }
 
 // ══════════════════════════════════════════════════════
