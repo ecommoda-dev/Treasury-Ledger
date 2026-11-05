@@ -374,8 +374,8 @@ body {
 .cg-sec.done:hover { background: var(--surface-hover); }
 .cg-sec .car { font-size: 11px; color: var(--text-muted); }
 .inw { position: relative; display: inline-flex; align-items: center; }
-.inw .inp { direction: ltr; text-align: right; padding-inline-end: 46px; }
-.inw .cur { position: absolute; inset-inline-end: 12px; font-style: normal; font-size: 13px; font-weight: 700; color: var(--text-muted); pointer-events: none; }
+.inw .inp { direction: ltr; text-align: right; padding-left: 46px; padding-right: 11px; }
+.inw .cur { position: absolute; left: 12px; font-style: normal; font-size: 13px; font-weight: 700; color: var(--text-muted); pointer-events: none; }
 .cg-arrow { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent-dark); background: var(--surface); color: var(--accent-dark); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex: none; }
 .cg-arrow:hover { background: var(--accent-light); }
 .cg-arrow svg { width: 16px; height: 16px; }
@@ -869,6 +869,15 @@ table.dt tr.xs td { background: var(--amber-light); }
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">05-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>الأرقام: العلامة العشرية تظهر بس لو فيه كسر (2400 مش 2400.00)</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>شريط المندوب بخلايا: (الاسم · عدد الأوردرات · الإجمالي) | (خانة المبلغ بـ«ج.م» + «تسجيل توريد المندوب») | سهم طي/فتح</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>شريط «تسجيل توريد اليوم بالكامل» فوق مناديب اليوم</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>الزرار مقفول لحد ما المبلغ يطابق المطلوب بالظبط، والفرق يظهر لحظيًا، وEnter يسجّل</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.2.0</span><span class="cl-ver-date">05-11-2026</span></div>
+        <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>شاشة التأكيد: لكل مندوب جدول أوردرات واحد (الموظف · الوقت · الجلسة · الحالة) بدل بطاقة لكل جلسة، والتأكيد في شريط المندوب نفسه</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>قسمين جوه كل مندوب: «بانتظار التسجيل» (مفتوح) و«تم تسجيله» (مطوي)، والمبلغ المطلوب عدّه = المعلّق بس</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تبديل «يوم واحد / كل الأيام المعلّقة» في نفس الشاشة، والتأكيد جوه حدود كل يوم</span></li>
@@ -1078,7 +1087,7 @@ table.dt tr.xs td { background: var(--amber-light); }
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.0.1'; // 1.0.1 = الـ Worker بيقبل 100 أوردر في compare_orders (الواجهة بتبعتهم دفعة واحدة)
-const TOOL_VERSION = 'v1.2.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.3.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)

@@ -68,6 +68,7 @@ check('الرجوع ليوم واحد', await page.locator('#dayControls').isVis
 
 // فرق: 24000 — الزرار يفضل مقفول والفرق يظهر لحظيًا، ومفيش تسجيل
 await page.fill('#camt-0-0', '24000');
+if (shots) await page.screenshot({ path: `${shots}/01b-typing.png`, clip: { x: 0, y: 280, width: 1280, height: 120 } });
 check('فرق: الزرار مقفول والفرق ظاهر «ناقص 400»', await page.locator('#ccbtn-0-0').isDisabled() && (await page.locator('#chint-0-0').innerText()).includes('ناقص 400'));
 await page.press('#camt-0-0', 'Enter');
 check('Enter مع فرق مابيسجّلش حاجة', await page.locator('#confirmOverlay.open').count() === 0 && DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n === 0);
