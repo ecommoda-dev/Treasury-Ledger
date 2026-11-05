@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.1.0-blue)
+![version](https://img.shields.io/badge/version-v1.2.0-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -52,6 +52,12 @@
 - 🔴 `compare_orders`: أي أوردر ليه حركة بوسطة = `BOSTA_NET` (الرقم يتعرض من غير حكم) — المعادلة `netPayment − shipping − returnFees` ما بتنطبقش على الصافي.
 - الفحص: اختبار «بوسطة: courierCollect = Net Value…» في `tests/worker.test.mjs`.
 
+## واجهة تأكيد التوريد (v1.2.0 · 05-11-2026) — `index.html` فقط، الـ Worker ما اتغيّرش
+- لكل مندوب: شريط (الاسم · عدد الأوردرات · «تم تسجيل x/y» · خانة المبلغ المستلم + «تأكيد توريد المندوب كله» · المطلوب عدّه) وتحته جدول واحد مدموج (الموظف · الوقت · الجلسة · الأوردر · النوع · المبلغ · ملاحظات · الحالة). **مفيش تأكيد لكل جلسة لوحدها** — `confirm_session` لسه بيتنادى لكل `batchId` مفتوح لحد ما المبلغ يطابق.
+- قسمين جوه المندوب: «بانتظار التسجيل» (مفتوح، والمبلغ المطلوب عدّه = المعلّق بس، والجلسة المرفوضة `blocked` خارجه) و«تم تسجيله» (مطوي).
+- «يوم واحد / كل الأيام المعلّقة» في نفس الشاشة (تاب «لم يتم التسجيل» = اختصار لنطاق «كل الأيام المعلّقة»)؛ النطاق التاني بينادي `get_pending` ثم `get_day` لكل يوم، والتأكيد دايمًا جوه حدود اليوم.
+- النصوص: «لم يتم التسجيل» / «تم التسجيل»، الوقت `🕐 01:25 م/ص`، عمود «ملاحظات» بالأحمر (القيم: استرداد · مسجل مسبقاً · بوسطة — صافي بعد الرسوم · Extra Shipping).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -93,9 +99,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 04-11-2026 · `index.js` v1.1.0 · `index.html` v1.1.0
+آخر مطابقة: 04-11-2026 · `index.js` v1.1.0 · `index.html` v1.2.0
 🔴 معلّقة: تسجيل `treasury_ledger` في `ecommoda-constants` §7.1 (مهمة أحمد) · `check-log-values.mjs` نسخة محلية مبسّطة
 
-آخر تحديث: 04-11-2026 — v1.1.0 (استثناء صفوف بوسطة من مقارنة Shopify + توثيق العقد)
+آخر تحديث: 05-11-2026 — `index.html` v1.2.0 (جدول المندوب المدموج + أقسام التسجيل + نطاق «كل الأيام المعلّقة»)
 
 </div>
