@@ -9,7 +9,7 @@ const SECRET = 'test-secret';
 
 function setup(envExtra = {}) {
   const DB = makeDB(schema);
-  DB.raw.exec(`INSERT INTO employees (username, display_name, pin, is_active) VALUES ('Sara_Cash','Sara','1234',1),('Old_Emp','Old','1111',0)`);
+  DB.raw.exec(`INSERT INTO employees (username, display_name, pin, is_active) VALUES ('Sara_Cash','Sara','1234',1),('Old_Emp','Old','1111',0),('Ahmed_Ibraheem','Ahmed Ibraheem','9999',1)`);
   return { DB, env: { DB, WORKER_SECRET: SECRET, ...envExtra } };
 }
 async function call(env, action, { method = 'GET', body, params = {} } = {}) {
@@ -314,4 +314,96 @@ test('الطبقة ٥: كل type بيكتبه الكود مسجّل (مفيش _u
   const bad = DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE tool='treasury_ledger' AND extra LIKE '%_unregistered%'").get().n;
   assert.equal(bad, 0);
   assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM log_value_alerts').get().n, 0);
+});
+
+// ─── v1.2.0 — التسوية التاريخية + الرجل المعلّقة ───
+const shopNode = (id, name, net, ship = '0.00', fees = []) => ({ id: `gid://shopify/Order/${id}`, legacyResourceId: id, name, displayFinancialStatus: 'PARTIALLY_REFUNDED', cancelledAt: null,
+  netPaymentSet: { shopMoney: { amount: net } }, totalShippingPriceSet: { shopMoney: { amount: ship } }, totalOutstandingSet: { shopMoney: { amount: '0.0' } },
+  returns: { pageInfo: { hasNextPage: false }, nodes: [{ returnShippingFees: fees.map(f => ({ amountSet: { shopMoney: { amount: f } } })) }] } });
+function mockShopify(nodes) {
+  return async (u, opts) => {
+    if (String(u).includes('/oauth/')) return new Response(JSON.stringify({ access_token: 't' }), { status: 200 });
+    const q = JSON.parse(opts.body).query;
+    if (/metafieldsSet/.test(q)) return new Response(JSON.stringify({ data: { metafieldsSet: { metafields: [], userErrors: [] } } }), { status: 200 });
+    if (/orders\(first/.test(q)) return new Response(JSON.stringify({ data: { orders: { nodes: nodes.map(n => ({ legacyResourceId: n.legacyResourceId, name: n.name })) } } }), { status: 200 });
+    return new Response(JSON.stringify({ data: { nodes } }), { status: 200 });
+  };
+}
+
+test('تسوية تاريخية: أحمد بس + PIN، مش النهارده، المعاينة ما بتكتبش، والمستثنى (مرفوضة/ناقصة/بفرق) بيفضل معلّق', async () => {
+  const { DB, env } = setup();
+  const D = '2026-10-05', ts = '2026-10-05T10:00:00.000Z';
+  session(DB, { batchId: 'ok1', ts, rows: [{ orderId: '1', orderName: '#1', cc: 1000 }, { orderId: '2', orderName: '#2', cc: -200, type: 'refund' }], xs: [{ orderId: '1', orderName: '#1', courier: 'Saif', amount: '50.00' }] });
+  session(DB, { batchId: 'ok2', ts, courier: 'Magdy', rows: [{ orderId: '3', orderName: '#3', cc: 300 }] });
+  session(DB, { batchId: 'inc', ts, rows: [{ orderId: '4', orderName: '#4', cc: 100 }], orders: 2 });                 // ناقصة
+  seed(DB, { ts, orderId: '5', orderName: '#5', extra: { result: 'success', batchId: 'blk', courier: 'Saif', courierCollect: null } });   // مرفوضة
+  session(DB, { batchId: 'dif', ts, rows: [{ orderId: '6', orderName: '#6', cc: 700 }] });
+  await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'dif', date: D, employee: 'Sara_Cash', receivedAmount: '600' } });
+  session(DB, { batchId: 'done', ts, rows: [{ orderId: '7', orderName: '#7', cc: 80 }] });
+  await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'done', date: D, employee: 'Sara_Cash', receivedAmount: '80' } });
+  const before = DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n;
+
+  const post = (body) => call(env, 'settle_historical', { method: 'POST', body: { date: D, ...body } });
+  assert.equal((await post({ employee: 'Sara_Cash', pin: '1234' })).status, 403);              // مش أحمد
+  assert.equal((await post({ employee: 'Ahmed_Ibraheem', pin: '0000' })).status, 403);         // PIN غلط
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(new Date());
+  assert.equal((await call(env, 'settle_historical', { method: 'POST', body: { date: today, employee: 'Ahmed_Ibraheem', pin: '9999' } })).status, 400);
+  assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE tool='treasury_ledger' AND type='historical_settle_rejected'").get().n, 3);
+
+  const pv = (await post({ employee: 'Ahmed_Ibraheem', pin: '9999', dryRun: true })).body;
+  assert.equal(pv.status, 'preview');
+  assert.deepEqual(pv.eligible.map(x => x.batchId).sort(), ['ok1', 'ok2']);
+  assert.equal(pv.expected, '1050.00');                           // (1000 − 200 − 50) + 300
+  assert.equal(pv.entries, 4);
+  assert.deepEqual(Object.fromEntries(pv.skipped.map(x => [x.batchId, x.reason])), { inc: 'incomplete', blk: 'blocked', dif: 'diff' });
+  assert.equal(pv.alreadyConfirmed, 1);
+  assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n, before);   // المعاينة ما كتبتش
+
+  const ex = (await post({ employee: 'Ahmed_Ibraheem', pin: '9999' })).body;
+  assert.equal(ex.status, 'success'); assert.equal(ex.sessions, 2);
+  assert.deepEqual(ex.orderIds.sort(), ['1', '2', '3']);
+  const c = DB.raw.prepare("SELECT * FROM treasury_confirmations WHERE batch_id='ok1'").get();
+  assert.equal(c.session_flags, 'historical'); assert.equal(c.treasury_employee, 'Ahmed_Ibraheem');
+  assert.equal(c.received_piastres, c.expected_piastres);
+  const notes = DB.raw.prepare("SELECT note, source FROM treasury_ledger WHERE source_batch_id='ok1' ORDER BY id").all();
+  assert.deepEqual(notes.map(n => n.note), ['تسوية تاريخية', 'تسوية تاريخية · استرداد', 'تسوية تاريخية · Extra Shipping']);
+  assert.equal(notes[2].source, 'cod_extra_shipping');            // المصدر ما اتغيّرش → المقارنة بتستثني الشحن الإضافي زي العادي
+  assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE tool='treasury_ledger' AND type='historical_settled'").get().n, 1);
+
+  // تاني مرة: مفيش حاجة · والتأكيد العادي على جلسة اتسوّت = already · والمستثنى لسه معلّق
+  assert.equal((await post({ employee: 'Ahmed_Ibraheem', pin: '9999' })).body.status, 'nothing');
+  assert.equal((await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'ok2', date: D, employee: 'Sara_Cash', receivedAmount: '300' } })).body.status, 'already');
+  const day = (await call(env, 'get_day', { params: { date: D } })).body;
+  assert.equal(day.sessions.find(x => x.batchId === 'ok1').confirmation.flags, 'historical');
+  assert.deepEqual(day.sessions.filter(x => x.status !== 'confirmed').map(x => x.batchId).sort(), ['blk', 'dif', 'inc']);
+  const bad = DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE tool='treasury_ledger' AND extra LIKE '%_unregistered%'").get().n;
+  assert.equal(bad, 0);
+});
+
+test('الرجل المعلّقة (#63567): تحصيل معلّق + استرداد متسجّل = AWAITING_LEG (مش SHORT)، وبعد التسوية = MATCH', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([shopNode('63', '#63567', '75.00', '0.00', ['75.00'])]);   // متوقع شوبيفاي 0
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    session(DB, { batchId: 'pay', ts: '2026-11-03T11:35:00.000Z', courier: 'Magdy', rows: [{ orderId: '63', orderName: '#63567', cc: 2600 }] });
+    session(DB, { batchId: 'ref', ts: '2026-11-04T11:24:00.000Z', courier: 'Magdy', rows: [{ orderId: '63', orderName: '#63567', cc: -2600, type: 'refund' }] });
+    await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'ref', date: '2026-11-04', employee: 'Sara_Cash', receivedAmount: '-2600' } });
+
+    const o = (await call(env, 'get_order', { params: { orderName: '63567' } })).body;
+    assert.equal(o.total, '-2600.00');
+    assert.equal(o.shopify.status, 'AWAITING_LEG');
+    assert.equal(o.shopify.diff, '-2600.00');
+    assert.equal(o.shopify.projectedDiff, '0.00'); assert.equal(o.shopify.willMatch, true);
+    assert.deepEqual(o.shopify.pending, { amount: '+2600.00', count: 1, days: ['2026-11-03'] });
+    const cmp = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['63'] } })).body.results[0];
+    assert.equal(cmp.status, 'AWAITING_LEG'); assert.equal(cmp.willMatch, true);
+
+    // جلسة 03-11 المعلّقة: علامة إن الأوردر عليه حركة متسجّلة في جلسة تانية
+    const d3 = (await call(env, 'get_day', { params: { date: '2026-11-03' } })).body;
+    assert.equal(d3.sessions[0].rows[0].elsewhere, '-2600.00');
+
+    await call(env, 'settle_historical', { method: 'POST', body: { date: '2026-11-03', employee: 'Ahmed_Ibraheem', pin: '9999' } });
+    const o2 = (await call(env, 'get_order', { params: { orderName: '63567' } })).body;
+    assert.equal(o2.total, '0.00'); assert.equal(o2.shopify.status, 'MATCH'); assert.equal(o2.shopify.pending, null);
+  } finally { globalThis.fetch = realFetch; }
 });
