@@ -358,13 +358,15 @@ body {
 /* بطاقة المندوب (الأهمية لتحصيل المندوب كله) */
 .cg { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; }
 .cg.all-ok { border-color: var(--green-border); }
-.cg-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.cg-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.cg-cell { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 14px; border-inline-start: 1px solid var(--border); min-width: 0; }
+.cg-cell:first-child { border-inline-start: 0; }
+@media (max-width: 760px) { .cg-head { grid-template-columns: 1fr auto; } .cg-cell { border-inline-start: 0; border-top: 1px solid var(--border); } .cg-cell.c-id { grid-column: 1 / -1; border-top: 0; } .cg-cell.c-in { grid-column: 1 / -1; } }
 .cg.all-ok .cg-head { background: var(--green-light); border-color: var(--green-border); }
 .cg-name { font-size: 16px; font-weight: 800; }
-.cg-head .sp { flex: 1; }
-.cg-total { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+.cg-total { display: flex; align-items: baseline; gap: 6px; line-height: 1.2; }
 .cg-total .k { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
-.cg-total .amt { font-family: var(--font-mono); font-size: 20px; font-weight: 800; direction: ltr; }
+.cg-total .amt { font-family: var(--font-mono); font-size: 18px; font-weight: 800; direction: ltr; }
 .cg-sec { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--border); background: var(--surface-2); font-size: 13px; font-weight: 800; width: 100%; text-align: start; font-family: inherit; color: inherit; }
 .cg-sec .sub { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
 .cg-sec .amt { margin-inline-start: auto; font-family: var(--font-mono); direction: ltr; font-weight: 800; }
@@ -2033,12 +2035,13 @@ function courierCard(vi, gi, courier, list, pendingScope) {
       <span class="amt ${amtClass(donePi)}">${fmtNum((donePi / 100).toFixed(2))}</span></button>${isDoneOpen ? sessionsTable(done) : ''}` : '';
   return `<div class="cg ${allOk ? 'all-ok' : ''}" data-cg="${vi}-${gi}">
     <div class="cg-head">
-      <span class="cg-name">🛵 ${esc(courier)}</span>
-      <span class="chip"><strong>${allN}</strong> أوردر</span>
-      ${box}
-      <span class="sp"></span>
-      <span class="cg-total">${open.length ? '' : '<span class="k">إجمالي المسجّل</span>'}<span class="amt ${amtClass(totalPi)}">${fmtNum((totalPi / 100).toFixed(2))}</span></span>
-      <button type="button" class="cg-arrow" onclick="toggleCourier(${vi},${gi})" aria-expanded="${!closed}" aria-label="${closed ? 'فتح' : 'طيّ'} ${esc(courier)}" title="${closed ? 'فتح' : 'طيّ'}">${closed ? CHEV.down : CHEV.up}</button>
+      <div class="cg-cell c-id">
+        <span class="cg-name">🛵 ${esc(courier)}</span>
+        <span class="chip"><strong>${allN}</strong> أوردر</span>
+        <span class="cg-total">${open.length ? '' : '<span class="k">إجمالي المسجّل</span>'}<span class="amt ${amtClass(totalPi)}">${fmtNum((totalPi / 100).toFixed(2))}</span></span>
+      </div>
+      <div class="cg-cell c-in">${box}</div>
+      <div class="cg-cell c-ar"><button type="button" class="cg-arrow" onclick="toggleCourier(${vi},${gi})" aria-expanded="${!closed}" aria-label="${closed ? 'فتح' : 'طيّ'} ${esc(courier)}" title="${closed ? 'فتح' : 'طيّ'}">${closed ? CHEV.down : CHEV.up}</button></div>
     </div>
     <div class="cg-progress"><i style="width:${allN ? Math.round(countOrders(done) / allN * 100) : 0}%"></i></div>
     ${closed ? '' : pendSec + doneSec}
