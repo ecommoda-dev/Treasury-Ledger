@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.3.0)
+// EcomModa — Treasury-Ledger (v1.4.0)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.3.0';
+const WORKER_VERSION = '1.4.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -892,17 +892,20 @@ async function writeMirror(env, orderIds, costLog = null) {
 }
 
 // ─── §LEDGER::compare — مقارنة الدفتر ↔ Shopify (قراءة فقط · §7.2) ───
-// المتوقع من Shopify = netPaymentSet − totalShippingPriceSet − Σ returns[].returnShippingFees
+// المتوقع من Shopify = netPaymentSet − الشحن الحالي − Σ returns[].returnShippingFees (الدورات الفعّالة)
+// 🆕 v1.4.0: الشحن = currentShippingPriceSet (مش totalShippingPriceSet) — على أوردر ملغي الشحن بيترد
+//    (#49682: total=100 · current=0 · refundedShipping=100)، فالـ total كان بيخصم شحن العميل ما دفعوش.
 // ويتقارن بـ Σ حركات الأوردر **من غير** Extra Shipping (مالهاش وجود على Shopify).
 const Q_COMPARE = `query TreasuryCompare($ids: [ID!]!) {
   nodes(ids: $ids) { ... on Order {
     id legacyResourceId name displayFinancialStatus cancelledAt
     netPaymentSet { shopMoney { amount } }
     totalShippingPriceSet { shopMoney { amount } }
+    currentShippingPriceSet { shopMoney { amount } }
     totalOutstandingSet { shopMoney { amount } }
     currentTotalPriceSet { shopMoney { amount } }
-    transactions { kind status gateway amountSet { shopMoney { amount } } }
-    returns(first: 10) { pageInfo { hasNextPage } nodes { returnShippingFees { amountSet { shopMoney { amount } } } } }
+    transactions { kind status gateway processedAt amountSet { shopMoney { amount } } }
+    returns(first: 10) { pageInfo { hasNextPage } nodes { status createdAt returnShippingFees { amountSet { shopMoney { amount } } } } }
   } }
 }`;
 
@@ -974,24 +977,33 @@ const CASH_GATEWAY_RE = /cash on delivery|\bcod\b|manual/i;
 // بيرجّع null لو المعاملات ما اتجابتش (الحقل غايب) — وقتها بنرجع لـ netPaymentSet.
 function cashFromTransactions(node) {
   if (!Array.isArray(node?.transactions)) return null;
-  const sales = [], refunds = [];
+  const sales = [], refunds = [], saleAt = [];
   for (const t of node.transactions) {
     if (!t || t.status !== 'SUCCESS' || !CASH_GATEWAY_RE.test(String(t.gateway || ''))) continue;
     const p = money(t.amountSet);
-    if (t.kind === 'SALE' || t.kind === 'CAPTURE') sales.push(p);
+    if (t.kind === 'SALE' || t.kind === 'CAPTURE') { sales.push(p); saleAt.push(String(t.processedAt || '')); }
     else if (t.kind === 'REFUND') refunds.push(p);
   }
   const sum = (a) => a.reduce((s, x) => s + x, 0);
-  return { sales, refunds, received: sum(sales) - sum(refunds) };
+  return { sales, refunds, saleAt, received: sum(sales) - sum(refunds) };
 }
 
 // تقسيم الخسارة على الرجلين (تقريبي): بنزاوج كل معاملة Shopify بحركة الدفتر بترتيب المبلغ (الصافي ≤ الإجمالي دايمًا).
 // مابنزاوجش إلا لو العدد متساوي ومفيش استردادات/تصحيحات والرسوم منطقية — غير كده null (يفضل الإجمالي بس).
-function pairLegs(sales, ledgerIns) {
+// 🆕 v1.4.0: الرجلين بيترتّبوا بتاريخ المعاملة، وشحن العميل بيتوزّع: الشحن الأصلي على أول رجل ورسوم كل مرتجع
+//    (بترتيب createdAt) على الرجل اللي بعده ← خسارة الرجل = رسوم بوسطة − شحنه. لو العدد مش متطابق: shipping/loss = null.
+function pairLegs(sales, saleAt, ledgerIns, legShipping) {
   if (!sales.length || sales.length !== ledgerIns.length) return null;
-  const a = [...sales].sort((x, y) => y - x), b = [...ledgerIns].sort((x, y) => y - x);
-  const legs = a.map((gross, i) => ({ gross, net: b[i], fee: gross - b[i] }));
+  const a = sales.map((gross, i) => ({ gross, at: saleAt?.[i] || '' })).sort((x, y) => y.gross - x.gross);
+  const b = [...ledgerIns].sort((x, y) => y - x);
+  const legs = a.map((x, i) => ({ gross: x.gross, at: x.at, net: b[i], fee: x.gross - b[i] }));
   if (legs.some(l => l.fee < 0 || l.fee > l.gross * 0.5)) return null;
+  legs.sort((x, y) => x.at.localeCompare(y.at));
+  const alloc = legShipping && legShipping.length === legs.length;
+  for (const [i, l] of legs.entries()) {
+    l.ship = alloc ? legShipping[i] : null;
+    l.loss = alloc ? l.fee - legShipping[i] : null;
+  }
   return legs;
 }
 
@@ -1007,23 +1019,35 @@ function compareOrder(entries, node, preWindow, pending = null) {
   if (!node) return { status: 'UNKNOWN', ledger: fmtMoney(ledgerNet), shopify: null, diff: null, pending: pendingOut, settlement: null, reason: 'الأوردر مش لاقيه على شوبيفاي' };
 
   const bosta = cashEntries.some(e => e.source === BOSTA_SRC) || !!pending?.bosta;
-  const net = money(node.netPaymentSet), ship = money(node.totalShippingPriceSet);
-  const retFees = (node.returns?.nodes || []).flatMap(r => r.returnShippingFees || []).reduce((s, f) => s + money(f.amountSet), 0);
+  const net = money(node.netPaymentSet);
+  const ship = node.currentShippingPriceSet ? money(node.currentShippingPriceSet) : money(node.totalShippingPriceSet);
+  // رسوم المرتجع للدورات الفعّالة بس (CANCELED/DECLINED مالهاش رسوم)، بترتيب createdAt (للتوزيع على الرجلين)
+  const retList = (node.returns?.nodes || []).filter(r => !['CANCELED', 'DECLINED'].includes(r?.status))
+    .sort((x, y) => String(x.createdAt || '').localeCompare(String(y.createdAt || '')))
+    .map(r => (r.returnShippingFees || []).reduce((s, f) => s + money(f.amountSet), 0));
+  const retFees = retList.reduce((s, x) => s + x, 0);
   const unreliable = !!node.returns?.pageInfo?.hasNextPage;
   const shopExpected = net - ship - retFees;
   const diff = ledgerNet - shopExpected;             // موجب = الخزنة أكتر
   const outstanding = money(node.totalOutstandingSet);
   const inProgress = node.displayFinancialStatus === 'PARTIALLY_PAID' || outstanding > 0;
 
-  // ─── 🆕 التسوية المالية (v1.3.0): المتحصَّل من العميل ↔ الداخل الخزنة ← الخسارة ───
-  //   الخسارة = (المتحصَّل النقدي − الشحن المخصوم) − (حركات الدفتر + الشحن الإضافي)
-  //   الشحن العادي ورسوم المرتجع (مندوب) = «شحن مخصوم» خارج الخسارة (قرار أحمد 10-11)؛ بوسطة: كل الفرق = رسوم بوسطة.
+  // ─── التسوية المالية (v1.3.0 · معادلة موحّدة من v1.4.0): المتحصَّل من العميل ↔ الداخل الخزنة ← الخسارة ───
+  //   الخسارة = (المتحصَّل النقدي − شحن دفعه العميل) − (حركات الدفتر + الشحن الإضافي) — **نفس المعادلة للمندوب وبوسطة**.
+  //   مندوب: الشحن = أجر المندوب (خارج الخسارة — قرار أحمد 10-11) والباقي فرق غير مفسَّر.
+  //   🆕 v1.4.0 بوسطة: الشحن اللي العميل دفعه بيغطّي جزء من رسوم بوسطة (قرار أحمد 10-11 — #49395: 6200 − 75 − 75 − 5844.6 = 205.4)
+  //   ← الخسارة = رسوم بوسطة − شحن العميل. ورسوم بوسطة أقل من شحن العميل «مستحيلة» (قرار أحمد) ← تنبيه over.
+  //   رسوم المرتجع اللي لسه على العميل (outstanding) ما بتتخصمش، والشحن المخصوم ما يعدّيش المتحصَّل نفسه.
   const cashTx = cashFromTransactions(node);
   const cashReceived = cashTx ? cashTx.received : net;
   const nonCash = net - cashReceived;
-  const deducted = bosta ? 0 : ship + retFees;
+  const retPaid = Math.max(0, retFees - Math.max(0, outstanding));
+  const shipDue = ship + retPaid;
+  const deducted = Math.min(shipDue, Math.max(0, cashReceived));
+  const capped = deducted !== shipDue;
   const xsCost = -xsNet;
-  const other = cashReceived - deducted - ledgerNet;     // بوسطة = رسوم · غيره = فرق غير مفسَّر
+  const other = cashReceived - deducted - ledgerNet;     // بوسطة = رسوم بوسطة بعد شحن العميل · غيره = فرق غير مفسَّر
+  const bostaFees = bosta ? cashReceived - ledgerNet : null;   // رسوم بوسطة الكاملة (قبل خصم شحن العميل)
   const lossTotal = xsCost + other;
   const total = node.currentTotalPriceSet ? money(node.currentTotalPriceSet) : null;
   const refundDue = total === null ? 0 : Math.max(0, net - total);
@@ -1034,21 +1058,30 @@ function compareOrder(entries, node, preWindow, pending = null) {
   if (refundDue > 0) reasons.push('لسه فيه استرداد للعميل');
   if (preWindow) reasons.push('الأوردر ليه صفوف قبل 01-10 (الدفتر ناقص بطبيعته)');
   if (!cashEntries.length && cashReceived - deducted !== 0) reasons.push('الأوردر مش في الدفتر');
-  if (cashEntries.length && cashEntries.some(e => e.source === BOSTA_SRC) && cashEntries.some(e => e.source !== BOSTA_SRC)) reasons.push('الأوردر عليه مصدرين (بوسطة + مندوب) — الشحن المخصوم متحسبش');
+  if (cashEntries.length && cashEntries.some(e => e.source === BOSTA_SRC) && cashEntries.some(e => e.source !== BOSTA_SRC)) reasons.push('الأوردر عليه مصدرين (بوسطة + مندوب) — الفرق مش كله رسوم بوسطة');
+  if (retPaid !== retFees) reasons.push('رسوم المرتجع لسه على العميل — ما اتخصمتش');
+  // شحن كل رجل بالترتيب: الشحن الأصلي ثم رسوم كل مرتجع — بس لو المدفوع كامل (من غير قصّ ولا رسوم معلّقة)
+  const legShipping = !capped && retPaid === retFees ? [ship, ...retList] : null;
   const legs = bosta && cashTx && !cashTx.refunds.length && cashEntries.length && cashEntries.every(e => e.kind === KIND.IN && e.amount_piastres > 0)
-    ? pairLegs(cashTx.sales, cashEntries.map(e => e.amount_piastres)) : null;
+    ? pairLegs(cashTx.sales, cashTx.saleAt, cashEntries.map(e => e.amount_piastres), legShipping) : null;
   const settlement = {
     customer: { total: total === null ? null : fmtMoney(total), netPayment: fmtMoney(net), cashReceived: fmtMoney(cashReceived),
       cashSource: cashTx ? 'transactions' : 'netPayment', nonCash: fmtMoney(nonCash), outstanding: fmtMoney(outstanding),
       refundDue: fmtMoney(refundDue), settled },
     treasury: { cash: fmtMoney(ledgerNet), extraShipping: fmtMoney(xsCost), net: fmtMoney(ledgerNet + xsNet) },
-    deducted: { total: fmtMoney(deducted), shipping: fmtMoney(bosta ? 0 : ship), returnFees: fmtMoney(bosta ? 0 : retFees) },
-    loss: { total: fmtMoney(lossTotal), extraShipping: fmtMoney(xsCost), other: fmtMoney(other), otherKind: bosta ? 'BOSTA_FEES' : 'UNEXPLAINED' },
+    deducted: { total: fmtMoney(deducted), shipping: fmtMoney(capped ? Math.min(ship, deducted) : ship),
+      returnFees: fmtMoney(capped ? Math.max(0, deducted - ship) : retPaid), returnFeesUnpaid: fmtMoney(retFees - retPaid) },
+    loss: { total: fmtMoney(lossTotal), extraShipping: fmtMoney(xsCost), other: fmtMoney(other), otherKind: bosta ? 'BOSTA_FEES' : 'UNEXPLAINED',
+      bostaFees: bostaFees === null ? null : fmtMoney(bostaFees) },
     bosta,
     state: reasons.length ? 'PROVISIONAL' : 'FINAL', reasons,
     projectedLoss: pending ? fmtMoney(xsCost + other - pending.piastres) : null,
-    over: other < 0 && !pending && !preWindow,        // الداخل أكتر من المتحصَّل — المفروض ما يحصلش
-    legs: legs ? legs.map(l => ({ shopify: fmtMoney(l.gross), ledger: fmtMoney(l.net), fee: fmtMoney(l.fee) })) : null,
+    // الداخل أكتر من (المتحصَّل − شحن العميل) — المفروض ما يحصلش. في بوسطة = رسوم بوسطة أقل من شحن العميل (قرار أحمد: تنبيه).
+    // 🆕 v1.4.0: بيشتغل على العميل المقفول بس — غير كده الخسارة أصلاً مؤقتة والفرق ممكن يكون تحصيل/استرداد لسه ما حصلش.
+    over: other < 0 && settled && !pending && !preWindow,
+    overKind: other < 0 ? (bosta && ledgerNet <= cashReceived ? 'BOSTA_FEES_BELOW_SHIPPING' : 'OVER_COLLECTED') : null,
+    legs: legs ? legs.map(l => ({ shopify: fmtMoney(l.gross), ledger: fmtMoney(l.net), fee: fmtMoney(l.fee),
+      shipping: l.ship === null ? null : fmtMoney(l.ship), loss: l.loss === null ? null : fmtMoney(l.loss) })) : null,
   };
 
   // الرجل المعلّقة ليها الأولوية: الحكم النهائي بعد ما الجلسة المعلّقة تتسجّل
@@ -1098,8 +1131,11 @@ async function syncSettlementAlerts(db, items) {
     const st = cmp.settlement, was = latest.get(orderName);
     if (st.over && was !== 'settlement_over') {
       await safeLog(db, { type: 'settlement_over', orderId: orderId ?? null, orderName, valueAfter: parseFloat(st.loss.other),
-        notes: `الداخل الخزنة أكتر من المتحصَّل بـ ${fmtMoney(-toPiastres(st.loss.other))}`,
-        extra: { result: 'warning', stage: 'lookup', cashReceived: st.customer.cashReceived, ledger: st.treasury.cash, other: st.loss.other } });
+        notes: st.overKind === 'BOSTA_FEES_BELOW_SHIPPING'
+          ? `رسوم بوسطة (${st.loss.bostaFees}) أقل من الشحن اللي دفعه العميل (${st.deducted.total}) بـ ${fmtMoney(-toPiastres(st.loss.other))}`
+          : `الداخل الخزنة أكتر من المتحصَّل بعد الشحن بـ ${fmtMoney(-toPiastres(st.loss.other))}`,
+        extra: { result: 'warning', stage: 'lookup', kind: st.overKind, cashReceived: st.customer.cashReceived, deducted: st.deducted.total,
+                 ledger: st.treasury.cash, other: st.loss.other } });
     } else if (!st.over && was === 'settlement_over') {
       await safeLog(db, { type: 'settlement_cleared', orderId: orderId ?? null, orderName, extra: { result: 'success', stage: 'lookup' } });
     }
