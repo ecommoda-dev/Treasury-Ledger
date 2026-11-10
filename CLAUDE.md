@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.4.0-blue)
+![version](https://img.shields.io/badge/version-v1.5.0-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -50,7 +50,7 @@
 - 🔴 `courierCollect` = **Net Value** (المحصَّل − رسوم بوسطة + Flex Ship) = اللي بوسطة حوّلته فعلاً، **مش** مبلغ شوبيفاي. أوردرات «بدون تحصيل» (ملغي/استبدال بلا فرق) ليها صف برسومها السالبة (`extra.noCollection=true`).
 - `batchId = bosta-<Cash-out ID>` — جلسة واحدة لكل تحويل، و`batchExpected.orders` = **كل** صفوف الملف، فالجلسة تظهر **«ناقصة»** لحد ما كل الصفوف تتسجّل. ⚠️ قرار أحمد: **الخزنة ما تأكّدش قبل الاكتمال** (التطبيق ما بيمنعش التأكيد — ده إجراء تشغيلي).
 - الدفتر: `source='bosta_cash_cycle'` وملاحظة «بوسطة — صافي بعد الرسوم».
-- 🔴 `compare_orders`: أي أوردر ليه حركة بوسطة = `BOSTA_NET` (الرقم يتعرض من غير حكم) — المعادلة `netPayment − shipping − returnFees` ما بتنطبقش على الصافي.
+- 🔴 `compare_orders`: أي أوردر ليه حركة بوسطة = `BOSTA_FEES` (من v1.3.0؛ كان `BOSTA_NET` بلا حكم) — المعادلة `netPayment − shipping − returnFees` ما بتنطبقش على الصافي، والحكم من كارت التسوية.
 - الفحص: اختبار «بوسطة: courierCollect = Net Value…» في `tests/worker.test.mjs`.
 
 ## واجهة تأكيد التوريد (v1.2.0 → v1.3.0 · 05-11-2026) — `index.html` فقط، الـ Worker ما اتغيّرش
@@ -72,6 +72,19 @@
 - `get_day`: كل صف في جلسة غير مؤكدة عليه `elsewhere` = Σ حركات الأوردر في جلسات تانية (لو ≠ 0) ← الواجهة: «⚠️ عليه … متسجّل في جلسة تانية».
 - القياس قبل التشغيل (D1 قراءة 05-11): 240 جلسة في النافذة · 2 مؤكدين · 1 ناقصة (5,400) · صفر مرفوضة · صفر بوسطة · 2 محاولة بفرق (على الجلسات اللي اتأكدت).
 
+## 🆕 التسوية المالية للأوردر (Worker v1.3.0 · واجهة v1.5.0 · 10-11-2026)
+**الفكرة:** الأوردر يتقفل من ناحية العميل (مفيش تحصيل ولا استرداد متبقي) + نعرف دخل الخزنة كام فعلاً ← **الخسارة**. على مستوى الأوردر بس (تابات اليوم الكامل لاحقًا، ومفيش كاش في D1 — قرار أحمد).
+- المصدر: Shopify (`transactions` + `currentTotalPriceSet` + `totalOutstandingSet`) + الدفتر. **مش محتاجة سجل أداة التحصيل** (إلا للرجل المعلّقة).
+- **المتحصَّل النقدي** = Σ (SALE|CAPTURE ناجحة) − Σ REFUND ناجحة على بوابات `CASH_GATEWAY_RE` (COD / Manual) بس. أي بوابة تانية = `nonCash` (بيتعرض ومش خسارة). لو المعاملات ما اتجابتش → `netPaymentSet` (`cashSource`).
+- **الخسارة** = (المتحصَّل النقدي − الشحن المخصوم) − (حركات الدفتر + الشحن الإضافي):
+  - مندوب: الشحن العادي + رسوم المرتجع = «شحن مخصوم» **خارج** الخسارة (قرار أحمد) · الخسارة = شحن إضافي + فرق غير مفسَّر.
+  - بوسطة: ما فيش شحن مخصوم — كل الفرق = رسوم بوسطة (`otherKind=BOSTA_FEES`).
+- «مقفول» = `totalOutstanding = 0` ومفيش `refundDue` (net > currentTotal). **الخسارة `PROVISIONAL`** لو: رجل معلّقة · عميل لسه عليه · قبل 01-10 · مش في الدفتر · مصدرين (بوسطة+مندوب).
+- `legs[]`: تقسيم خسارة بوسطة على الرجلين — **تقريبي** (مزاوجة بترتيب المبلغ؛ بتتلغى لو العدد مختلف/فيه استرداد/رسوم > 50%).
+- 🔴 `BOSTA_NET` اتشال → **`BOSTA_FEES`** (حكم فعلي): الأوردر ما بيتقارنش بمعادلة الشحن، والرقم الحاكم في `settlement`.
+- **تنبيه `OVER_COLLECTED`** (الداخل أكتر من المتحصَّل — المفروض ما يحصلش): بيتسجّل لوج `settlement_over` لحظة فحص الأوردر (`get_order`/`compare_orders`)، و`settlement_cleared` لما يتصلّح؛ `get_alerts` بيقرا آخر لوج لكل أوردر. **مفيش مسح تلقائي.**
+- ⚠️ لسه محتاج تأكيد حي: سقف التكلفة (`COMPARE_PER_QUERY`) بعد إضافة `transactions` (قيس من `?action=diag`)، وإن `currentTotalPriceSet` بيعكس الاستبدال/الاسترداد زي المتوقع.
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -80,7 +93,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## المقارنة مع Shopify (قراءة فقط)
 `المتوقع = netPaymentSet − totalShippingPriceSet − Σ returns[].returnShippingFees` ويتقارن بـ Σ حركات الأوردر **من غير** Extra Shipping.
-الحالات: `AWAITING_LEG` (رجل معلّقة — ليها الأولوية) · `MATCH` · `SHORT` · `OVER` · `NOT_IN_LEDGER` · `LEDGER_ONLY` · `BOSTA_NET` · `IN_PROGRESS` (`PARTIALLY_PAID`/outstanding>0) · `PRE_WINDOW` (ليه صفوف تحصيل قبل 01-10).
+الحالات: `AWAITING_LEG` (رجل معلّقة — ليها الأولوية) · `MATCH` · `SHORT` · `OVER` · `NOT_IN_LEDGER` · `LEDGER_ONLY` · `BOSTA_FEES` (كانت `BOSTA_NET`) · `IN_PROGRESS` (`PARTIALLY_PAID`/outstanding>0) · `PRE_WINDOW` (ليه صفوف تحصيل قبل 01-10).
 `COMPARE_PER_QUERY = 100` (قرار أحمد 04-11-2026) **غير مقيس** — لو النداء اترفض لتجاوز سقف التكلفة (١٠٠٠ نقطة) قلّل الرقم في `index.js` (مع `MAX_ORDER_IDS`) وفي `CMP_CHUNK` بالواجهة؛ القياس من `?action=diag` (`actualQueryCost`).
 
 ## قبل أول نشر
@@ -88,7 +101,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## الاختبارات
 ```bash
-npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 17 اختبار
+npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 21 اختبار
 node check-log-values.mjs
 npm i --no-save postcss && npm run check:ui     # فحص CSS (parser) + ربط JS
 node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الواجهة الحقيقية ↔ الـ Worker الحقيقي
@@ -113,9 +126,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 05-11-2026 · `index.js` v1.2.0 · `index.html` v1.4.0
+آخر مطابقة: 10-11-2026 · `index.js` v1.3.0 · `index.html` v1.5.0
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 05-11-2026 — Worker v1.2.0 + `index.html` v1.4.0 (تسوية تاريخية لأحمد + `AWAITING_LEG` + علامة «متسجّل في جلسة تانية»)
+آخر تحديث: 10-11-2026 — Worker v1.3.0 + `index.html` v1.5.0 (كارت التسوية المالية + الخسارة + `BOSTA_FEES` + تنبيه `OVER_COLLECTED`)
 
 </div>

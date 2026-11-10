@@ -885,7 +885,17 @@ table.dt tr.xs td { background: var(--amber-light); }
     <div class="eco-modal-hdr"><span>📋 سجل التحديثات</span><button class="modal-close-x" onclick="closeChangelog()">✕</button></div>
     <div class="eco-modal-body">
       <div class="cl-version-block">
-        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">05-11-2026</span></div>
+        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">10-11-2026</span></div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>كارت «التسوية المالية» في سجل الأوردر: المتحصَّل من العميل (من معاملات Shopify النقدية) ↔ اللي دخل الخزنة ← <strong>الخسارة</strong>، مقسّمة: شحن إضافي · رسوم بوسطة · فرق غير مفسَّر. الشحن العادي ورسوم المرتجع (مندوب) «شحن مخصوم» خارج الخسارة.</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>حالة العميل: «مقفول» لو مفيش تحصيل ولا استرداد متبقي. الخسارة «مؤقتة» لحد ما الأوردر يتقفل وكل الجلسات تتسجّل.</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تقسيم الخسارة على رجلين بوسطة (تقريبي — مطابقة بالمبلغ).</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تنبيه «الخزنة أكتر من المتحصَّل» في التنبيهات (بيتسجّل لحظة فحص الأوردر).</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>أوردرات بوسطة بقى ليها حكم فعلي «بوسطة — فرق = رسوم» بدل «بلا مقارنة». يتطلب Worker v1.3.0.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.4.0</span><span class="cl-ver-date">05-11-2026</span></div>
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>«تسوية تاريخية» (أحمد بس + PIN) في «كل الأيام المعلّقة»: الجلسات اللي اتوردت قبل تشغيل الأداة بتتسجّل من غير عدّ بملاحظة «تسوية تاريخية» — معاينة الأول، وكل يوم ذرّي لوحده، وبعدها المرآة على كل الأوردرات على دفعات. المرفوضة والناقصة واللي عليها فرق بتفضل معلّقة للمعالجة اليدوي</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>مقارنة Shopify: أوردر ليه صف تحصيل في جلسة لسه ما اتسجّلتش = «⏳ مستني تسجيل جلسة» بدل «الخزنة أقل» الكاذب، مع الفرق المتوقع بعد التسجيل وزرار يفتح اليوم</span></li>
@@ -1114,8 +1124,8 @@ table.dt tr.xs td { background: var(--amber-light); }
 // ══════════════════════════════════════════════════════
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
-const MIN_WORKER_VERSION = '1.2.0'; // 1.2.0 = settle_historical + AWAITING_LEG + علامة elsewhere في get_day
-const TOOL_VERSION = 'v1.4.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const MIN_WORKER_VERSION = '1.3.0'; // 1.3.0 = كارت التسوية المالية (settlement) + BOSTA_FEES + تنبيه OVER_COLLECTED
+const TOOL_VERSION = 'v1.5.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2413,7 +2423,7 @@ const CMP_BADGE = {
   MATCH: ['badge-success', 'مطابق'], SHORT: ['badge-danger', 'الخزنة أقل'], OVER: ['badge-danger', 'الخزنة أكتر'],
   NOT_IN_LEDGER: ['badge-warn', 'مش في الدفتر'], LEDGER_ONLY: ['badge-warn', 'في الدفتر بس'],
   AWAITING_LEG: ['badge-info', '⏳ مستني تسجيل جلسة'],
-  BOSTA_NET: ['badge-neutral', 'بوسطة (صافي بعد الرسوم — بلا مقارنة)'], IN_PROGRESS: ['badge-info', 'قيد التنفيذ'], PRE_WINDOW: ['badge-neutral', 'قبل 01-10 (الدفتر ناقص بطبيعته)'], UNKNOWN: ['badge-danger', 'مش لاقيه على Shopify'],
+  BOSTA_FEES: ['badge-info', 'بوسطة — فرق = رسوم'], BOSTA_NET: ['badge-neutral', 'بوسطة (صافي بعد الرسوم)'], IN_PROGRESS: ['badge-info', 'قيد التنفيذ'], PRE_WINDOW: ['badge-neutral', 'قبل 01-10 (الدفتر ناقص بطبيعته)'], UNKNOWN: ['badge-danger', 'مش لاقيه على Shopify'],
 };
 // AWAITING_LEG ليها نصّين: هيتطابق بعد التسجيل / هيفضل فيه فرق بعد التسجيل
 function cmpBadge(r) {
@@ -2430,6 +2440,29 @@ async function lookupOrder(q) {
     const d = await apiGet('get_order', { orderName: raw });
     renderOrder(d);
   } catch (e) { box.innerHTML = `<div class="note-box red">❌ ${esc(e.message)}</div>`; }
+}
+function renderSettlement(d) {
+  const st = d.shopify && d.shopify.settlement;
+  if (!st) return '';
+  const c = st.customer, t = st.treasury, l = st.loss, prov = st.state === 'PROVISIONAL';
+  const lossNum = Number(l.total);
+  const lossCls = st.over ? 'neg' : lossNum > 0 ? 'neg' : '';
+  const settledBadge = c.settled ? '<span class="badge badge-success">✅ العميل مقفول — مفيش تحصيل ولا استرداد متبقي</span>'
+    : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
+  const otherLabel = l.otherKind === 'BOSTA_FEES' ? 'رسوم بوسطة' : 'فرق غير مفسَّر';
+  const legs = st.legs ? `<div class="note-box blue" style="margin-top:8px"><strong>تقسيم الخسارة على الرجلين (تقريبي — مطابقة بالمبلغ):</strong>
+      <table class="dt" style="margin-top:6px"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">الفرق</th></tr></thead><tbody>
+      ${st.legs.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num neg">${fmtNum(x.fee)}</td></tr>`).join('')}</tbody></table></div>` : '';
+  const proj = st.projectedLoss != null ? `<div class="note-box blue" style="margin-top:8px">بعد تسجيل الجلسة المعلّقة الخسارة هتبقى <strong>${fmtNum(st.projectedLoss)}</strong>.</div>` : '';
+  return `<div class="panel-card"><div class="bar-row"><strong>التسوية المالية</strong>${settledBadge}
+      <span class="badge ${prov ? 'badge-warn' : 'badge-success'}">${prov ? 'مؤقتة' : 'نهائية'}</span></div>
+    <div class="cmp-grid">${sumCell('المتحصَّل من العميل (نقدي)', fmtNum(c.cashReceived))}${sumCell('دخل الخزنة (صافي)', fmtNum(t.net))}
+      ${sumCell(prov ? 'الخسارة (مؤقتة)' : 'الخسارة', `<span class="${lossCls}">${fmtNum(l.total)}</span>`)}</div>
+    <div class="cmp-grid">${sumCell('شحن إضافي', fmtNum(l.extraShipping))}${sumCell(otherLabel, fmtNum(l.other))}${Number(st.deducted.total) ? sumCell('شحن مخصوم (مش خسارة)', fmtNum(st.deducted.total)) : ''}</div>
+    ${Number(c.nonCash) ? `<div class="note-box amber">فيه ${fmtNum(c.nonCash)} مدفوعة بوسيلة غير نقدية — مش مفروض تدخل الخزنة وما اتحسبتش في الخسارة.</div>` : ''}
+    ${c.cashSource === 'netPayment' ? '<div class="note-box amber">معاملات Shopify ما اتجابتش — الحساب على صافي المدفوع.</div>' : ''}
+    ${st.over ? '<div class="note-box red">🔴 الداخل للخزنة أكتر من المتحصَّل من العميل — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>' : ''}
+    ${prov ? `<div class="note-box amber">${st.reasons.map(esc).join(' · ')}</div>` : ''}${proj}${legs}</div>`;
 }
 function renderOrder(d) {
   const reversed = new Set(d.entries.filter(e => e.reversesId).map(e => e.reversesId));
@@ -2451,7 +2484,7 @@ function renderOrder(d) {
     shop = `<div class="panel-card"><div class="bar-row"><strong>المقارنة مع Shopify</strong><span class="badge ${c}">${t}</span>
       ${d.shopify.financialStatus ? `<span class="chip">${esc(d.shopify.financialStatus)}${d.shopify.cancelled ? ' · ملغي' : ''}</span>` : ''}</div>
       ${d.shopify.shopify !== null ? `<div class="cmp-grid">${sumCell('الدفتر (من غير الشحن الإضافي)', fmtNum(d.shopify.ledger))}${sumCell('المتوقع من Shopify', fmtNum(d.shopify.shopify))}${sumCell('الفرق', `<span class="${amtClass(d.shopify.diff)}">${fmtNum(d.shopify.diff)}</span>`)}
-        ${d.shopify.parts ? sumCell('netPayment', fmtNum(d.shopify.parts.netPayment)) + sumCell('الشحن', fmtNum(d.shopify.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(d.shopify.parts.returnFees)) : ''}</div>` : `<div class="note-box amber">${esc(d.shopify.reason || '')}</div>`}
+        ${d.shopify.parts ? sumCell('netPayment', fmtNum(d.shopify.parts.netPayment)) + sumCell('الشحن', fmtNum(d.shopify.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(d.shopify.parts.returnFees)) : ''}</div>` : (d.shopify.reason ? `<div class="note-box amber">${esc(d.shopify.reason)}</div>` : '')}
       ${pendNote}${d.shopify.note ? `<div class="note-box amber">${esc(d.shopify.note)}</div>` : ''}</div>`;
   } else if (d.shopifyError) shop = `<div class="note-box amber">⚠️ مقارنة Shopify مش متاحة: ${esc(d.shopifyError)}</div>`;
   const src = (d.sources || []).map(r => `<tr><td class="num">${r.logId}</td><td>${esc(formatDateTime(r.timestamp))}</td><td>${r.type === 'refund' ? 'استرداد' : 'تحصيل'}</td>
@@ -2462,6 +2495,7 @@ function renderOrder(d) {
       <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span><span class="grow"></span>
       ${d.orderId && d.entries.length ? `<button class="btn btn-sm lockable" onclick="rebuildMirror(['${esc(d.orderId)}'])">إعادة بناء المرآة</button>` : ''}</div></div>
     ${d.entries.length ? `<div class="panel-card" style="padding:0"><div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div></div>` : '<div class="note-box blue">مفيش حركات للأوردر ده في الدفتر</div>'}
+    ${renderSettlement(d)}
     ${shop}
     <div class="panel-card"><strong>صفوف أداة التحصيل</strong><div class="tbl-wrap" style="margin-top:8px"><table class="dt"><thead><tr><th class="num">log</th><th>الوقت</th><th>النوع</th><th>موظف التحصيل</th><th>المندوب</th><th class="num">courierCollect</th><th>في الدفتر؟</th></tr></thead>
       <tbody>${src || '<tr><td colspan="7" class="empty-box">مفيش صفوف تحصيل</td></tr>'}</tbody></table></div></div>`;
@@ -2488,7 +2522,7 @@ async function startReverse(entryId, amount, orderName) {
 // ══════════════════════════════════════════════════════
 // §TOOL-JS::alerts — الفروق المفتوحة + مقارنة Shopify
 // ══════════════════════════════════════════════════════
-const ALERT_BADGE = { DIFF: ['badge-danger', '🔴 فرق في المبلغ'], BLOCKED: ['badge-danger', '⛔ بيانات مصدر'], INCOMPLETE: ['badge-warn', '⚠️ جلسة ناقصة'] };
+const ALERT_BADGE = { DIFF: ['badge-danger', '🔴 فرق في المبلغ'], BLOCKED: ['badge-danger', '⛔ بيانات مصدر'], INCOMPLETE: ['badge-warn', '⚠️ جلسة ناقصة'], OVER_COLLECTED: ['badge-danger', '🔴 الخزنة أكتر من المتحصَّل'] };
 async function loadAlerts() {
   const box = document.getElementById('alertsList');
   box.innerHTML = '<div class="empty-box"><span class="spinner"></span> جارٍ التحميل…</div>';
@@ -2498,6 +2532,8 @@ async function loadAlerts() {
     if (!d.alerts.length) { box.innerHTML = '<div class="empty-box">✅ مفيش فروق مفتوحة</div>'; return; }
     box.innerHTML = `<div class="panel-card" style="padding:0"><div class="tbl-wrap"><table class="dt"><thead><tr><th>النوع</th><th>اليوم</th><th>المندوب</th><th>موظف التحصيل</th><th class="num">المتوقع</th><th>التفاصيل</th><th></th></tr></thead><tbody>
       ${d.alerts.map(a => { const [c, t] = ALERT_BADGE[a.type] || ['badge-neutral', a.type];
+        if (a.type === 'OVER_COLLECTED') return `<tr><td><span class="badge ${c}">${t}</span></td><td>—</td><td>${orderLink(a.orderName, a.orderId)}</td><td>—</td>
+          <td class="num">—</td><td class="log-note">${esc(a.detail)}</td><td><button class="btn btn-sm" onclick="gotoOrder('${esc(String(a.orderName || '').replace('#', ''))}')">سجل الأوردر</button></td></tr>`;
         return `<tr><td><span class="badge ${c}">${t}</span></td><td>${esc(dmy(a.day))}</td><td>${esc(a.courier || '—')}</td><td>${esc(employeeDisplayName(a.collector))}</td>
           <td class="num">${fmtNum(a.expected)}</td><td class="log-note">${esc(a.detail)}</td><td><button class="btn btn-sm" onclick="openDay('${esc(a.day)}')">فتح اليوم</button></td></tr>`; }).join('')}
       </tbody></table></div></div>`;
@@ -2526,7 +2562,7 @@ async function runCompareAll() {
     for (let i = 0; i < orders.length && !cmpStopFlag; i += CMP_CHUNK) {
       const ids = orders.slice(i, i + CMP_CHUNK).map(o => o.order_id);
       const d = await apiPost('compare_orders', { orderIds: ids });
-      for (const r of d.results) { counts[r.status] = (counts[r.status] || 0) + 1; if (r.status !== 'MATCH' && r.status !== 'BOSTA_NET') bad.push(r); }
+      for (const r of d.results) { counts[r.status] = (counts[r.status] || 0) + 1; if (r.status !== 'MATCH' && r.status !== 'BOSTA_FEES' && r.status !== 'BOSTA_NET') bad.push(r); }
       done += ids.length;
       bar.style.width = `${Math.round(done / orders.length * 100)}%`;        // التقدّم حقيقي — بعد كل مجموعة
       txt.textContent = `${done} / ${orders.length}`;

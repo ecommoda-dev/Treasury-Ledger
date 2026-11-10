@@ -244,7 +244,7 @@ test('مقارنة Shopify: المعادلة netPayment − shipping − returnF
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('بوسطة: courierCollect = Net Value، الجلسة ناقصة لحد ما كل الصفوف تتسجّل، والتأكيد بالصافي، والمقارنة BOSTA_NET', async () => {
+test('بوسطة: courierCollect = Net Value، الجلسة ناقصة لحد ما كل الصفوف تتسجّل، والتأكيد بالصافي، والمقارنة BOSTA_FEES (حكم فعلي بعد v1.3.0)', async () => {
   const realFetch = globalThis.fetch;
   const bostaRow = (id, name, net, type = 'payment') => ({ orderId: id, orderName: name, type, net });
   const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
@@ -279,7 +279,7 @@ test('بوسطة: courierCollect = Net Value، الجلسة ناقصة لحد م
     assert.equal(led[0].note, 'بوسطة — صافي بعد الرسوم');
   } finally { globalThis.fetch = realFetch; }
 
-  // مقارنة Shopify: أوردر بوسطة = BOSTA_NET (مش SHORT/OVER كاذب)، وأوردر عادي لسه بيتقارن
+  // مقارنة Shopify: أوردر بوسطة = BOSTA_FEES (الفرق = رسوم بوسطة، مش SHORT كاذب)، وأوردر عادي لسه بيتقارن
   const node = (id, name, net) => ({ id: `gid://shopify/Order/${id}`, legacyResourceId: id, name, displayFinancialStatus: 'PAID', cancelledAt: null,
     netPaymentSet: { shopMoney: { amount: net } }, totalShippingPriceSet: { shopMoney: { amount: '0.00' } }, totalOutstandingSet: { shopMoney: { amount: '0.0' } },
     returns: { pageInfo: { hasNextPage: false }, nodes: [] } });
@@ -290,7 +290,7 @@ test('بوسطة: courierCollect = Net Value، الجلسة ناقصة لحد م
     DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, source, treasury_employee, idempotency_key) VALUES ('2026-11-04T10:00:00Z','9','#9','CASH_IN',5000,'cod_payment','X','kx')`).run();
     const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['1', '9'] } })).body;
     const st = Object.fromEntries(r.results.map(x => [x.orderId, x.status]));
-    assert.deepEqual(st, { 1: 'BOSTA_NET', 9: 'SHORT' });
+    assert.deepEqual(st, { 1: 'BOSTA_FEES', 9: 'SHORT' });
     assert.equal(r.results.find(x => x.orderId === '1').ledger, '2538.20');
   } finally { globalThis.fetch = realFetch; }
 });
@@ -405,5 +405,88 @@ test('الرجل المعلّقة (#63567): تحصيل معلّق + استردا
     await call(env, 'settle_historical', { method: 'POST', body: { date: '2026-11-03', employee: 'Ahmed_Ibraheem', pin: '9999' } });
     const o2 = (await call(env, 'get_order', { params: { orderName: '63567' } })).body;
     assert.equal(o2.total, '0.00'); assert.equal(o2.shopify.status, 'MATCH'); assert.equal(o2.shopify.pending, null);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+// ─── v1.3.0 — التسوية المالية: المتحصَّل من العميل ↔ الداخل الخزنة ← الخسارة ───
+const txn = (kind, gateway, amount, status = 'SUCCESS') => ({ kind, status, gateway, amountSet: { shopMoney: { amount } } });
+const settleNode = (id, name, { net, total = net, ship = '0.00', outstanding = '0.0', tx, fin = 'PAID' }) => ({ id: `gid://shopify/Order/${id}`, legacyResourceId: id, name,
+  displayFinancialStatus: fin, cancelledAt: null,
+  netPaymentSet: { shopMoney: { amount: net } }, currentTotalPriceSet: { shopMoney: { amount: total } }, totalShippingPriceSet: { shopMoney: { amount: ship } },
+  totalOutstandingSet: { shopMoney: { amount: outstanding } }, transactions: tx,
+  returns: { pageInfo: { hasNextPage: false }, nodes: [] } });
+const insL = (DB, o, n, kind, amt, src, note = null) => DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, note, source, treasury_employee, idempotency_key) VALUES ('2026-11-10T10:00:00Z', ?, ?, ?, ?, ?, ?, 'X', ?)`).run(o, n, kind, amt, note, src, `s${o}${src}${amt}${Math.random()}`);
+
+test('التسوية: #49395 (بوسطة · رجلين) — العميل مقفول 6200، الداخل 5844.60، الخسارة 355.40 مقسّمة تقريبيًا', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('49395', '#49395', { net: '6200.00', ship: '75.00',
+    tx: [txn('SALE', 'Cash on Delivery (COD)', '4975.00'), txn('SALE', 'manual', '1225.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    insL(DB, '49395', '#49395', 'CASH_IN', 105286, 'bosta_cash_cycle', 'بوسطة — صافي بعد الرسوم');
+    insL(DB, '49395', '#49395', 'CASH_IN', 479174, 'bosta_cash_cycle', 'بوسطة — صافي بعد الرسوم');
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['49395'] } })).body.results[0];
+    assert.equal(r.status, 'BOSTA_FEES');
+    const st = r.settlement;
+    assert.equal(st.customer.cashReceived, '6200.00'); assert.equal(st.customer.settled, true); assert.equal(st.customer.nonCash, '0.00');
+    assert.equal(st.treasury.net, '5844.60');
+    assert.deepEqual(st.loss, { total: '355.40', extraShipping: '0.00', other: '355.40', otherKind: 'BOSTA_FEES' });
+    assert.equal(st.deducted.total, '0.00');             // بوسطة: الشحن مش مخصوم
+    assert.equal(st.state, 'FINAL'); assert.equal(st.over, false);
+    assert.deepEqual(st.legs, [{ shopify: '4975.00', ledger: '4791.74', fee: '183.26' }, { shopify: '1225.00', ledger: '1052.86', fee: '172.14' }]);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('التسوية: أوردر مندوب — الشحن العادي «مخصوم» خارج الخسارة، والشحن الإضافي هو الخسارة', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('1', '#1', { net: '2875.00', ship: '75.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '2875.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    insL(DB, '1', '#1', 'CASH_IN', 280000, 'cod_payment');
+    insL(DB, '1', '#1', 'CASH_OUT', -5000, 'cod_extra_shipping', 'Extra Shipping');
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['1'] } })).body.results[0];
+    assert.equal(r.status, 'MATCH');                       // الحكم القديم ما اتغيّرش (من غير الشحن الإضافي)
+    assert.deepEqual(r.settlement.loss, { total: '50.00', extraShipping: '50.00', other: '0.00', otherKind: 'UNEXPLAINED' });
+    assert.equal(r.settlement.deducted.total, '75.00'); assert.equal(r.settlement.treasury.net, '2750.00');
+    assert.equal(r.settlement.state, 'FINAL'); assert.equal(r.settlement.legs, null);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('التسوية: دفع غير نقدي (بوابة تانية) مش بيتحسب خسارة، والعميل اللي لسه عليه متبقي = مؤقتة', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([
+    settleNode('1', '#1', { net: '1500.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '1000.00'), txn('SALE', 'paymob', '500.00'), txn('SALE', 'manual', '99.00', 'FAILURE')] }),
+    settleNode('2', '#2', { net: '300.00', total: '500.00', outstanding: '200.00', fin: 'PARTIALLY_PAID', tx: [txn('SALE', 'manual', '300.00')] }),
+  ]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    insL(DB, '1', '#1', 'CASH_IN', 100000, 'cod_payment');
+    insL(DB, '2', '#2', 'CASH_IN', 30000, 'cod_payment');
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['1', '2'] } })).body.results;
+    assert.equal(r[0].settlement.customer.cashReceived, '1000.00'); assert.equal(r[0].settlement.customer.nonCash, '500.00');
+    assert.equal(r[0].settlement.loss.total, '0.00');
+    assert.equal(r[1].settlement.state, 'PROVISIONAL'); assert.equal(r[1].settlement.customer.settled, false);
+    assert.ok(r[1].settlement.reasons.some(x => x.includes('لسه عليه تحصيل')));
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('التسوية: الداخل أكتر من المتحصَّل = تنبيه OVER_COLLECTED مرة واحدة، وبيتقفل لما الفرق يتصحّح', async () => {
+  const realFetch = globalThis.fetch;
+  const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+  insL(DB, '7', '#7', 'CASH_IN', 50000, 'cod_payment');
+  try {
+    globalThis.fetch = mockShopify([settleNode('7', '#7', { net: '400.00', tx: [txn('SALE', 'manual', '400.00')] })]);
+    const a = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['7'] } })).body.results[0];
+    assert.equal(a.settlement.over, true); assert.equal(a.settlement.loss.total, '-100.00');
+    await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['7'] } });          // فحص تاني ما يكرّرش
+    assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE type='settlement_over'").get().n, 1);
+    let al = (await call(env, 'get_alerts')).body.alerts.filter(x => x.type === 'OVER_COLLECTED');
+    assert.equal(al.length, 1); assert.equal(al[0].orderName, '#7');
+    globalThis.fetch = mockShopify([settleNode('7', '#7', { net: '500.00', tx: [txn('SALE', 'manual', '500.00')] })]);
+    await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['7'] } });
+    al = (await call(env, 'get_alerts')).body.alerts.filter(x => x.type === 'OVER_COLLECTED');
+    assert.equal(al.length, 0);
+    assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE type='settlement_cleared'").get().n, 1);
+    assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM log_value_alerts').get().n, 0);
   } finally { globalThis.fetch = realFetch; }
 });
