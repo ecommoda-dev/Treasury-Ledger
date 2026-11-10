@@ -924,6 +924,14 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">10-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>خسارة أوردرات بوسطة بقت بتخصم الشحن اللي دفعه العميل (شحن الأوردر + شحن المرتجع/الاستبدال): الخسارة = رسوم بوسطة − شحن العميل. مثال #49395: 6,200 − 75 − 75 − 5,844.6 = <strong>205.4</strong> (كانت 355.4). وتقسيم الرجلين بقى بالترتيب الزمني وفيه شحن كل رجل وخسارته.</span></li>
+          <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>الشحن المخصوم = الشحن الحالي على Shopify (الأوردر الملغي اللي شحنه اترد = صفر)، ورسوم المرتجع اللي لسه على العميل ما بتتخصمش.</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تنبيه لو رسوم بوسطة طلعت أقل من الشحن اللي دفعه العميل (المفروض مستحيل). وتنبيه «الخزنة أكتر من المتحصَّل» بقى على العميل المقفول بس. يتطلب Worker v1.4.0.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.6.0</span><span class="cl-ver-date">10-11-2026</span></div>
+        <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>إعادة تصميم تاب «سجل الأوردر»: الحكم أولاً (شارة الخسارة + معادلة «المتحصَّل − الشحن المخصوم − الخسارة = دخل الخزنة») وتحتها تابات: الحركات · المقارنة مع Shopify · صفوف التحصيل · تقسيم الرجلين. عرض مضغوط وجداول مظلّلة ورموز ▲▼ مع اللون. واجهة بس — الـ Worker ما اتغيّرش.</span></li>
         </ul>
       </div>
@@ -1167,8 +1175,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // ══════════════════════════════════════════════════════
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
-const MIN_WORKER_VERSION = '1.3.0'; // 1.3.0 = كارت التسوية المالية (settlement) + BOSTA_FEES + تنبيه OVER_COLLECTED
-const TOOL_VERSION = 'v1.6.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const MIN_WORKER_VERSION = '1.4.0'; // 1.4.0 = خصم شحن العميل من رسوم بوسطة (loss.bostaFees · legs[].shipping/loss · overKind)
+const TOOL_VERSION = 'v1.7.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2495,11 +2503,15 @@ function ordTab(btn, id) {
 function ordVerdict(st) {
   const c = st.customer, l = st.loss, prov = st.state === 'PROVISIONAL';
   const loss = Number(l.total), xs = Number(l.extraShipping);
-  const otherLabel = l.otherKind === 'BOSTA_FEES' ? 'رسوم بوسطة' : prov ? 'فرق مؤقت (رجل معلّقة)' : Number(l.other) < 0 ? 'زيادة غير مفسَّرة' : 'فرق غير مفسَّر';
+  const bosta = l.otherKind === 'BOSTA_FEES', ded = Number(st.deducted.total);
+  const otherLabel = bosta ? (ded ? 'رسوم بوسطة بعد شحن العميل' : 'رسوم بوسطة') : prov ? 'فرق مؤقت (رجل معلّقة)' : Number(l.other) < 0 ? 'زيادة غير مفسَّرة' : 'فرق غير مفسَّر';
+  // v1.7.0: بوسطة — الخسارة = رسوم بوسطة − الشحن اللي دفعه العميل
+  const bostaSub = l.bostaFees != null && ded ? `رسوم بوسطة ${fmtNum(l.bostaFees)} − شحن دفعه العميل ${fmtNum(ded)}` : 'كلها رسوم بوسطة';
   let tone, head, sub;
-  if (st.over) { tone = 'danger'; head = 'الخزنة أكتر من المتحصَّل'; sub = 'الداخل زاد ' + fmtNum(Math.abs(loss)) + ' عن اللي دفعه العميل — راجع الحركات'; }
+  if (st.over && st.overKind === 'BOSTA_FEES_BELOW_SHIPPING') { tone = 'danger'; head = 'رسوم بوسطة أقل من شحن العميل'; sub = `رسوم بوسطة ${fmtNum(l.bostaFees)} والعميل دفع شحن ${fmtNum(ded)} — المفروض ما يحصلش، راجع الحركات`; }
+  else if (st.over) { tone = 'danger'; head = 'الخزنة أكتر من المتحصَّل'; sub = 'الداخل زاد ' + fmtNum(Math.abs(loss)) + ' عن اللي دفعه العميل بعد الشحن — راجع الحركات'; }
   else if (prov) { tone = 'warn'; head = 'خسارة مؤقتة'; sub = (st.reasons || []).join(' · ') + (st.projectedLoss != null ? ` — بعد تسجيل الجلسة المعلّقة هتبقى ${fmtNum(st.projectedLoss)}` : ''); }
-  else if (loss > 0) { tone = 'danger'; head = 'خسارة على الأوردر'; sub = l.otherKind === 'BOSTA_FEES' ? 'كلها رسوم بوسطة' : xs > 0 && !Number(l.other) ? 'كلها شحن إضافي' : 'شحن إضافي + فرق غير مفسَّر'; }
+  else if (loss > 0) { tone = 'danger'; head = 'خسارة على الأوردر'; sub = bosta ? bostaSub : xs > 0 && !Number(l.other) ? 'كلها شحن إضافي' : 'شحن إضافي + فرق غير مفسَّر'; }
   else { tone = 'success'; head = 'مفيش خسارة'; sub = 'الداخل للخزنة = المتحصَّل بعد الشحن المخصوم'; }
   return { c, l, prov, loss, tone, head, sub, otherLabel };
 }
@@ -2510,11 +2522,18 @@ function renderSettlement(d) {
   const settledBadge = c.settled ? '<span class="badge badge-success">✅ العميل مقفول — مفيش تحصيل ولا استرداد متبقي</span>'
     : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
   const tok = (k, val, hl) => `<div class="ord-tok${hl ? ' hl' : ''}"><small>${esc(k)}</small><b>${val}</b></div>`;
+  const d0 = st.deducted;
+  const shipChips = (Number(d0.total) ? `<span class="chip">شحن الأوردر <strong>${fmtNum(d0.shipping)}</strong></span>` +
+      (Number(d0.returnFees) ? `<span class="chip">شحن المرتجع/الاستبدال <strong>${fmtNum(d0.returnFees)}</strong></span>` : '') : '') +
+    (v.l.bostaFees != null && Number(d0.total) ? `<span class="chip">رسوم بوسطة الكاملة <strong>${fmtNum(v.l.bostaFees)}</strong></span>` : '');
   const notes = [
     Number(c.nonCash) ? `<div class="note-box amber">فيه ${fmtNum(c.nonCash)} مدفوعة بوسيلة غير نقدية — مش مفروض تدخل الخزنة وما اتحسبتش في الخسارة.</div>` : '',
     c.cashSource === 'netPayment' ? '<div class="note-box amber">معاملات Shopify ما اتجابتش — الحساب على صافي المدفوع.</div>' : '',
     v.prov ? `<div class="note-box amber">${st.reasons.map(esc).join(' · ')}</div>` : '',
-    st.over ? '<div class="note-box red">🔴 الداخل للخزنة أكتر من المتحصَّل من العميل — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>' : '',
+    Number(st.deducted.returnFeesUnpaid) ? `<div class="note-box amber">رسوم مرتجع ${fmtNum(st.deducted.returnFeesUnpaid)} لسه على العميل — ما اتخصمتش من الشحن.</div>` : '',
+    st.over ? (st.overKind === 'BOSTA_FEES_BELOW_SHIPPING'
+      ? '<div class="note-box red">🔴 رسوم بوسطة أقل من الشحن اللي دفعه العميل — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>'
+      : '<div class="note-box red">🔴 الداخل للخزنة أكتر من المتحصَّل من العميل بعد الشحن — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>') : '',
   ].join('');
   return `<div class="ord-hero">
     <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'الخسارة (مؤقتة)' : st.over ? 'الزيادة' : 'الخسارة'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
@@ -2522,7 +2541,7 @@ function renderSettlement(d) {
       <div class="bar-row">${settledBadge}<span class="badge ${v.prov ? 'badge-warn' : 'badge-success'}">${v.prov ? 'مؤقتة' : 'نهائية'}</span></div></div>
     <div class="panel-card"><div class="ord-h">أين راح المبلغ؟</div>
       <div class="ord-eq">${tok('المتحصَّل نقدي', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('شحن مخصوم', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok(v.prov ? 'الخسارة (مؤقتة)' : 'الخسارة', fmtNum(v.l.total))}<span class="ord-op">=</span>${tok('دخل الخزنة', fmtNum(t.net), true)}</div>
-      <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}</div>${notes}</div></div>`;
+      <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}</div></div>`;
 }
 function renderOrder(d) {
   const reversed = new Set(d.entries.filter(e => e.reversesId).map(e => e.reversesId));
@@ -2550,9 +2569,10 @@ function renderOrder(d) {
   const src = (d.sources || []).map(r => `<tr><td class="num">${r.logId}</td><td>${esc(formatDateTime(r.timestamp))}</td><td>${r.type === 'refund' ? 'استرداد' : 'تحصيل'}</td>
       <td>${esc(employeeDisplayName(r.collector))}</td><td>${esc(r.courier || '')}</td><td class="num">${r.courierCollect === null ? '—' : ordAmt(r.courierCollect)}</td>
       <td><span class="badge ${r.inLedger ? 'badge-success' : r.confirmed ? 'badge-warn' : 'badge-neutral'}">${r.inLedger ? 'في الدفتر' : r.confirmed ? 'جلسة مؤكدة (الصف مش في الدفتر)' : 'لسه ماتأكدش'}</span></td></tr>`).join('');
-  const legs = st && st.legs ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">رسوم الرجل</th></tr></thead><tbody>
-      ${st.legs.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num">${ordAmt('-' + x.fee)}</td></tr>`).join('')}</tbody></table></div>
-      <div class="ord-foot">تقسيم تقريبي — مطابقة بالمبلغ</div>` : '';
+  const legShip = st && st.legs && st.legs.every(x => x.shipping != null);
+  const legs = st && st.legs ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">رسوم بوسطة</th>${legShip ? '<th class="num">شحن العميل</th><th class="num">خسارة الرجل</th>' : ''}</tr></thead><tbody>
+      ${st.legs.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num">${ordAmt('-' + x.fee)}</td>${legShip ? `<td class="num">${fmtNum(x.shipping)}</td><td class="num">${ordAmt(String(-Number(x.loss)))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
+      <div class="ord-foot">تقسيم تقريبي — مطابقة بالمبلغ وترتيب زمني${legShip ? " · شحن الأوردر على أول رجل ورسوم كل مرتجع على الرجل اللي بعده" : ""}</div>` : '';
   const tabs = [
     ['ent', 'الحركات', d.entries.length, d.entries.length ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div>` : '<div class="note-box blue" style="margin:10px">مفيش حركات للأوردر ده في الدفتر</div>'],
     ['cmp', 'المقارنة مع Shopify' + (sh && sh.pending ? ' ⏳' : ''), '', `<div class="ord-pad">${cmp || '<div class="empty-box">مفيش مقارنة</div>'}</div>`],

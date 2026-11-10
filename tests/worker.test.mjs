@@ -409,18 +409,22 @@ test('الرجل المعلّقة (#63567): تحصيل معلّق + استردا
 });
 
 // ─── v1.3.0 — التسوية المالية: المتحصَّل من العميل ↔ الداخل الخزنة ← الخسارة ───
-const txn = (kind, gateway, amount, status = 'SUCCESS') => ({ kind, status, gateway, amountSet: { shopMoney: { amount } } });
-const settleNode = (id, name, { net, total = net, ship = '0.00', outstanding = '0.0', tx, fin = 'PAID' }) => ({ id: `gid://shopify/Order/${id}`, legacyResourceId: id, name,
-  displayFinancialStatus: fin, cancelledAt: null,
+const txn = (kind, gateway, amount, status = 'SUCCESS', processedAt = null) => ({ kind, status, gateway, processedAt, amountSet: { shopMoney: { amount } } });
+const retNode = (fee, createdAt = '2026-08-02T15:11:09Z', status = 'CLOSED') => ({ status, createdAt, returnShippingFees: [{ amountSet: { shopMoney: { amount: fee } } }] });
+const settleNode = (id, name, { net, total = net, ship = '0.00', curShip, outstanding = '0.0', tx, fin = 'PAID', returns = [], cancelledAt = null }) => ({ id: `gid://shopify/Order/${id}`, legacyResourceId: id, name,
+  displayFinancialStatus: fin, cancelledAt,
   netPaymentSet: { shopMoney: { amount: net } }, currentTotalPriceSet: { shopMoney: { amount: total } }, totalShippingPriceSet: { shopMoney: { amount: ship } },
+  ...(curShip !== undefined ? { currentShippingPriceSet: { shopMoney: { amount: curShip } } } : {}),
   totalOutstandingSet: { shopMoney: { amount: outstanding } }, transactions: tx,
-  returns: { pageInfo: { hasNextPage: false }, nodes: [] } });
+  returns: { pageInfo: { hasNextPage: false }, nodes: returns } });
 const insL = (DB, o, n, kind, amt, src, note = null) => DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, note, source, treasury_employee, idempotency_key) VALUES ('2026-11-10T10:00:00Z', ?, ?, ?, ?, ?, ?, 'X', ?)`).run(o, n, kind, amt, note, src, `s${o}${src}${amt}${Math.random()}`);
 
-test('التسوية: #49395 (بوسطة · رجلين) — العميل مقفول 6200، الداخل 5844.60، الخسارة 355.40 مقسّمة تقريبيًا', async () => {
+test('التسوية: #49395 (بوسطة · رجلين) — 6200 − شحن 75 − شحن استبدال 75 − 5844.60 = خسارة 205.40 مقسّمة على الرجلين', async () => {
   const realFetch = globalThis.fetch;
-  globalThis.fetch = mockShopify([settleNode('49395', '#49395', { net: '6200.00', ship: '75.00',
-    tx: [txn('SALE', 'Cash on Delivery (COD)', '4975.00'), txn('SALE', 'manual', '1225.00')] })]);
+  // بيانات Shopify الحية (10-11-2026): الـ SALE المعلّقة الأولى مش بتتحسب، والتانية manual بعد الاستبدال
+  globalThis.fetch = mockShopify([settleNode('49395', '#49395', { net: '6200.00', ship: '75.00', curShip: '75.00', returns: [retNode('75.0')],
+    tx: [txn('SALE', 'Cash on Delivery (COD)', '4975.00', 'PENDING', '2026-08-01T12:21:08Z'), txn('SALE', 'manual', '1225.00', 'SUCCESS', '2026-11-10T13:14:36Z'),
+         txn('SALE', 'Cash on Delivery (COD)', '4975.00', 'SUCCESS', '2026-08-02T15:10:21Z')] })]);
   try {
     const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
     insL(DB, '49395', '#49395', 'CASH_IN', 105286, 'bosta_cash_cycle', 'بوسطة — صافي بعد الرسوم');
@@ -430,10 +434,11 @@ test('التسوية: #49395 (بوسطة · رجلين) — العميل مقف�
     const st = r.settlement;
     assert.equal(st.customer.cashReceived, '6200.00'); assert.equal(st.customer.settled, true); assert.equal(st.customer.nonCash, '0.00');
     assert.equal(st.treasury.net, '5844.60');
-    assert.deepEqual(st.loss, { total: '355.40', extraShipping: '0.00', other: '355.40', otherKind: 'BOSTA_FEES' });
-    assert.equal(st.deducted.total, '0.00');             // بوسطة: الشحن مش مخصوم
-    assert.equal(st.state, 'FINAL'); assert.equal(st.over, false);
-    assert.deepEqual(st.legs, [{ shopify: '4975.00', ledger: '4791.74', fee: '183.26' }, { shopify: '1225.00', ledger: '1052.86', fee: '172.14' }]);
+    assert.deepEqual(st.loss, { total: '205.40', extraShipping: '0.00', other: '205.40', otherKind: 'BOSTA_FEES', bostaFees: '355.40' });
+    assert.deepEqual(st.deducted, { total: '150.00', shipping: '75.00', returnFees: '75.00', returnFeesUnpaid: '0.00' });   // v1.4.0: شحن العميل بيغطّي جزء من رسوم بوسطة
+    assert.equal(st.state, 'FINAL'); assert.equal(st.over, false); assert.equal(st.overKind, null);
+    assert.deepEqual(st.legs, [{ shopify: '4975.00', ledger: '4791.74', fee: '183.26', shipping: '75.00', loss: '108.26' },
+                               { shopify: '1225.00', ledger: '1052.86', fee: '172.14', shipping: '75.00', loss: '97.14' }]);
   } finally { globalThis.fetch = realFetch; }
 });
 
@@ -446,7 +451,7 @@ test('التسوية: أوردر مندوب — الشحن العادي «مخص
     insL(DB, '1', '#1', 'CASH_OUT', -5000, 'cod_extra_shipping', 'Extra Shipping');
     const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['1'] } })).body.results[0];
     assert.equal(r.status, 'MATCH');                       // الحكم القديم ما اتغيّرش (من غير الشحن الإضافي)
-    assert.deepEqual(r.settlement.loss, { total: '50.00', extraShipping: '50.00', other: '0.00', otherKind: 'UNEXPLAINED' });
+    assert.deepEqual(r.settlement.loss, { total: '50.00', extraShipping: '50.00', other: '0.00', otherKind: 'UNEXPLAINED', bostaFees: null });
     assert.equal(r.settlement.deducted.total, '75.00'); assert.equal(r.settlement.treasury.net, '2750.00');
     assert.equal(r.settlement.state, 'FINAL'); assert.equal(r.settlement.legs, null);
   } finally { globalThis.fetch = realFetch; }
@@ -488,5 +493,66 @@ test('التسوية: الداخل أكتر من المتحصَّل = تنبيه
     assert.equal(al.length, 0);
     assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE type='settlement_cleared'").get().n, 1);
     assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM log_value_alerts').get().n, 0);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+// ─── v1.4.0 — خصم شحن العميل من رسوم بوسطة: السيناريوهات المقاسة على بيانات حية (10-11-2026) ───
+test('التسوية v1.4.0: بوسطة RTO ملغي — الشحن اترد (current=0) فالخسارة = رسوم بوسطة كاملة، ومفيش تنبيه كاذب', async () => {
+  const realFetch = globalThis.fetch;
+  // #49682: totalShipping=100 · currentShipping=0 · العميل ما دفعش حاجة · صف بوسطة «بدون تحصيل» −48.77
+  globalThis.fetch = mockShopify([settleNode('5', '#5', { net: '0.0', total: '0.0', ship: '100.0', curShip: '0.0', fin: 'VOIDED', cancelledAt: '2026-08-30T05:42:05Z',
+    tx: [txn('SALE', 'Cash on Delivery (COD)', '1350.0', 'PENDING'), txn('VOID', 'Cash on Delivery (COD)', '0.0')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    insL(DB, '5', '#5', 'CASH_OUT', -4877, 'bosta_cash_cycle', 'بوسطة — صافي بعد الرسوم');
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['5'] } })).body.results[0];
+    assert.equal(r.status, 'BOSTA_FEES');
+    assert.equal(r.settlement.deducted.total, '0.00');
+    assert.equal(r.settlement.loss.total, '48.77'); assert.equal(r.settlement.over, false);
+    assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE type='settlement_over'").get().n, 0);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('التسوية v1.4.0: رسوم مرتجع لسه على العميل ما بتتخصمش، والخسارة مؤقتة من غير تنبيه', async () => {
+  const realFetch = globalThis.fetch;
+  // #49403: netPayment 1099 (فيه شحن 100) · رسوم مرتجع 100 لسه على العميل (outstanding 100)
+  globalThis.fetch = mockShopify([settleNode('6', '#6', { net: '1099.0', total: '1199.0', ship: '100.0', curShip: '100.0', outstanding: '100.0', fin: 'PARTIALLY_PAID',
+    returns: [retNode('100.0')], tx: [txn('SALE', 'Cash on Delivery (COD)', '1099.0')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    insL(DB, '6', '#6', 'CASH_IN', 95536, 'bosta_cash_cycle', 'بوسطة — صافي بعد الرسوم');
+    const st = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['6'] } })).body.results[0].settlement;
+    assert.deepEqual(st.deducted, { total: '100.00', shipping: '100.00', returnFees: '0.00', returnFeesUnpaid: '100.00' });
+    assert.equal(st.loss.total, '43.64'); assert.equal(st.state, 'PROVISIONAL'); assert.equal(st.over, false);
+    assert.ok(st.reasons.some(x => x.includes('رسوم المرتجع لسه على العميل')));
+    assert.equal(st.legs[0].shipping, null);              // الرسوم المعلّقة بتلغي توزيع الشحن على الرجل
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('التسوية v1.4.0: رسوم بوسطة أقل من شحن العميل (مستحيل — قرار أحمد) = تنبيه BOSTA_FEES_BELOW_SHIPPING', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('8', '#8', { net: '1000.00', ship: '100.00', curShip: '100.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '1000.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    insL(DB, '8', '#8', 'CASH_IN', 94000, 'bosta_cash_cycle', 'بوسطة — صافي بعد الرسوم');      // رسوم 60 < شحن 100
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['8'] } })).body.results[0];
+    assert.equal(r.status, 'OVER');
+    assert.equal(r.settlement.loss.bostaFees, '60.00'); assert.equal(r.settlement.loss.total, '-40.00');
+    assert.equal(r.settlement.over, true); assert.equal(r.settlement.overKind, 'BOSTA_FEES_BELOW_SHIPPING');
+    const al = (await call(env, 'get_alerts')).body.alerts.filter(x => x.type === 'OVER_COLLECTED');
+    assert.equal(al.length, 1); assert.ok(al[0].detail.includes('رسوم بوسطة (60.00) أقل من الشحن اللي دفعه العميل (100.00)'));
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('التسوية v1.4.0: مرتجع ملغي (CANCELED) رسومه ما بتتخصمش، والمندوب على نفس المعادلة', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('9', '#9', { net: '2875.00', ship: '75.00', curShip: '75.00',
+    returns: [retNode('75.0', '2026-08-03T00:00:00Z', 'CANCELED')], tx: [txn('SALE', 'Cash on Delivery (COD)', '2875.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    insL(DB, '9', '#9', 'CASH_IN', 280000, 'cod_payment');
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['9'] } })).body.results[0];
+    assert.equal(r.status, 'MATCH'); assert.equal(r.parts.returnFees, '0.00');
+    assert.equal(r.settlement.deducted.total, '75.00'); assert.equal(r.settlement.loss.total, '0.00');
   } finally { globalThis.fetch = realFetch; }
 });
