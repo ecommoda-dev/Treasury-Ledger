@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.5.0-blue)
+![version](https://img.shields.io/badge/version-v1.6.0-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -85,6 +85,12 @@
 - **تنبيه `OVER_COLLECTED`** (الداخل أكتر من المتحصَّل — المفروض ما يحصلش): بيتسجّل لوج `settlement_over` لحظة فحص الأوردر (`get_order`/`compare_orders`)، و`settlement_cleared` لما يتصلّح؛ `get_alerts` بيقرا آخر لوج لكل أوردر. **مفيش مسح تلقائي.**
 - ⚠️ لسه محتاج تأكيد حي: سقف التكلفة (`COMPARE_PER_QUERY`) بعد إضافة `transactions` (قيس من `?action=diag`)، وإن `currentTotalPriceSet` بيعكس الاستبدال/الاسترداد زي المتوقع.
 
+## 🆕 إعادة تصميم تاب «سجل الأوردر» (واجهة v1.6.0 · 10-11-2026) — `index.html` فقط
+اختيار أحمد من مختبر التصميم: **A «الحكم أولاً»** · مضغوط · إنديجو · الخسارة كشارة · جداول مظلّلة · رموز ▲▼ مع اللون · أرقام لاتينية · الحركات كجدول.
+- الترتيب: بطاقة الأوردر ← صف الحكم (شارة الخسارة + حالة العميل | معادلة المتحصَّل − المخصوم − الخسارة = دخل الخزنة) ← تابات (الحركات · المقارنة مع Shopify · صفوف التحصيل · تقسيم الرجلين لو موجود).
+- الإنديجو **متحصّر جوه `#panelOrder`** بإعادة تعريف `--accent*` هناك بس (باقي الأداة أزرق). الدوال: `renderOrder` · `renderSettlement` · `ordVerdict` · `ordTab` · `ordAmt`.
+- ما اتغيّرش: الـ Worker وشكل `get_order` وسلوك التصحيح/المرآة. اختبارات `ui-smoke` (سجل الأوردر) عدّت.
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -126,9 +132,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 10-11-2026 · `index.js` v1.3.0 · `index.html` v1.5.0
+آخر مطابقة: 10-11-2026 · `index.js` v1.3.0 · `index.html` v1.6.0
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 10-11-2026 — Worker v1.3.0 + `index.html` v1.5.0 (كارت التسوية المالية + الخسارة + `BOSTA_FEES` + تنبيه `OVER_COLLECTED`)
+آخر تحديث: 10-11-2026 — Worker v1.3.0 + `index.html` v1.6.0 (إعادة تصميم تاب سجل الأوردر — تصميم A «الحكم أولاً»)
 
 </div>

@@ -476,6 +476,43 @@ table.dt tr.xs td { background: var(--amber-light); }
 .cmp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-top: 8px; }
 .log-note { max-width: 420px; white-space: normal; }
 
+/* ── تاب سجل الأوردر — تصميم A «الحكم أولاً» (مضغوط · إنديجو) — 10-11-2026 ──
+   الإنديجو متحصّر جوه #panelOrder بإعادة تعريف توكنز --accent هناك بس (باقي الأداة أزرق زي ما هو). */
+#panelOrder { --accent:#4f46e5; --accent-light:#eef2ff; --accent-dark:#3730a3; --accent-border:#c7d2fe; --accent-hover:#e0e7ff; --accent-hover-border:#a5b4fc; font-size:12px; }
+#panelOrder .panel-card { padding:10px 12px; margin-bottom:8px; }
+#panelOrder .bar-row { gap:8px; }
+#panelOrder table.dt { font-size:12px; }
+#panelOrder table.dt th, #panelOrder table.dt td { padding:5px 10px; }
+#panelOrder table.dt tbody tr:nth-child(even) td { background:var(--surface-2); }
+#panelOrder table.dt tbody tr:last-child td { border-bottom:0; }
+#panelOrder .badge { border-radius:20px; padding:2px 10px; }
+.ord-amt { font-weight:800; direction:ltr; unicode-bidi:isolate; display:inline-block; }
+tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration:line-through; }
+.ord-hero { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1.5fr); gap:8px; }
+.ord-hero .panel-card { margin-bottom:0; }
+.ord-verdict { display:flex; flex-direction:column; gap:8px; align-content:start; }
+.ord-lossrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ord-loss { font-size:14px; padding:5px 14px !important; }
+.ord-sub { font-weight:600; color:var(--text-secondary); }
+.ord-h { font-size:13px; font-weight:800; margin-bottom:8px; }
+.ord-eq { display:flex; flex-wrap:wrap; gap:6px; align-items:stretch; }
+.ord-tok { flex:1 1 90px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 10px; display:flex; flex-direction:column; }
+.ord-tok small { font-size:11px; color:var(--text-secondary); font-weight:700; }
+.ord-tok b { font-size:15px; font-weight:800; font-family:var(--font-mono); direction:ltr; text-align:right; }
+.ord-tok.hl { background:var(--accent-light); border-color:var(--accent-border); }
+.ord-op { align-self:center; font-weight:800; color:var(--text-muted); font-size:16px; }
+.ord-parts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.ord-parts:empty { display:none; }
+.ord-tabs-card { overflow:hidden; margin-top:8px; }
+.ord-tabs { display:flex; gap:2px; border-bottom:1px solid var(--border); padding:0 10px; overflow-x:auto; }
+.ord-tab { border:0; background:none; padding:9px 12px; font-family:inherit; font-size:12px; font-weight:700; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
+.ord-tab:hover { color:var(--text-primary); }
+.ord-tab[aria-selected="true"] { color:var(--accent-dark); border-bottom-color:var(--accent); }
+.ord-cnt { background:var(--surface-2); border:1px solid var(--border); border-radius:20px; font-size:10.5px; padding:0 7px; margin-inline-start:5px; }
+.ord-pad { padding:10px 12px; }
+.ord-foot { padding:6px 12px; font-size:11px; color:var(--text-secondary); }
+@media (max-width: 760px) { .ord-hero { grid-template-columns:1fr; } }
+
 @media (max-width: 720px) {
   .app-header { flex-direction: column; align-items: stretch; gap: 8px; }
   .app-header-btns { flex-wrap: wrap; }
@@ -887,6 +924,12 @@ table.dt tr.xs td { background: var(--amber-light); }
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">10-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>إعادة تصميم تاب «سجل الأوردر»: الحكم أولاً (شارة الخسارة + معادلة «المتحصَّل − الشحن المخصوم − الخسارة = دخل الخزنة») وتحتها تابات: الحركات · المقارنة مع Shopify · صفوف التحصيل · تقسيم الرجلين. عرض مضغوط وجداول مظلّلة ورموز ▲▼ مع اللون. واجهة بس — الـ Worker ما اتغيّرش.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.5.0</span><span class="cl-ver-date">10-11-2026</span></div>
+        <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>كارت «التسوية المالية» في سجل الأوردر: المتحصَّل من العميل (من معاملات Shopify النقدية) ↔ اللي دخل الخزنة ← <strong>الخسارة</strong>، مقسّمة: شحن إضافي · رسوم بوسطة · فرق غير مفسَّر. الشحن العادي ورسوم المرتجع (مندوب) «شحن مخصوم» خارج الخسارة.</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>حالة العميل: «مقفول» لو مفيش تحصيل ولا استرداد متبقي. الخسارة «مؤقتة» لحد ما الأوردر يتقفل وكل الجلسات تتسجّل.</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تقسيم الخسارة على رجلين بوسطة (تقريبي — مطابقة بالمبلغ).</span></li>
@@ -1125,7 +1168,7 @@ table.dt tr.xs td { background: var(--amber-light); }
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.3.0'; // 1.3.0 = كارت التسوية المالية (settlement) + BOSTA_FEES + تنبيه OVER_COLLECTED
-const TOOL_VERSION = 'v1.5.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.6.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2441,64 +2484,89 @@ async function lookupOrder(q) {
     renderOrder(d);
   } catch (e) { box.innerHTML = `<div class="note-box red">❌ ${esc(e.message)}</div>`; }
 }
+// تصميم A «الحكم أولاً» (مضغوط · إنديجو · شارة للخسارة) — اختيار أحمد من مختبر سجل الأوردر 10-11-2026
+const ordAmt = v => `<span class="ord-amt ${amtClass(v)}">${Number(v) > 0 ? '▲ ' : Number(v) < 0 ? '▼ ' : ''}${fmtSignedNum(v)}</span>`;
+function ordTab(btn, id) {
+  const box = btn.closest('.ord-tabs-card');
+  box.querySelectorAll('.ord-tab').forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+  box.querySelectorAll('.ord-pane').forEach(p => { p.hidden = p.dataset.pane !== id; });
+}
+// نموذج الحكم من settlement (نفس منطق الشاشة القديمة، بس مجمّع في مكان واحد)
+function ordVerdict(st) {
+  const c = st.customer, l = st.loss, prov = st.state === 'PROVISIONAL';
+  const loss = Number(l.total), xs = Number(l.extraShipping);
+  const otherLabel = l.otherKind === 'BOSTA_FEES' ? 'رسوم بوسطة' : prov ? 'فرق مؤقت (رجل معلّقة)' : Number(l.other) < 0 ? 'زيادة غير مفسَّرة' : 'فرق غير مفسَّر';
+  let tone, head, sub;
+  if (st.over) { tone = 'danger'; head = 'الخزنة أكتر من المتحصَّل'; sub = 'الداخل زاد ' + fmtNum(Math.abs(loss)) + ' عن اللي دفعه العميل — راجع الحركات'; }
+  else if (prov) { tone = 'warn'; head = 'خسارة مؤقتة'; sub = (st.reasons || []).join(' · ') + (st.projectedLoss != null ? ` — بعد تسجيل الجلسة المعلّقة هتبقى ${fmtNum(st.projectedLoss)}` : ''); }
+  else if (loss > 0) { tone = 'danger'; head = 'خسارة على الأوردر'; sub = l.otherKind === 'BOSTA_FEES' ? 'كلها رسوم بوسطة' : xs > 0 && !Number(l.other) ? 'كلها شحن إضافي' : 'شحن إضافي + فرق غير مفسَّر'; }
+  else { tone = 'success'; head = 'مفيش خسارة'; sub = 'الداخل للخزنة = المتحصَّل بعد الشحن المخصوم'; }
+  return { c, l, prov, loss, tone, head, sub, otherLabel };
+}
 function renderSettlement(d) {
   const st = d.shopify && d.shopify.settlement;
-  if (!st) return '';
-  const c = st.customer, t = st.treasury, l = st.loss, prov = st.state === 'PROVISIONAL';
-  const lossNum = Number(l.total);
-  const lossCls = st.over ? 'neg' : lossNum > 0 ? 'neg' : '';
+  if (!st) return '<div class="panel-card"><div class="note-box blue" style="margin-top:0">مفيش تسوية مالية للأوردر ده' + (d.shopifyError ? ' — ' + esc(d.shopifyError) : '') + '</div></div>';
+  const v = ordVerdict(st), c = v.c, t = st.treasury;
   const settledBadge = c.settled ? '<span class="badge badge-success">✅ العميل مقفول — مفيش تحصيل ولا استرداد متبقي</span>'
     : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
-  const otherLabel = l.otherKind === 'BOSTA_FEES' ? 'رسوم بوسطة' : 'فرق غير مفسَّر';
-  const legs = st.legs ? `<div class="note-box blue" style="margin-top:8px"><strong>تقسيم الخسارة على الرجلين (تقريبي — مطابقة بالمبلغ):</strong>
-      <table class="dt" style="margin-top:6px"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">الفرق</th></tr></thead><tbody>
-      ${st.legs.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num neg">${fmtNum(x.fee)}</td></tr>`).join('')}</tbody></table></div>` : '';
-  const proj = st.projectedLoss != null ? `<div class="note-box blue" style="margin-top:8px">بعد تسجيل الجلسة المعلّقة الخسارة هتبقى <strong>${fmtNum(st.projectedLoss)}</strong>.</div>` : '';
-  return `<div class="panel-card"><div class="bar-row"><strong>التسوية المالية</strong>${settledBadge}
-      <span class="badge ${prov ? 'badge-warn' : 'badge-success'}">${prov ? 'مؤقتة' : 'نهائية'}</span></div>
-    <div class="cmp-grid">${sumCell('المتحصَّل من العميل (نقدي)', fmtNum(c.cashReceived))}${sumCell('دخل الخزنة (صافي)', fmtNum(t.net))}
-      ${sumCell(prov ? 'الخسارة (مؤقتة)' : 'الخسارة', `<span class="${lossCls}">${fmtNum(l.total)}</span>`)}</div>
-    <div class="cmp-grid">${sumCell('شحن إضافي', fmtNum(l.extraShipping))}${sumCell(otherLabel, fmtNum(l.other))}${Number(st.deducted.total) ? sumCell('شحن مخصوم (مش خسارة)', fmtNum(st.deducted.total)) : ''}</div>
-    ${Number(c.nonCash) ? `<div class="note-box amber">فيه ${fmtNum(c.nonCash)} مدفوعة بوسيلة غير نقدية — مش مفروض تدخل الخزنة وما اتحسبتش في الخسارة.</div>` : ''}
-    ${c.cashSource === 'netPayment' ? '<div class="note-box amber">معاملات Shopify ما اتجابتش — الحساب على صافي المدفوع.</div>' : ''}
-    ${st.over ? '<div class="note-box red">🔴 الداخل للخزنة أكتر من المتحصَّل من العميل — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>' : ''}
-    ${prov ? `<div class="note-box amber">${st.reasons.map(esc).join(' · ')}</div>` : ''}${proj}${legs}</div>`;
+  const tok = (k, val, hl) => `<div class="ord-tok${hl ? ' hl' : ''}"><small>${esc(k)}</small><b>${val}</b></div>`;
+  const notes = [
+    Number(c.nonCash) ? `<div class="note-box amber">فيه ${fmtNum(c.nonCash)} مدفوعة بوسيلة غير نقدية — مش مفروض تدخل الخزنة وما اتحسبتش في الخسارة.</div>` : '',
+    c.cashSource === 'netPayment' ? '<div class="note-box amber">معاملات Shopify ما اتجابتش — الحساب على صافي المدفوع.</div>' : '',
+    v.prov ? `<div class="note-box amber">${st.reasons.map(esc).join(' · ')}</div>` : '',
+    st.over ? '<div class="note-box red">🔴 الداخل للخزنة أكتر من المتحصَّل من العميل — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>' : '',
+  ].join('');
+  return `<div class="ord-hero">
+    <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'الخسارة (مؤقتة)' : st.over ? 'الزيادة' : 'الخسارة'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
+        <span class="ord-sub">${esc(v.head)}${v.sub ? ' — ' + esc(v.sub) : ''}</span></div>
+      <div class="bar-row">${settledBadge}<span class="badge ${v.prov ? 'badge-warn' : 'badge-success'}">${v.prov ? 'مؤقتة' : 'نهائية'}</span></div></div>
+    <div class="panel-card"><div class="ord-h">أين راح المبلغ؟</div>
+      <div class="ord-eq">${tok('المتحصَّل نقدي', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('شحن مخصوم', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok(v.prov ? 'الخسارة (مؤقتة)' : 'الخسارة', fmtNum(v.l.total))}<span class="ord-op">=</span>${tok('دخل الخزنة', fmtNum(t.net), true)}</div>
+      <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}</div>${notes}</div></div>`;
 }
 function renderOrder(d) {
   const reversed = new Set(d.entries.filter(e => e.reversesId).map(e => e.reversesId));
   const ent = d.entries.map(e => {
     const canRev = e.kind !== 'REVERSAL' && !reversed.has(e.id);
-    return `<tr><td class="num">#${e.id}</td><td>${esc(formatDateTime(e.createdAt))}</td>
+    return `<tr class="${reversed.has(e.id) ? 'ord-rev' : ''}"><td class="num">#${e.id}</td><td>${esc(formatDateTime(e.createdAt))}</td>
       <td><span class="badge ${e.kind === 'CASH_IN' ? 'badge-success' : e.kind === 'CASH_OUT' ? 'badge-warn' : 'badge-purple'}">${esc(e.kind)}</span></td>
-      <td class="num ${amtClass(e.amount)}">${fmtSignedNum(e.amount)}</td><td>${esc(employeeDisplayName(e.treasuryEmployee))}</td><td>${esc(e.courier || '')}</td>
+      <td class="num">${ordAmt(e.amount)}</td><td>${esc(employeeDisplayName(e.treasuryEmployee))}</td><td>${esc(e.courier || '')}</td>
       <td class="log-note">${esc(e.note || '')}${reversed.has(e.id) ? ' <span class="badge badge-neutral">اتلغت</span>' : ''}</td>
       <td>${canRev ? `<button class="btn btn-sm btn-red lockable" onclick="startReverse(${e.id}, '${esc(e.amount)}', '${esc(d.orderName)}')">تصحيح</button>` : ''}</td></tr>`;
   }).join('');
-  let shop = '';
-  if (d.shopify) {
-    const [c, t] = cmpBadge(d.shopify);
-    const pd = d.shopify.pending;
-    const pendNote = pd ? `<div class="note-box ${d.shopify.willMatch ? 'blue' : 'amber'}">⏳ فيه ${esc(pd.count)} صف تحصيل لسه ما اتسجّلش في الخزنة (${fmtSignedNum(pd.amount)}) — يوم ${pd.days.map(x => esc(dmy(x))).join(' · ')}.
-      ${d.shopify.projectedLedger != null ? `بعد التسجيل: الدفتر ${fmtNum(d.shopify.projectedLedger)} والفرق ${fmtNum(d.shopify.projectedDiff)}${d.shopify.willMatch ? ' ✓ مطابق' : ''}.` : ''}
+  const sh = d.shopify, st = sh && sh.settlement;
+  let cmp = '';
+  if (sh) {
+    const [c, t] = cmpBadge(sh);
+    const pd = sh.pending;
+    const pendNote = pd ? `<div class="note-box ${sh.willMatch ? 'blue' : 'amber'}">⏳ فيه ${esc(pd.count)} صف تحصيل لسه ما اتسجّلش في الخزنة (${fmtSignedNum(pd.amount)}) — يوم ${pd.days.map(x => esc(dmy(x))).join(' · ')}.
+      ${sh.projectedLedger != null ? `بعد التسجيل: الدفتر ${fmtNum(sh.projectedLedger)} والفرق ${fmtNum(sh.projectedDiff)}${sh.willMatch ? ' ✓ مطابق' : ''}.` : ''}
       ${pd.days.map(x => `<button class="btn btn-sm" style="margin-inline-start:6px" onclick="openDay('${esc(x)}')">فتح يوم ${esc(dmy(x))}</button>`).join('')}</div>` : '';
-    shop = `<div class="panel-card"><div class="bar-row"><strong>المقارنة مع Shopify</strong><span class="badge ${c}">${t}</span>
-      ${d.shopify.financialStatus ? `<span class="chip">${esc(d.shopify.financialStatus)}${d.shopify.cancelled ? ' · ملغي' : ''}</span>` : ''}</div>
-      ${d.shopify.shopify !== null ? `<div class="cmp-grid">${sumCell('الدفتر (من غير الشحن الإضافي)', fmtNum(d.shopify.ledger))}${sumCell('المتوقع من Shopify', fmtNum(d.shopify.shopify))}${sumCell('الفرق', `<span class="${amtClass(d.shopify.diff)}">${fmtNum(d.shopify.diff)}</span>`)}
-        ${d.shopify.parts ? sumCell('netPayment', fmtNum(d.shopify.parts.netPayment)) + sumCell('الشحن', fmtNum(d.shopify.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(d.shopify.parts.returnFees)) : ''}</div>` : (d.shopify.reason ? `<div class="note-box amber">${esc(d.shopify.reason)}</div>` : '')}
-      ${pendNote}${d.shopify.note ? `<div class="note-box amber">${esc(d.shopify.note)}</div>` : ''}</div>`;
-  } else if (d.shopifyError) shop = `<div class="note-box amber">⚠️ مقارنة Shopify مش متاحة: ${esc(d.shopifyError)}</div>`;
+    cmp = `<div class="bar-row"><span class="badge ${c}">${t}</span>${sh.financialStatus ? `<span class="chip">${esc(sh.financialStatus)}${sh.cancelled ? ' · ملغي' : ''}</span>` : ''}</div>
+      ${sh.shopify !== null ? `<div class="cmp-grid">${sumCell('الدفتر (من غير الشحن الإضافي)', fmtNum(sh.ledger))}${sumCell('المتوقع من Shopify', fmtNum(sh.shopify))}${sumCell('الفرق', `<span class="${amtClass(sh.diff)}">${fmtNum(sh.diff)}</span>`)}
+        ${sh.parts ? sumCell('netPayment', fmtNum(sh.parts.netPayment)) + sumCell('الشحن', fmtNum(sh.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(sh.parts.returnFees)) : ''}</div>` : (sh.reason ? `<div class="note-box amber">${esc(sh.reason)}</div>` : '')}
+      ${pendNote}${sh.note ? `<div class="note-box amber">${esc(sh.note)}</div>` : ''}`;
+  } else if (d.shopifyError) cmp = `<div class="note-box amber">⚠️ مقارنة Shopify مش متاحة: ${esc(d.shopifyError)}</div>`;
   const src = (d.sources || []).map(r => `<tr><td class="num">${r.logId}</td><td>${esc(formatDateTime(r.timestamp))}</td><td>${r.type === 'refund' ? 'استرداد' : 'تحصيل'}</td>
-      <td>${esc(employeeDisplayName(r.collector))}</td><td>${esc(r.courier || '')}</td><td class="num">${r.courierCollect === null ? '—' : fmtSignedNum(r.courierCollect)}</td>
+      <td>${esc(employeeDisplayName(r.collector))}</td><td>${esc(r.courier || '')}</td><td class="num">${r.courierCollect === null ? '—' : ordAmt(r.courierCollect)}</td>
       <td><span class="badge ${r.inLedger ? 'badge-success' : r.confirmed ? 'badge-warn' : 'badge-neutral'}">${r.inLedger ? 'في الدفتر' : r.confirmed ? 'جلسة مؤكدة (الصف مش في الدفتر)' : 'لسه ماتأكدش'}</span></td></tr>`).join('');
+  const legs = st && st.legs ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">رسوم الرجل</th></tr></thead><tbody>
+      ${st.legs.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num">${ordAmt('-' + x.fee)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="ord-foot">تقسيم تقريبي — مطابقة بالمبلغ</div>` : '';
+  const tabs = [
+    ['ent', 'الحركات', d.entries.length, d.entries.length ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div>` : '<div class="note-box blue" style="margin:10px">مفيش حركات للأوردر ده في الدفتر</div>'],
+    ['cmp', 'المقارنة مع Shopify' + (sh && sh.pending ? ' ⏳' : ''), '', `<div class="ord-pad">${cmp || '<div class="empty-box">مفيش مقارنة</div>'}</div>`],
+    ['src', 'صفوف أداة التحصيل', (d.sources || []).length, `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">log</th><th>الوقت</th><th>النوع</th><th>موظف التحصيل</th><th>المندوب</th><th class="num">courierCollect</th><th>في الدفتر؟</th></tr></thead>
+      <tbody>${src || '<tr><td colspan="7" class="empty-box">مفيش صفوف تحصيل</td></tr>'}</tbody></table></div>`],
+  ];
+  if (legs) tabs.push(['legs', 'تقسيم الرجلين', st.legs.length, legs]);
   document.getElementById('orderResult').innerHTML = `
     <div class="panel-card"><div class="bar-row"><strong style="font-size:15px">${orderLink(d.orderName, d.orderId)}</strong>
       <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span><span class="grow"></span>
       ${d.orderId && d.entries.length ? `<button class="btn btn-sm lockable" onclick="rebuildMirror(['${esc(d.orderId)}'])">إعادة بناء المرآة</button>` : ''}</div></div>
-    ${d.entries.length ? `<div class="panel-card" style="padding:0"><div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div></div>` : '<div class="note-box blue">مفيش حركات للأوردر ده في الدفتر</div>'}
     ${renderSettlement(d)}
-    ${shop}
-    <div class="panel-card"><strong>صفوف أداة التحصيل</strong><div class="tbl-wrap" style="margin-top:8px"><table class="dt"><thead><tr><th class="num">log</th><th>الوقت</th><th>النوع</th><th>موظف التحصيل</th><th>المندوب</th><th class="num">courierCollect</th><th>في الدفتر؟</th></tr></thead>
-      <tbody>${src || '<tr><td colspan="7" class="empty-box">مفيش صفوف تحصيل</td></tr>'}</tbody></table></div></div>`;
+    <div class="panel-card ord-tabs-card" style="padding:0"><div class="ord-tabs" role="tablist">${tabs.map((t, i) => `<button class="ord-tab" role="tab" aria-selected="${i === 0}" onclick="ordTab(this,'${t[0]}')">${t[1]}${t[2] !== '' ? `<span class="ord-cnt">${t[2]}</span>` : ''}</button>`).join('')}</div>
+      ${tabs.map((t, i) => `<div class="ord-pane" data-pane="${t[0]}" ${i ? 'hidden' : ''}>${t[3]}</div>`).join('')}</div>`;
 }
 async function startReverse(entryId, amount, orderName) {
   if (isUpdating) return;
