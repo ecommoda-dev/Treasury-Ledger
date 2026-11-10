@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.4.0)
+// EcomModa — Treasury-Ledger (v1.4.1 — settlement.legs اتسمّت settlement.shipments)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.4.0';
+const WORKER_VERSION = '1.4.1';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -1080,7 +1080,7 @@ function compareOrder(entries, node, preWindow, pending = null) {
     // 🆕 v1.4.0: بيشتغل على العميل المقفول بس — غير كده الخسارة أصلاً مؤقتة والفرق ممكن يكون تحصيل/استرداد لسه ما حصلش.
     over: other < 0 && settled && !pending && !preWindow,
     overKind: other < 0 ? (bosta && ledgerNet <= cashReceived ? 'BOSTA_FEES_BELOW_SHIPPING' : 'OVER_COLLECTED') : null,
-    legs: legs ? legs.map(l => ({ shopify: fmtMoney(l.gross), ledger: fmtMoney(l.net), fee: fmtMoney(l.fee),
+    shipments: legs ? legs.map(l => ({ shopify: fmtMoney(l.gross), ledger: fmtMoney(l.net), fee: fmtMoney(l.fee),
       shipping: l.ship === null ? null : fmtMoney(l.ship), loss: l.loss === null ? null : fmtMoney(l.loss) })) : null,
   };
 

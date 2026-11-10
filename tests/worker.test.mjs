@@ -437,7 +437,7 @@ test('التسوية: #49395 (بوسطة · رجلين) — 6200 − شحن 75 �
     assert.deepEqual(st.loss, { total: '205.40', extraShipping: '0.00', other: '205.40', otherKind: 'BOSTA_FEES', bostaFees: '355.40' });
     assert.deepEqual(st.deducted, { total: '150.00', shipping: '75.00', returnFees: '75.00', returnFeesUnpaid: '0.00' });   // v1.4.0: شحن العميل بيغطّي جزء من رسوم بوسطة
     assert.equal(st.state, 'FINAL'); assert.equal(st.over, false); assert.equal(st.overKind, null);
-    assert.deepEqual(st.legs, [{ shopify: '4975.00', ledger: '4791.74', fee: '183.26', shipping: '75.00', loss: '108.26' },
+    assert.deepEqual(st.shipments, [{ shopify: '4975.00', ledger: '4791.74', fee: '183.26', shipping: '75.00', loss: '108.26' },
                                { shopify: '1225.00', ledger: '1052.86', fee: '172.14', shipping: '75.00', loss: '97.14' }]);
   } finally { globalThis.fetch = realFetch; }
 });
@@ -453,7 +453,7 @@ test('التسوية: أوردر مندوب — الشحن العادي «مخص
     assert.equal(r.status, 'MATCH');                       // الحكم القديم ما اتغيّرش (من غير الشحن الإضافي)
     assert.deepEqual(r.settlement.loss, { total: '50.00', extraShipping: '50.00', other: '0.00', otherKind: 'UNEXPLAINED', bostaFees: null });
     assert.equal(r.settlement.deducted.total, '75.00'); assert.equal(r.settlement.treasury.net, '2750.00');
-    assert.equal(r.settlement.state, 'FINAL'); assert.equal(r.settlement.legs, null);
+    assert.equal(r.settlement.state, 'FINAL'); assert.equal(r.settlement.shipments, null);
   } finally { globalThis.fetch = realFetch; }
 });
 
@@ -525,7 +525,7 @@ test('التسوية v1.4.0: رسوم مرتجع لسه على العميل ما
     assert.deepEqual(st.deducted, { total: '100.00', shipping: '100.00', returnFees: '0.00', returnFeesUnpaid: '100.00' });
     assert.equal(st.loss.total, '43.64'); assert.equal(st.state, 'PROVISIONAL'); assert.equal(st.over, false);
     assert.ok(st.reasons.some(x => x.includes('رسوم المرتجع لسه على العميل')));
-    assert.equal(st.legs[0].shipping, null);              // الرسوم المعلّقة بتلغي توزيع الشحن على الرجل
+    assert.equal(st.shipments[0].shipping, null);              // الرسوم المعلّقة بتلغي توزيع الشحن على الرجل
   } finally { globalThis.fetch = realFetch; }
 });
 

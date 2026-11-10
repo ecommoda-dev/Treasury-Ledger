@@ -504,7 +504,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 .ord-parts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .ord-parts:empty { display:none; }
 .ord-tabs-card { overflow:hidden; margin-top:8px; }
-.ord-tabs { display:flex; gap:2px; border-bottom:1px solid var(--border); padding:0 10px; overflow-x:auto; }
+.ord-tabs { display:flex; gap:2px; border-bottom:1px solid var(--border); padding:0 10px; overflow-x:auto; overflow-y:hidden; }
 .ord-tab { border:0; background:none; padding:9px 12px; font-family:inherit; font-size:12px; font-weight:700; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; }
 .ord-tab:hover { color:var(--text-primary); }
 .ord-tab[aria-selected="true"] { color:var(--accent-dark); border-bottom-color:var(--accent); }
@@ -924,6 +924,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">10-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: «أين راح المبلغ؟» بقى «تفصيل المبلغ» والمعادلة: إجمالي الأوردر بالشحن − مصاريف الشحن − دخل الخزنة = مصاريف شحن إضافية. والتابات: سجلات الخزنة · المقارنة مع Shopify · سجلات التحصيل · تقسيم الشحنات. واتصلح سكرول رأسي صغير ظاهر جنب شريط التابات. يتطلب Worker v1.4.1.</span></li>
           <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>خسارة أوردرات بوسطة بقت بتخصم الشحن اللي دفعه العميل (شحن الأوردر + شحن المرتجع/الاستبدال): الخسارة = رسوم بوسطة − شحن العميل. مثال #49395: 6,200 − 75 − 75 − 5,844.6 = <strong>205.4</strong> (كانت 355.4). وتقسيم الرجلين بقى بالترتيب الزمني وفيه شحن كل رجل وخسارته.</span></li>
           <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>الشحن المخصوم = الشحن الحالي على Shopify (الأوردر الملغي اللي شحنه اترد = صفر)، ورسوم المرتجع اللي لسه على العميل ما بتتخصمش.</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تنبيه لو رسوم بوسطة طلعت أقل من الشحن اللي دفعه العميل (المفروض مستحيل). وتنبيه «الخزنة أكتر من المتحصَّل» بقى على العميل المقفول بس. يتطلب Worker v1.4.0.</span></li>
@@ -1175,8 +1176,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // ══════════════════════════════════════════════════════
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
-const MIN_WORKER_VERSION = '1.4.0'; // 1.4.0 = خصم شحن العميل من رسوم بوسطة (loss.bostaFees · legs[].shipping/loss · overKind)
-const TOOL_VERSION = 'v1.7.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const MIN_WORKER_VERSION = '1.4.1'; // 1.4.1 = settlement.legs اتسمّت settlement.shipments · 1.4.0 = خصم شحن العميل من رسوم بوسطة (loss.bostaFees · legs[].shipping/loss · overKind)
+const TOOL_VERSION = 'v1.7.1';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2539,8 +2540,8 @@ function renderSettlement(d) {
     <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'الخسارة (مؤقتة)' : st.over ? 'الزيادة' : 'الخسارة'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
         <span class="ord-sub">${esc(v.head)}${v.sub ? ' — ' + esc(v.sub) : ''}</span></div>
       <div class="bar-row">${settledBadge}<span class="badge ${v.prov ? 'badge-warn' : 'badge-success'}">${v.prov ? 'مؤقتة' : 'نهائية'}</span></div></div>
-    <div class="panel-card"><div class="ord-h">أين راح المبلغ؟</div>
-      <div class="ord-eq">${tok('المتحصَّل نقدي', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('شحن مخصوم', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok(v.prov ? 'الخسارة (مؤقتة)' : 'الخسارة', fmtNum(v.l.total))}<span class="ord-op">=</span>${tok('دخل الخزنة', fmtNum(t.net), true)}</div>
+    <div class="panel-card"><div class="ord-h">تفصيل المبلغ</div>
+      <div class="ord-eq">${tok('إجمالي الأوردر بالشحن', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('مصاريف الشحن', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok('دخل الخزنة', fmtNum(t.net), true)}<span class="ord-op">=</span>${tok(v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : 'مصاريف شحن إضافية', fmtNum(v.l.total))}</div>
       <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}</div></div>`;
 }
 function renderOrder(d) {
@@ -2569,17 +2570,17 @@ function renderOrder(d) {
   const src = (d.sources || []).map(r => `<tr><td class="num">${r.logId}</td><td>${esc(formatDateTime(r.timestamp))}</td><td>${r.type === 'refund' ? 'استرداد' : 'تحصيل'}</td>
       <td>${esc(employeeDisplayName(r.collector))}</td><td>${esc(r.courier || '')}</td><td class="num">${r.courierCollect === null ? '—' : ordAmt(r.courierCollect)}</td>
       <td><span class="badge ${r.inLedger ? 'badge-success' : r.confirmed ? 'badge-warn' : 'badge-neutral'}">${r.inLedger ? 'في الدفتر' : r.confirmed ? 'جلسة مؤكدة (الصف مش في الدفتر)' : 'لسه ماتأكدش'}</span></td></tr>`).join('');
-  const legShip = st && st.legs && st.legs.every(x => x.shipping != null);
-  const legs = st && st.legs ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">رسوم بوسطة</th>${legShip ? '<th class="num">شحن العميل</th><th class="num">خسارة الرجل</th>' : ''}</tr></thead><tbody>
-      ${st.legs.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num">${ordAmt('-' + x.fee)}</td>${legShip ? `<td class="num">${fmtNum(x.shipping)}</td><td class="num">${ordAmt(String(-Number(x.loss)))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
-      <div class="ord-foot">تقسيم تقريبي — مطابقة بالمبلغ وترتيب زمني${legShip ? " · شحن الأوردر على أول رجل ورسوم كل مرتجع على الرجل اللي بعده" : ""}</div>` : '';
+  const shipCol = st && st.shipments && st.shipments.every(x => x.shipping != null);
+  const shipments = st && st.shipments ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">رسوم بوسطة</th>${shipCol ? '<th class="num">شحن العميل</th><th class="num">خسارة الرجل</th>' : ''}</tr></thead><tbody>
+      ${st.shipments.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num">${ordAmt('-' + x.fee)}</td>${shipCol ? `<td class="num">${fmtNum(x.shipping)}</td><td class="num">${ordAmt(String(-Number(x.loss)))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
+      <div class="ord-foot">تقسيم تقريبي — مطابقة بالمبلغ وترتيب زمني${shipCol ? " · شحن الأوردر على أول رجل ورسوم كل مرتجع على الرجل اللي بعده" : ""}</div>` : '';
   const tabs = [
-    ['ent', 'الحركات', d.entries.length, d.entries.length ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div>` : '<div class="note-box blue" style="margin:10px">مفيش حركات للأوردر ده في الدفتر</div>'],
+    ['ent', 'سجلات الخزنة', d.entries.length, d.entries.length ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div>` : '<div class="note-box blue" style="margin:10px">مفيش حركات للأوردر ده في الدفتر</div>'],
     ['cmp', 'المقارنة مع Shopify' + (sh && sh.pending ? ' ⏳' : ''), '', `<div class="ord-pad">${cmp || '<div class="empty-box">مفيش مقارنة</div>'}</div>`],
-    ['src', 'صفوف أداة التحصيل', (d.sources || []).length, `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">log</th><th>الوقت</th><th>النوع</th><th>موظف التحصيل</th><th>المندوب</th><th class="num">courierCollect</th><th>في الدفتر؟</th></tr></thead>
+    ['src', 'سجلات التحصيل', (d.sources || []).length, `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">log</th><th>الوقت</th><th>النوع</th><th>موظف التحصيل</th><th>المندوب</th><th class="num">courierCollect</th><th>في الدفتر؟</th></tr></thead>
       <tbody>${src || '<tr><td colspan="7" class="empty-box">مفيش صفوف تحصيل</td></tr>'}</tbody></table></div>`],
   ];
-  if (legs) tabs.push(['legs', 'تقسيم الرجلين', st.legs.length, legs]);
+  if (shipments) tabs.push(['ships', 'تقسيم الشحنات', st.shipments.length, shipments]);
   document.getElementById('orderResult').innerHTML = `
     <div class="panel-card"><div class="bar-row"><strong style="font-size:15px">${orderLink(d.orderName, d.orderId)}</strong>
       <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span><span class="grow"></span>
