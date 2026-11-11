@@ -494,6 +494,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 .ord-lossrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .ord-loss { font-size:14px; padding:5px 14px !important; }
 .ord-sub { font-weight:600; color:var(--text-secondary); }
+.ord-field { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ord-field > small { font-weight:700; color:var(--text-secondary); font-size:12px; }
 .ord-h { font-size:13px; font-weight:800; margin-bottom:8px; }
 .ord-eq { display:flex; flex-wrap:wrap; gap:6px; align-items:stretch; }
 .ord-tok { flex:1 1 90px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 10px; display:flex; flex-direction:column; }
@@ -2520,7 +2522,7 @@ function renderSettlement(d) {
   const st = d.shopify && d.shopify.settlement;
   if (!st) return '<div class="panel-card"><div class="note-box blue" style="margin-top:0">مفيش تسوية مالية للأوردر ده' + (d.shopifyError ? ' — ' + esc(d.shopifyError) : '') + '</div></div>';
   const v = ordVerdict(st), c = v.c, t = st.treasury;
-  const settledBadge = c.settled ? '<span class="badge badge-success">✅ العميل مقفول — مفيش تحصيل ولا استرداد متبقي</span>'
+  const settledBadge = c.settled ? '<span class="ord-field"><small>التحصيلات المتبقية على الأوردر:</small><span class="badge badge-success">✅ لا يوجد تحصيل متبقي من العميل</span></span>'
     : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
   const tok = (k, val, hl) => `<div class="ord-tok${hl ? ' hl' : ''}"><small>${esc(k)}</small><b>${val}</b></div>`;
   const d0 = st.deducted;
@@ -2539,7 +2541,7 @@ function renderSettlement(d) {
   return `<div class="ord-hero">
     <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : st.over ? 'زيادة عن المتحصَّل' : 'مصاريف شحن إضافية'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
         <span class="ord-sub">${esc(v.head)}${v.sub ? ' — ' + esc(v.sub) : ''}</span></div>
-      <div class="bar-row">${settledBadge}<span class="badge ${v.prov ? 'badge-warn' : 'badge-success'}">${v.prov ? 'مؤقتة' : 'نهائية'}</span></div></div>
+      <div class="bar-row">${settledBadge}</div></div>
     <div class="panel-card"><div class="ord-h">تفصيل المبلغ</div>
       <div class="ord-eq">${tok('إجمالي الأوردر بالشحن', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('مصاريف الشحن', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok('دخل الخزنة', fmtNum(t.net), true)}<span class="ord-op">=</span>${tok(v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : 'مصاريف شحن إضافية', fmtNum(v.l.total))}</div>
       <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}</div></div>`;
