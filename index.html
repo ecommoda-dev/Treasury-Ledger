@@ -924,7 +924,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">10-11-2026</span></div>
         <ul class="cl-items">
-          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: «أين راح المبلغ؟» بقى «تفصيل المبلغ» والمعادلة: إجمالي الأوردر بالشحن − مصاريف الشحن − دخل الخزنة = مصاريف شحن إضافية. والتابات: سجلات الخزنة · المقارنة مع Shopify · سجلات التحصيل · تقسيم الشحنات. واتصلح سكرول رأسي صغير ظاهر جنب شريط التابات. يتطلب Worker v1.4.1.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: «أين راح المبلغ؟» بقى «تفصيل المبلغ» والمعادلة: إجمالي الأوردر بالشحن − مصاريف الشحن − دخل الخزنة = مصاريف شحن إضافية. والتابات: سجلات الخزنة · المقارنة مع Shopify · سجلات التحصيل · تقسيم الشحنات. والشارة والشرائح بنفس الأسماء. واتصلح سكرول رأسي صغير ظاهر جنب شريط التابات. يتطلب Worker v1.4.1.</span></li>
           <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>خسارة أوردرات بوسطة بقت بتخصم الشحن اللي دفعه العميل (شحن الأوردر + شحن المرتجع/الاستبدال): الخسارة = رسوم بوسطة − شحن العميل. مثال #49395: 6,200 − 75 − 75 − 5,844.6 = <strong>205.4</strong> (كانت 355.4). وتقسيم الرجلين بقى بالترتيب الزمني وفيه شحن كل رجل وخسارته.</span></li>
           <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>الشحن المخصوم = الشحن الحالي على Shopify (الأوردر الملغي اللي شحنه اترد = صفر)، ورسوم المرتجع اللي لسه على العميل ما بتتخصمش.</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تنبيه لو رسوم بوسطة طلعت أقل من الشحن اللي دفعه العميل (المفروض مستحيل). وتنبيه «الخزنة أكتر من المتحصَّل» بقى على العميل المقفول بس. يتطلب Worker v1.4.0.</span></li>
@@ -2524,8 +2524,8 @@ function renderSettlement(d) {
     : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
   const tok = (k, val, hl) => `<div class="ord-tok${hl ? ' hl' : ''}"><small>${esc(k)}</small><b>${val}</b></div>`;
   const d0 = st.deducted;
-  const shipChips = (Number(d0.total) ? `<span class="chip">شحن الأوردر <strong>${fmtNum(d0.shipping)}</strong></span>` +
-      (Number(d0.returnFees) ? `<span class="chip">شحن المرتجع/الاستبدال <strong>${fmtNum(d0.returnFees)}</strong></span>` : '') : '') +
+  const shipChips = (Number(d0.total) ? `<span class="chip">مصاريف شحن الأوردر <strong>${fmtNum(d0.shipping)}</strong></span>` +
+      (Number(d0.returnFees) ? `<span class="chip">مصاريف شحن المرتجع/الاستبدال <strong>${fmtNum(d0.returnFees)}</strong></span>` : '') : '') +
     (v.l.bostaFees != null && Number(d0.total) ? `<span class="chip">رسوم بوسطة الكاملة <strong>${fmtNum(v.l.bostaFees)}</strong></span>` : '');
   const notes = [
     Number(c.nonCash) ? `<div class="note-box amber">فيه ${fmtNum(c.nonCash)} مدفوعة بوسيلة غير نقدية — مش مفروض تدخل الخزنة وما اتحسبتش في الخسارة.</div>` : '',
@@ -2537,7 +2537,7 @@ function renderSettlement(d) {
       : '<div class="note-box red">🔴 الداخل للخزنة أكتر من المتحصَّل من العميل بعد الشحن — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>') : '',
   ].join('');
   return `<div class="ord-hero">
-    <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'الخسارة (مؤقتة)' : st.over ? 'الزيادة' : 'الخسارة'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
+    <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : st.over ? 'زيادة عن المتحصَّل' : 'مصاريف شحن إضافية'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
         <span class="ord-sub">${esc(v.head)}${v.sub ? ' — ' + esc(v.sub) : ''}</span></div>
       <div class="bar-row">${settledBadge}<span class="badge ${v.prov ? 'badge-warn' : 'badge-success'}">${v.prov ? 'مؤقتة' : 'نهائية'}</span></div></div>
     <div class="panel-card"><div class="ord-h">تفصيل المبلغ</div>

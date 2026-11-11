@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.7.0-blue)
+![version](https://img.shields.io/badge/version-v1.7.1-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -100,6 +100,12 @@
 - الإنديجو **متحصّر جوه `#panelOrder`** بإعادة تعريف `--accent*` هناك بس (باقي الأداة أزرق). الدوال: `renderOrder` · `renderSettlement` · `ordVerdict` · `ordTab` · `ordAmt`.
 - ما اتغيّرش: الـ Worker وشكل `get_order` وسلوك التصحيح/المرآة. اختبارات `ui-smoke` (سجل الأوردر) عدّت.
 
+## 🆕 تسميات سجل الأوردر (Worker v1.4.1 · واجهة v1.7.1 · 11-11-2026)
+- «أين راح المبلغ؟» بقى «تفصيل المبلغ» والمعادلة: إجمالي الأوردر بالشحن (`customer.cashReceived`) − مصاريف الشحن (`deducted.total`) − دخل الخزنة (`treasury.net`) = مصاريف شحن إضافية (`loss.total`). شارة الحكم والشرائح (مصاريف شحن الأوردر / المرتجع) بنفس الأسماء. ⚠️ `loss.total` فعليًا «الخسارة» بكل أنواعها (رسوم بوسطة بعد شحن العميل · فرق غير مفسَّر)، والاسم تسمية أحمد.
+- التابات: سجلات الخزنة · المقارنة مع Shopify · سجلات التحصيل · تقسيم الشحنات.
+- 🔴 **`settlement.legs` اتسمّت `settlement.shipments`** في رد `get_order`/`compare_orders` (كسر عقد صغير: الواجهة `MIN_WORKER_VERSION = 1.4.1` — انشر الـ Worker قبل الصفحة).
+- إصلاح: `overflow-y:hidden` على `.ord-tabs` (كان بيظهر scrollbar رأسي صغير).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -141,7 +147,7 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 10-11-2026 · `index.js` v1.4.0 · `index.html` v1.7.0
+آخر مطابقة: 11-11-2026 · `index.js` v1.4.1 · `index.html` v1.7.1
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
 آخر تحديث: 10-11-2026 — Worker v1.4.0 + `index.html` v1.7.0 (خصم شحن العميل من رسوم بوسطة في التسوية + تنبيه الرسوم الأقل من الشحن)
