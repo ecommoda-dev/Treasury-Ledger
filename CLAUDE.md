@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.7.1-blue)
+![version](https://img.shields.io/badge/version-v1.7.2-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -106,6 +106,17 @@
 - 🔴 **`settlement.legs` اتسمّت `settlement.shipments`** في رد `get_order`/`compare_orders` (كسر عقد صغير: الواجهة `MIN_WORKER_VERSION = 1.4.1` — انشر الـ Worker قبل الصفحة).
 - إصلاح: `overflow-y:hidden` على `.ord-tabs` (كان بيظهر scrollbar رأسي صغير).
 
+## 🆕 تقسيم الشحنات من سجلات التحصيل (Worker v1.4.2 · واجهة v1.7.2 · 11-11-2026)
+**قبل:** تاب «تقسيم الشحنات» كانت بتزاوج معاملات Shopify بحركات الدفتر **بترتيب المبلغ** (تقدير).
+**دلوقتي:** كل حركة دفتر بوسطة ليها `source_log_id` ← صف `cod_payment` فيه رجلها بالظبط (`grossCollected` · `bostaFees` · `flexShipAmount` · `trackingNumber` · `slot` · `paidAt` · `cashOutId`) — دالتين `loadBostaLegInfo` + `legsFromLogs` في `index.js`.
+- المتحصَّل (`gross`) ورسوم بوسطة (`fee = gross − دخل الدفتر`) ودخل الخزنة **من السجل/الدفتر** — دقيقة حتى مع أكتر من استبدال. القياس (D1 11-11-2026): 180 صف بوسطة · 180 حركة دفتر مربوطة · `netValue` = الدفتر في الـ180 · `grossCollected − bostaFees + flexShipAmount` = الدفتر في الـ180 (الـ flex بيتجمع: أوردرات «بدون تحصيل» = −رسوم + 100).
+- 🔴 **شحن العميل مش في السجلات:** `returnShipping` = `null` ثابت في صفوف بوسطة (الكود سطر `returnShipping: null` في `COD-Payment-Center`، و0 من 180 في D1). بيفضل من Shopify (`currentShippingPriceSet` ثم رسوم كل مرتجع بترتيب `createdAt`) → `shipping` و`loss` لكل رجل.
+- ⚠️ **الـ `slot` ثنائي** (`SEND`=S1 وأي حاجة تانية=S2) فالاستبدالات المتعددة كلها S2: الترتيب = S1 الأول ثم `paidAt` ثم رقم اللوج. Shopify مابيربطش المرتجع برقم تتبع بوسطة ← لو على الأوردر **أكتر من مرتجع** `shippingApprox = true` والواجهة بتكتب «توزيعه تقريبي». عدد الرجلين ≠ (1 + عدد المرتجعات) ← `shipping`/`loss` = `null`.
+- **رجوع للتقدير القديم** (`shipmentsSource = 'amount_pairing'`) لو أي حركة بوسطة ملهاش صف تحصيل مربوط أو عليها `REVERSAL`.
+- 🔴 كسر عقد صغير: `shipments[].shopify` اتسمّت `gross` + حقول جديدة (`slot` · `tracking` · `paidAt` · `cashOutId` · `logId`) و`shipmentsSource` و`shippingApprox` — الواجهة `MIN_WORKER_VERSION = 1.4.2` (انشر الـ Worker قبل الصفحة).
+- حالة مجرّبة حيًا: #49395 فقط (S1 + S2 واحدة)؛ استبدالات متعددة على بوسطة لسه ما اتجرّبتش على D1 حقيقي (81 أوردر عليهم أكتر من رقم تتبع في `bosta_tracker`، بعضهم ممكن شحنة ملغية واتبدّلت).
+- الفحص: 3 اختبارات جديدة في `tests/worker.test.mjs` (28 اختبار).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -122,7 +133,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## الاختبارات
 ```bash
-npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 25 اختبار
+npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 28 اختبار
 node check-log-values.mjs
 npm i --no-save postcss && npm run check:ui     # فحص CSS (parser) + ربط JS
 node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الواجهة الحقيقية ↔ الـ Worker الحقيقي
@@ -147,9 +158,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 11-11-2026 · `index.js` v1.4.1 · `index.html` v1.7.1
+آخر مطابقة: 11-11-2026 · `index.js` v1.4.2 · `index.html` v1.7.2
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 10-11-2026 — Worker v1.4.0 + `index.html` v1.7.0 (خصم شحن العميل من رسوم بوسطة في التسوية + تنبيه الرسوم الأقل من الشحن)
+آخر تحديث: 11-11-2026 — Worker v1.4.2 + `index.html` v1.7.2 (تقسيم الشحنات من سجلات التحصيل)
 
 </div>
