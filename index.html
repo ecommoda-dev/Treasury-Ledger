@@ -488,7 +488,7 @@ table.dt tr.xs td { background: var(--amber-light); }
 #panelOrder .badge { border-radius:20px; padding:2px 10px; }
 .ord-amt { font-weight:800; direction:ltr; unicode-bidi:isolate; display:inline-block; }
 tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration:line-through; }
-.ord-hero { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1.5fr); gap:8px; }
+.ord-hero { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
 .ord-hero .panel-card { margin-bottom:0; }
 .ord-verdict { display:flex; flex-direction:column; gap:8px; align-content:start; }
 .ord-lossrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -2557,12 +2557,9 @@ function renderSettlement(d, cmp) {
       : '<div class="note-box red">🔴 الداخل للخزنة أكتر من المتحصَّل من العميل بعد الشحن — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>') : '',
   ].join('');
   return `<div class="ord-hero">
-    <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : st.over ? 'زيادة عن المتحصَّل' : 'مصاريف شحن إضافية'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
-</div>
-      ${cmp.chips ? `<div class="bar-row">${cmp.chips}</div>` : ''}${cmp.body}</div>
     <div class="panel-card"><div class="ord-h">تفصيل المبلغ</div>
       <div class="ord-eq">${tok('إجمالي الأوردر بالشحن', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('مصاريف الشحن', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok('دخل الخزنة', fmtNum(t.net), true)}<span class="ord-op">=</span>${tok(v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : 'مصاريف شحن إضافية', fmtNum(v.l.total))}</div>
-      <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}</div></div>`;
+      <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}${cmp.chips ? `<div class="bar-row" style="margin-top:8px">${cmp.chips}</div>` : ''}${cmp.body}</div></div>`;
 }
 function renderOrder(d) {
   const reversed = new Set(d.entries.filter(e => e.reversesId).map(e => e.reversesId));
@@ -2575,14 +2572,15 @@ function renderOrder(d) {
       <td>${canRev ? `<button class="btn btn-sm btn-red lockable" onclick="startReverse(${e.id}, '${esc(e.amount)}', '${esc(d.orderName)}')">تصحيح</button>` : ''}</td></tr>`;
   }).join('');
   const sh = d.shopify, st = sh && sh.settlement;
-  let cmp = { chips: '', body: '' };
+  let cmp = { chips: '', body: '', fin: '' };
   if (sh) {
     const [c, t] = cmpBadge(sh);
     const pd = sh.pending;
     const pendNote = pd ? `<div class="note-box ${sh.willMatch ? 'blue' : 'amber'}">⏳ فيه ${esc(pd.count)} صف تحصيل لسه ما اتسجّلش في الخزنة (${fmtSignedNum(pd.amount)}) — يوم ${pd.days.map(x => esc(dmy(x))).join(' · ')}.
       ${sh.projectedLedger != null ? `بعد التسجيل: الدفتر ${fmtNum(sh.projectedLedger)} والفرق ${fmtNum(sh.projectedDiff)}${sh.willMatch ? ' ✓ مطابق' : ''}.` : ''}
       ${pd.days.map(x => `<button class="btn btn-sm" style="margin-inline-start:6px" onclick="openDay('${esc(x)}')">فتح يوم ${esc(dmy(x))}</button>`).join('')}</div>` : '';
-    cmp.chips = (sh.status === 'BOSTA_FEES' ? '' : `<span class="badge ${c}">${t}</span>`) + (sh.financialStatus ? `<span class="chip">${esc(sh.financialStatus)}${sh.cancelled ? ' · ملغي' : ''}</span>` : '');
+    cmp.chips = sh.status === 'BOSTA_FEES' ? '' : `<span class="badge ${c}">${t}</span>`;
+    cmp.fin = sh.financialStatus ? `<span class="chip">${esc(sh.financialStatus)}${sh.cancelled ? ' · ملغي' : ''}</span>` : '';
     cmp.body = `${sh.shopify !== null ? `<div class="cmp-grid">${sumCell('الدفتر (من غير الشحن الإضافي)', fmtNum(sh.ledger))}${sumCell('المتوقع من Shopify', fmtNum(sh.shopify))}${sumCell('الفرق', `<span class="${amtClass(sh.diff)}">${fmtNum(sh.diff)}</span>`)}
         ${sh.parts ? sumCell('netPayment', fmtNum(sh.parts.netPayment)) + sumCell('الشحن', fmtNum(sh.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(sh.parts.returnFees)) : ''}</div>` : (sh.reason ? `<div class="note-box amber">${esc(sh.reason)}</div>` : '')}
       ${pendNote}${sh.note ? `<div class="note-box amber">${esc(sh.note)}</div>` : ''}`;
@@ -2633,7 +2631,7 @@ function renderOrder(d) {
   ];
   document.getElementById('orderResult').innerHTML = `
     <div class="panel-card"><div class="bar-row"><strong style="font-size:15px">${orderLink(d.orderName, d.orderId)}</strong>
-      <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span>${ordSettledBadge(st)}<span class="grow"></span>
+      <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span>${ordSettledBadge(st)}${cmp.fin}<span class="grow"></span>
       ${d.orderId && d.entries.length ? `<button class="btn btn-sm lockable" onclick="rebuildMirror(['${esc(d.orderId)}'])">إعادة بناء المرآة</button>` : ''}</div></div>
     ${renderSettlement(d, cmp)}
     <div class="panel-card ord-tabs-card" style="padding:0"><div class="ord-tabs" role="tablist">${tabs.map((t, i) => `<button class="ord-tab" role="tab" aria-selected="${i === 0}" onclick="ordTab(this,'${t[0]}')">${t[1]}${t[2] !== '' ? `<span class="ord-cnt">${t[2]}</span>` : ''}</button>`).join('')}</div>
