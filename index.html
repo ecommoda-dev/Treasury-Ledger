@@ -926,20 +926,20 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">11-11-2026</span></div>
         <ul class="cl-items">
-          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: دمج «سجلات التحصيل» و«تقسيم الشحنات» في تاب واحدة اسمها «سجلات التحصيل» — صف لكل رجل بالتتبع والمتحصَّل والرسوم ودخل الخزنة وشحن العميل وخسارة الرجل (للبوسطة)، بترتيب الرجلين، وصف إجمالي بيطابق رسوم بوسطة بعد شحن العميل. شحن العميل وخسارة الرجل بيتعلّموا «≈» لو فيه أكتر من مرتجع. اتشال التقدير بالمبلغ. يتطلب Worker v1.4.3.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: دمج «سجلات التحصيل» و«تقسيم الشحنات» في تاب واحدة اسمها «سجلات التحصيل» — صف لكل شحنة بالتتبع والمتحصَّل والرسوم ودخل الخزنة وشحن العميل وخسارة الشحنة (للبوسطة)، بترتيب الشحنتين، وصف إجمالي بيطابق رسوم بوسطة بعد شحن العميل. شحن العميل وخسارة الشحنة بيتعلّموا «≈» لو فيه أكتر من مرتجع. اتشال التقدير بالمبلغ. يتطلب Worker v1.4.3.</span></li>
         </ul>
       </div>
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge old">v1.7.2</span><span class="cl-ver-date">11-11-2026</span></div>
         <ul class="cl-items">
-          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>تاب «تقسيم الشحنات»: المتحصَّل ورسوم بوسطة ودخل الخزنة بقوا بييجوا من سجل التحصيل نفسه لكل رجل (مش مطابقة بالمبلغ)، ومعاهم رقم التتبع والـ Slot وتاريخ التحويل. شحن العميل وخسارة الرجل لسه من Shopify بالترتيب الزمني، وبيتعلّموا «تقريبي» لو الأوردر عليه أكتر من مرتجع. يتطلب Worker v1.4.2.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>تاب «تقسيم الشحنات»: المتحصَّل ورسوم بوسطة ودخل الخزنة بقوا بييجوا من سجل التحصيل نفسه لكل شحنة (مش مطابقة بالمبلغ)، ومعاهم رقم التتبع والـ Slot وتاريخ التحويل. شحن العميل وخسارة الشحنة لسه من Shopify بالترتيب الزمني، وبيتعلّموا «تقريبي» لو الأوردر عليه أكتر من مرتجع. يتطلب Worker v1.4.2.</span></li>
         </ul>
       </div>
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge old">v1.7.1</span><span class="cl-ver-date">10-11-2026</span></div>
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: «أين راح المبلغ؟» بقى «تفصيل المبلغ» والمعادلة: إجمالي الأوردر بالشحن − مصاريف الشحن − دخل الخزنة = مصاريف شحن إضافية. والتابات: سجلات الخزنة · المقارنة مع Shopify · سجلات التحصيل · تقسيم الشحنات. والشارة والشرائح بنفس الأسماء. واتصلح سكرول رأسي صغير ظاهر جنب شريط التابات. يتطلب Worker v1.4.1.</span></li>
-          <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>خسارة أوردرات بوسطة بقت بتخصم الشحن اللي دفعه العميل (شحن الأوردر + شحن المرتجع/الاستبدال): الخسارة = رسوم بوسطة − شحن العميل. مثال #49395: 6,200 − 75 − 75 − 5,844.6 = <strong>205.4</strong> (كانت 355.4). وتقسيم الرجلين بقى بالترتيب الزمني وفيه شحن كل رجل وخسارته.</span></li>
+          <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>خسارة أوردرات بوسطة بقت بتخصم الشحن اللي دفعه العميل (شحن الأوردر + شحن المرتجع/الاستبدال): الخسارة = رسوم بوسطة − شحن العميل. مثال #49395: 6,200 − 75 − 75 − 5,844.6 = <strong>205.4</strong> (كانت 355.4). وتقسيم الشحنتين بقى بالترتيب الزمني وفيه شحن كل شحنة وخسارته.</span></li>
           <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>الشحن المخصوم = الشحن الحالي على Shopify (الأوردر الملغي اللي شحنه اترد = صفر)، ورسوم المرتجع اللي لسه على العميل ما بتتخصمش.</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تنبيه لو رسوم بوسطة طلعت أقل من الشحن اللي دفعه العميل (المفروض مستحيل). وتنبيه «الخزنة أكتر من المتحصَّل» بقى على العميل المقفول بس. يتطلب Worker v1.4.0.</span></li>
         </ul>
@@ -947,7 +947,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge old">v1.6.0</span><span class="cl-ver-date">10-11-2026</span></div>
         <ul class="cl-items">
-          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>إعادة تصميم تاب «سجل الأوردر»: الحكم أولاً (شارة الخسارة + معادلة «المتحصَّل − الشحن المخصوم − الخسارة = دخل الخزنة») وتحتها تابات: الحركات · المقارنة مع Shopify · صفوف التحصيل · تقسيم الرجلين. عرض مضغوط وجداول مظلّلة ورموز ▲▼ مع اللون. واجهة بس — الـ Worker ما اتغيّرش.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>إعادة تصميم تاب «سجل الأوردر»: الحكم أولاً (شارة الخسارة + معادلة «المتحصَّل − الشحن المخصوم − الخسارة = دخل الخزنة») وتحتها تابات: الحركات · المقارنة مع Shopify · صفوف التحصيل · تقسيم الشحنتين. عرض مضغوط وجداول مظلّلة ورموز ▲▼ مع اللون. واجهة بس — الـ Worker ما اتغيّرش.</span></li>
         </ul>
       </div>
       <div class="cl-version-block">
@@ -955,7 +955,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>كارت «التسوية المالية» في سجل الأوردر: المتحصَّل من العميل (من معاملات Shopify النقدية) ↔ اللي دخل الخزنة ← <strong>الخسارة</strong>، مقسّمة: شحن إضافي · رسوم بوسطة · فرق غير مفسَّر. الشحن العادي ورسوم المرتجع (مندوب) «شحن مخصوم» خارج الخسارة.</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>حالة العميل: «مقفول» لو مفيش تحصيل ولا استرداد متبقي. الخسارة «مؤقتة» لحد ما الأوردر يتقفل وكل الجلسات تتسجّل.</span></li>
-          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تقسيم الخسارة على رجلين بوسطة (تقريبي — مطابقة بالمبلغ).</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تقسيم الخسارة على شحنتين في بوسطة (تقريبي — مطابقة بالمبلغ).</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تنبيه «الخزنة أكتر من المتحصَّل» في التنبيهات (بيتسجّل لحظة فحص الأوردر).</span></li>
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>أوردرات بوسطة بقى ليها حكم فعلي «بوسطة — فرق = رسوم» بدل «بلا مقارنة». يتطلب Worker v1.3.0.</span></li>
         </ul>
@@ -965,7 +965,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>«تسوية تاريخية» (أحمد بس + PIN) في «كل الأيام المعلّقة»: الجلسات اللي اتوردت قبل تشغيل الأداة بتتسجّل من غير عدّ بملاحظة «تسوية تاريخية» — معاينة الأول، وكل يوم ذرّي لوحده، وبعدها المرآة على كل الأوردرات على دفعات. المرفوضة والناقصة واللي عليها فرق بتفضل معلّقة للمعالجة اليدوي</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>مقارنة Shopify: أوردر ليه صف تحصيل في جلسة لسه ما اتسجّلتش = «⏳ مستني تسجيل جلسة» بدل «الخزنة أقل» الكاذب، مع الفرق المتوقع بعد التسجيل وزرار يفتح اليوم</span></li>
-          <li class="cl-item"><span class="cl-tag new">جديد</span><span>في جدول الجلسة المعلّقة: «⚠️ عليه … متسجّل في جلسة تانية» على الأوردر اللي رجله التانية (استرداد مثلاً) اتسجّلت خلاص</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>في جدول الجلسة المعلّقة: «⚠️ عليه … متسجّل في جلسة تانية» على الأوردر اللي شحنته التانية (استرداد مثلاً) اتسجّلت خلاص</span></li>
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>يتطلب Worker v1.2.0</span></li>
         </ul>
       </div>
@@ -1190,7 +1190,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // ══════════════════════════════════════════════════════
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
-const MIN_WORKER_VERSION = '1.4.3'; // 1.4.3 = sources فيها تفاصيل رجل بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
+const MIN_WORKER_VERSION = '1.4.3'; // 1.4.3 = sources فيها تفاصيل شحنة بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
 const TOOL_VERSION = 'v1.7.3';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
@@ -2519,7 +2519,7 @@ function ordVerdict(st) {
   const c = st.customer, l = st.loss, prov = st.state === 'PROVISIONAL';
   const loss = Number(l.total), xs = Number(l.extraShipping);
   const bosta = l.otherKind === 'BOSTA_FEES', ded = Number(st.deducted.total);
-  const otherLabel = bosta ? (ded ? 'رسوم بوسطة بعد شحن العميل' : 'رسوم بوسطة') : prov ? 'فرق مؤقت (رجل معلّقة)' : Number(l.other) < 0 ? 'زيادة غير مفسَّرة' : 'فرق غير مفسَّر';
+  const otherLabel = bosta ? (ded ? 'رسوم بوسطة بعد شحن العميل' : 'رسوم بوسطة') : prov ? 'فرق مؤقت (شحنة معلّقة)' : Number(l.other) < 0 ? 'زيادة غير مفسَّرة' : 'فرق غير مفسَّر';
   // v1.7.0: بوسطة — الخسارة = رسوم بوسطة − الشحن اللي دفعه العميل
   const bostaSub = l.bostaFees != null && ded ? `رسوم بوسطة ${fmtNum(l.bostaFees)} − شحن دفعه العميل ${fmtNum(ded)}` : 'كلها رسوم بوسطة';
   let tone, head, sub;
@@ -2530,13 +2530,18 @@ function ordVerdict(st) {
   else { tone = 'success'; head = 'مفيش خسارة'; sub = 'الداخل للخزنة = المتحصَّل بعد الشحن المخصوم'; }
   return { c, l, prov, loss, tone, head, sub, otherLabel };
 }
+// حالة التحصيل المتبقي على الأوردر — بتظهر في بطاقة رقم الأوردر
+function ordSettledBadge(st) {
+  if (!st) return '';
+  const c = st.customer;
+  return c.settled ? '<span class="badge badge-success">✅ لا يوجد تحصيل متبقي من العميل</span>'
+    : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
+}
 function renderSettlement(d, cmp) {
   cmp = cmp || { chips: '', body: '' };
   const st = d.shopify && d.shopify.settlement;
   if (!st) return '<div class="panel-card"><div class="note-box blue" style="margin-top:0">مفيش تسوية مالية للأوردر ده' + (d.shopifyError ? ' — ' + esc(d.shopifyError) : '') + '</div>' + (cmp.chips ? `<div class="bar-row">${cmp.chips}</div>` : '') + cmp.body + '</div>';
   const v = ordVerdict(st), c = v.c, t = st.treasury;
-  const settledBadge = c.settled ? '<span class="ord-field"><small>التحصيلات المتبقية على الأوردر:</small><span class="badge badge-success">✅ لا يوجد تحصيل متبقي من العميل</span></span>'
-    : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
   const tok = (k, val, hl) => `<div class="ord-tok${hl ? ' hl' : ''}"><small>${esc(k)}</small><b>${val}</b></div>`;
   const d0 = st.deducted;
   const shipChips = (Number(d0.total) ? `<span class="chip">مصاريف شحن الأوردر <strong>${fmtNum(d0.shipping)}</strong></span>` +
@@ -2554,7 +2559,7 @@ function renderSettlement(d, cmp) {
   return `<div class="ord-hero">
     <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : st.over ? 'زيادة عن المتحصَّل' : 'مصاريف شحن إضافية'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
 </div>
-      <div class="bar-row">${settledBadge}${cmp.chips}</div>${cmp.body}</div>
+      ${cmp.chips ? `<div class="bar-row">${cmp.chips}</div>` : ''}${cmp.body}</div>
     <div class="panel-card"><div class="ord-h">تفصيل المبلغ</div>
       <div class="ord-eq">${tok('إجمالي الأوردر بالشحن', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('مصاريف الشحن', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok('دخل الخزنة', fmtNum(t.net), true)}<span class="ord-op">=</span>${tok(v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : 'مصاريف شحن إضافية', fmtNum(v.l.total))}</div>
       <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}</div></div>`;
@@ -2582,10 +2587,10 @@ function renderOrder(d) {
         ${sh.parts ? sumCell('netPayment', fmtNum(sh.parts.netPayment)) + sumCell('الشحن', fmtNum(sh.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(sh.parts.returnFees)) : ''}</div>` : (sh.reason ? `<div class="note-box amber">${esc(sh.reason)}</div>` : '')}
       ${pendNote}${sh.note ? `<div class="note-box amber">${esc(sh.note)}</div>` : ''}`;
   } else if (d.shopifyError) cmp.body = `<div class="note-box amber">⚠️ مقارنة Shopify مش متاحة: ${esc(d.shopifyError)}</div>`;
-  // 🆕 v1.7.3 — «سجلات التحصيل» و«تقسيم الشحنات» في تاب واحدة: صف لكل صف تحصيل، وشحن العميل/خسارة الرجل بتتربط بالـ logId
+  // 🆕 v1.7.3 — «سجلات التحصيل» و«تقسيم الشحنات» في تاب واحدة: صف لكل صف تحصيل، وشحن العميل/خسارة الشحنة بتتربط بالـ logId
   const srcRows = [...(d.sources || [])];
   const isBosta = srcRows.some(r => r.bosta);
-  // بوسطة: بترتيب الرجلين (S1 الأول ثم تاريخ التحويل) — نفس ترتيب توزيع شحن العميل في الـ Worker، مش وقت التسجيل
+  // بوسطة: بترتيب الشحنتين (S1 الأول ثم تاريخ التحويل) — نفس ترتيب توزيع شحن العميل في الـ Worker، مش وقت التسجيل
   if (isBosta) srcRows.sort((a, b) => (a.slot === 'S1' ? 0 : 1) - (b.slot === 'S1' ? 0 : 1) || String(a.paidAt || '').localeCompare(String(b.paidAt || '')) || a.logId - b.logId);
   const legBy = new Map(((st && st.shipments) || []).map(x => [x.logId, x]));
   const shipCol = isBosta && legBy.size > 0 && [...legBy.values()].every(x => x.shipping != null);
@@ -2605,7 +2610,7 @@ function renderOrder(d) {
     ['دخل الخزنة', 'num', r => r.courierCollect === null ? '—' : ordAmt(r.courierCollect)],
     ...(shipCol ? [
       ['شحن العميل' + approx, 'num', r => legBy.has(r.logId) ? fmtNum(legBy.get(r.logId).shipping) : '—'],
-      ['خسارة الرجل' + approx, 'num', r => legBy.has(r.logId) ? ordAmt(String(-Number(legBy.get(r.logId).loss))) : '—'],
+      ['خسارة الشحنة' + approx, 'num', r => legBy.has(r.logId) ? ordAmt(String(-Number(legBy.get(r.logId).loss))) : '—'],
     ] : []),
     ['في الدفتر؟', '', ledgerCell],
   ] : [
@@ -2613,13 +2618,13 @@ function renderOrder(d) {
     ['المندوب', '', r => esc(r.courier || '')], ['courierCollect', 'num', r => r.courierCollect === null ? '—' : ordAmt(r.courierCollect)], ['في الدفتر؟', '', ledgerCell],
   ];
   const srcBody = srcRows.map((r, i) => `<tr>${cols.map(c => `<td${c[1] ? ` class="${c[1]}"` : ''}>${c[2](r, i)}</td>`).join('')}</tr>`).join('');
-  // إجمالي خسارة الرجلين = رسوم بوسطة بعد شحن العميل (نفس الرقم في كارت الحكم) — مراجعة جاهزة
+  // إجمالي خسارة الشحنتين = رسوم بوسطة بعد شحن العميل (نفس الرقم في كارت الحكم) — مراجعة جاهزة
   let totalRow = '';
   if (shipCol) {
     const sum = Math.round([...legBy.values()].reduce((t, x) => t + Number(x.loss), 0) * 100), other = Math.round(Number(st.loss.other) * 100);
-    totalRow = `<tr class="ord-total"><td colspan="${cols.length - 2}">إجمالي خسارة الرجلين ${sum === other ? '<span class="badge badge-success">✓ يطابق رسوم بوسطة بعد شحن العميل</span>' : `<span class="badge badge-warn">⚠️ مختلف عن ${fmtNum(st.loss.other)} (رسوم بوسطة بعد شحن العميل)</span>`}</td><td class="num">${ordAmt(String(-sum / 100))}</td><td></td></tr>`;
+    totalRow = `<tr class="ord-total"><td colspan="${cols.length - 2}">إجمالي خسارة الشحنتين ${sum === other ? '<span class="badge badge-success">✓ يطابق رسوم بوسطة بعد شحن العميل</span>' : `<span class="badge badge-warn">⚠️ مختلف عن ${fmtNum(st.loss.other)} (رسوم بوسطة بعد شحن العميل)</span>`}</td><td class="num">${ordAmt(String(-sum / 100))}</td><td></td></tr>`;
   }
-  const srcFoot = isBosta ? `<div class="ord-foot">المتحصَّل والرسوم ودخل الخزنة من سجل التحصيل لكل رجل${shipCol ? ` · شحن العميل من Shopify: شحن الأوردر على أول رجل ورسوم كل مرتجع على الرجل اللي بعده${st.shippingApprox ? ' — <strong>توزيعه تقريبي ≈</strong> (فيه أكتر من مرتجع ومفيش ربط بينهم وبين رقم التتبع)' : ''}` : ''}</div>` : '';
+  const srcFoot = isBosta && shipCol && st.shippingApprox ? '<div class="ord-foot"><strong>≈</strong> توزيع شحن العميل تقريبي (فيه أكتر من مرتجع ومفيش ربط بينهم وبين رقم التتبع)</div>' : '';
   const srcTab = `<div class="tbl-wrap"><table class="dt"><thead><tr>${cols.map(c => `<th${c[1] ? ` class="${c[1]}"` : ''}>${c[0]}</th>`).join('')}</tr></thead>
       <tbody>${srcBody || `<tr><td colspan="${cols.length}" class="empty-box">مفيش صفوف تحصيل</td></tr>`}${totalRow}</tbody></table></div>${srcFoot}`;
   const tabs = [
@@ -2628,7 +2633,7 @@ function renderOrder(d) {
   ];
   document.getElementById('orderResult').innerHTML = `
     <div class="panel-card"><div class="bar-row"><strong style="font-size:15px">${orderLink(d.orderName, d.orderId)}</strong>
-      <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span><span class="grow"></span>
+      <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span>${ordSettledBadge(st)}<span class="grow"></span>
       ${d.orderId && d.entries.length ? `<button class="btn btn-sm lockable" onclick="rebuildMirror(['${esc(d.orderId)}'])">إعادة بناء المرآة</button>` : ''}</div></div>
     ${renderSettlement(d, cmp)}
     <div class="panel-card ord-tabs-card" style="padding:0"><div class="ord-tabs" role="tablist">${tabs.map((t, i) => `<button class="ord-tab" role="tab" aria-selected="${i === 0}" onclick="ordTab(this,'${t[0]}')">${t[1]}${t[2] !== '' ? `<span class="ord-cnt">${t[2]}</span>` : ''}</button>`).join('')}</div>
