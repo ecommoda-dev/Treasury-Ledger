@@ -494,6 +494,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 .ord-lossrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .ord-loss { font-size:14px; padding:5px 14px !important; }
 .ord-sub { font-weight:600; color:var(--text-secondary); }
+.ord-field { display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ord-field > small { font-weight:700; color:var(--text-secondary); font-size:12px; }
 .ord-h { font-size:13px; font-weight:800; margin-bottom:8px; }
 .ord-eq { display:flex; flex-wrap:wrap; gap:6px; align-items:stretch; }
 .ord-tok { flex:1 1 90px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 10px; display:flex; flex-direction:column; }
@@ -509,7 +511,6 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 .ord-tab:hover { color:var(--text-primary); }
 .ord-tab[aria-selected="true"] { color:var(--accent-dark); border-bottom-color:var(--accent); }
 .ord-cnt { background:var(--surface-2); border:1px solid var(--border); border-radius:20px; font-size:10.5px; padding:0 7px; margin-inline-start:5px; }
-.ord-pad { padding:10px 12px; }
 .ord-foot { padding:6px 12px; font-size:11px; color:var(--text-secondary); }
 @media (max-width: 760px) { .ord-hero { grid-template-columns:1fr; } }
 
@@ -2475,7 +2476,7 @@ const CMP_BADGE = {
   MATCH: ['badge-success', 'مطابق'], SHORT: ['badge-danger', 'الخزنة أقل'], OVER: ['badge-danger', 'الخزنة أكتر'],
   NOT_IN_LEDGER: ['badge-warn', 'مش في الدفتر'], LEDGER_ONLY: ['badge-warn', 'في الدفتر بس'],
   AWAITING_LEG: ['badge-info', '⏳ مستني تسجيل جلسة'],
-  BOSTA_FEES: ['badge-info', 'بوسطة — فرق = رسوم'], BOSTA_NET: ['badge-neutral', 'بوسطة (صافي بعد الرسوم)'], IN_PROGRESS: ['badge-info', 'قيد التنفيذ'], PRE_WINDOW: ['badge-neutral', 'قبل 01-10 (الدفتر ناقص بطبيعته)'], UNKNOWN: ['badge-danger', 'مش لاقيه على Shopify'],
+  BOSTA_FEES: ['badge-info', 'بوسطة'], BOSTA_NET: ['badge-neutral', 'بوسطة (صافي بعد الرسوم)'], IN_PROGRESS: ['badge-info', 'قيد التنفيذ'], PRE_WINDOW: ['badge-neutral', 'قبل 01-10 (الدفتر ناقص بطبيعته)'], UNKNOWN: ['badge-danger', 'مش لاقيه على Shopify'],
 };
 // AWAITING_LEG ليها نصّين: هيتطابق بعد التسجيل / هيفضل فيه فرق بعد التسجيل
 function cmpBadge(r) {
@@ -2516,11 +2517,12 @@ function ordVerdict(st) {
   else { tone = 'success'; head = 'مفيش خسارة'; sub = 'الداخل للخزنة = المتحصَّل بعد الشحن المخصوم'; }
   return { c, l, prov, loss, tone, head, sub, otherLabel };
 }
-function renderSettlement(d) {
+function renderSettlement(d, cmp) {
+  cmp = cmp || { chips: '', body: '' };
   const st = d.shopify && d.shopify.settlement;
-  if (!st) return '<div class="panel-card"><div class="note-box blue" style="margin-top:0">مفيش تسوية مالية للأوردر ده' + (d.shopifyError ? ' — ' + esc(d.shopifyError) : '') + '</div></div>';
+  if (!st) return '<div class="panel-card"><div class="note-box blue" style="margin-top:0">مفيش تسوية مالية للأوردر ده' + (d.shopifyError ? ' — ' + esc(d.shopifyError) : '') + '</div>' + (cmp.chips ? `<div class="bar-row">${cmp.chips}</div>` : '') + cmp.body + '</div>';
   const v = ordVerdict(st), c = v.c, t = st.treasury;
-  const settledBadge = c.settled ? '<span class="badge badge-success">✅ العميل مقفول — مفيش تحصيل ولا استرداد متبقي</span>'
+  const settledBadge = c.settled ? '<span class="ord-field"><small>التحصيلات المتبقية على الأوردر:</small><span class="badge badge-success">✅ لا يوجد تحصيل متبقي من العميل</span></span>'
     : `<span class="badge badge-warn">⏳ ${Number(c.outstanding) > 0 ? `متبقي تحصيل ${fmtNum(c.outstanding)}` : `متبقي استرداد ${fmtNum(c.refundDue)}`}</span>`;
   const tok = (k, val, hl) => `<div class="ord-tok${hl ? ' hl' : ''}"><small>${esc(k)}</small><b>${val}</b></div>`;
   const d0 = st.deducted;
@@ -2530,7 +2532,7 @@ function renderSettlement(d) {
   const notes = [
     Number(c.nonCash) ? `<div class="note-box amber">فيه ${fmtNum(c.nonCash)} مدفوعة بوسيلة غير نقدية — مش مفروض تدخل الخزنة وما اتحسبتش في الخسارة.</div>` : '',
     c.cashSource === 'netPayment' ? '<div class="note-box amber">معاملات Shopify ما اتجابتش — الحساب على صافي المدفوع.</div>' : '',
-    v.prov ? `<div class="note-box amber">${st.reasons.map(esc).join(' · ')}</div>` : '',
+    v.prov ? `<div class="note-box amber">${st.reasons.map(esc).join(' · ')}${st.projectedLoss != null ? ` — بعد تسجيل الجلسة المعلّقة هتبقى ${fmtNum(st.projectedLoss)}` : ''}</div>` : '',
     Number(st.deducted.returnFeesUnpaid) ? `<div class="note-box amber">رسوم مرتجع ${fmtNum(st.deducted.returnFeesUnpaid)} لسه على العميل — ما اتخصمتش من الشحن.</div>` : '',
     st.over ? (st.overKind === 'BOSTA_FEES_BELOW_SHIPPING'
       ? '<div class="note-box red">🔴 رسوم بوسطة أقل من الشحن اللي دفعه العميل — المفروض ما يحصلش، راجع الحركات. اتسجّل تنبيه.</div>'
@@ -2538,8 +2540,8 @@ function renderSettlement(d) {
   ].join('');
   return `<div class="ord-hero">
     <div class="panel-card ord-verdict"><div class="ord-lossrow"><span class="badge badge-${v.tone} ord-loss">${v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : st.over ? 'زيادة عن المتحصَّل' : 'مصاريف شحن إضافية'} ${fmtNum(Math.abs(v.loss))} ج.م</span>
-        <span class="ord-sub">${esc(v.head)}${v.sub ? ' — ' + esc(v.sub) : ''}</span></div>
-      <div class="bar-row">${settledBadge}<span class="badge ${v.prov ? 'badge-warn' : 'badge-success'}">${v.prov ? 'مؤقتة' : 'نهائية'}</span></div></div>
+</div>
+      <div class="bar-row">${settledBadge}${cmp.chips}</div>${cmp.body}</div>
     <div class="panel-card"><div class="ord-h">تفصيل المبلغ</div>
       <div class="ord-eq">${tok('إجمالي الأوردر بالشحن', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('مصاريف الشحن', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok('دخل الخزنة', fmtNum(t.net), true)}<span class="ord-op">=</span>${tok(v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : 'مصاريف شحن إضافية', fmtNum(v.l.total))}</div>
       <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}</div></div>`;
@@ -2555,18 +2557,18 @@ function renderOrder(d) {
       <td>${canRev ? `<button class="btn btn-sm btn-red lockable" onclick="startReverse(${e.id}, '${esc(e.amount)}', '${esc(d.orderName)}')">تصحيح</button>` : ''}</td></tr>`;
   }).join('');
   const sh = d.shopify, st = sh && sh.settlement;
-  let cmp = '';
+  let cmp = { chips: '', body: '' };
   if (sh) {
     const [c, t] = cmpBadge(sh);
     const pd = sh.pending;
     const pendNote = pd ? `<div class="note-box ${sh.willMatch ? 'blue' : 'amber'}">⏳ فيه ${esc(pd.count)} صف تحصيل لسه ما اتسجّلش في الخزنة (${fmtSignedNum(pd.amount)}) — يوم ${pd.days.map(x => esc(dmy(x))).join(' · ')}.
       ${sh.projectedLedger != null ? `بعد التسجيل: الدفتر ${fmtNum(sh.projectedLedger)} والفرق ${fmtNum(sh.projectedDiff)}${sh.willMatch ? ' ✓ مطابق' : ''}.` : ''}
       ${pd.days.map(x => `<button class="btn btn-sm" style="margin-inline-start:6px" onclick="openDay('${esc(x)}')">فتح يوم ${esc(dmy(x))}</button>`).join('')}</div>` : '';
-    cmp = `<div class="bar-row"><span class="badge ${c}">${t}</span>${sh.financialStatus ? `<span class="chip">${esc(sh.financialStatus)}${sh.cancelled ? ' · ملغي' : ''}</span>` : ''}</div>
-      ${sh.shopify !== null ? `<div class="cmp-grid">${sumCell('الدفتر (من غير الشحن الإضافي)', fmtNum(sh.ledger))}${sumCell('المتوقع من Shopify', fmtNum(sh.shopify))}${sumCell('الفرق', `<span class="${amtClass(sh.diff)}">${fmtNum(sh.diff)}</span>`)}
+    cmp.chips = (sh.status === 'BOSTA_FEES' ? '' : `<span class="badge ${c}">${t}</span>`) + (sh.financialStatus ? `<span class="chip">${esc(sh.financialStatus)}${sh.cancelled ? ' · ملغي' : ''}</span>` : '');
+    cmp.body = `${sh.shopify !== null ? `<div class="cmp-grid">${sumCell('الدفتر (من غير الشحن الإضافي)', fmtNum(sh.ledger))}${sumCell('المتوقع من Shopify', fmtNum(sh.shopify))}${sumCell('الفرق', `<span class="${amtClass(sh.diff)}">${fmtNum(sh.diff)}</span>`)}
         ${sh.parts ? sumCell('netPayment', fmtNum(sh.parts.netPayment)) + sumCell('الشحن', fmtNum(sh.parts.shipping)) + sumCell('رسوم المرتجع', fmtNum(sh.parts.returnFees)) : ''}</div>` : (sh.reason ? `<div class="note-box amber">${esc(sh.reason)}</div>` : '')}
       ${pendNote}${sh.note ? `<div class="note-box amber">${esc(sh.note)}</div>` : ''}`;
-  } else if (d.shopifyError) cmp = `<div class="note-box amber">⚠️ مقارنة Shopify مش متاحة: ${esc(d.shopifyError)}</div>`;
+  } else if (d.shopifyError) cmp.body = `<div class="note-box amber">⚠️ مقارنة Shopify مش متاحة: ${esc(d.shopifyError)}</div>`;
   const src = (d.sources || []).map(r => `<tr><td class="num">${r.logId}</td><td>${esc(formatDateTime(r.timestamp))}</td><td>${r.type === 'refund' ? 'استرداد' : 'تحصيل'}</td>
       <td>${esc(employeeDisplayName(r.collector))}</td><td>${esc(r.courier || '')}</td><td class="num">${r.courierCollect === null ? '—' : ordAmt(r.courierCollect)}</td>
       <td><span class="badge ${r.inLedger ? 'badge-success' : r.confirmed ? 'badge-warn' : 'badge-neutral'}">${r.inLedger ? 'في الدفتر' : r.confirmed ? 'جلسة مؤكدة (الصف مش في الدفتر)' : 'لسه ماتأكدش'}</span></td></tr>`).join('');
@@ -2576,7 +2578,6 @@ function renderOrder(d) {
       <div class="ord-foot">تقسيم تقريبي — مطابقة بالمبلغ وترتيب زمني${shipCol ? " · شحن الأوردر على أول رجل ورسوم كل مرتجع على الرجل اللي بعده" : ""}</div>` : '';
   const tabs = [
     ['ent', 'سجلات الخزنة', d.entries.length, d.entries.length ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div>` : '<div class="note-box blue" style="margin:10px">مفيش حركات للأوردر ده في الدفتر</div>'],
-    ['cmp', 'المقارنة مع Shopify' + (sh && sh.pending ? ' ⏳' : ''), '', `<div class="ord-pad">${cmp || '<div class="empty-box">مفيش مقارنة</div>'}</div>`],
     ['src', 'سجلات التحصيل', (d.sources || []).length, `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">log</th><th>الوقت</th><th>النوع</th><th>موظف التحصيل</th><th>المندوب</th><th class="num">courierCollect</th><th>في الدفتر؟</th></tr></thead>
       <tbody>${src || '<tr><td colspan="7" class="empty-box">مفيش صفوف تحصيل</td></tr>'}</tbody></table></div>`],
   ];
@@ -2585,7 +2586,7 @@ function renderOrder(d) {
     <div class="panel-card"><div class="bar-row"><strong style="font-size:15px">${orderLink(d.orderName, d.orderId)}</strong>
       <span class="chip">إجمالي الخزنة: <strong class="${amtClass(d.total)}">${fmtNum(d.total)}</strong></span><span class="grow"></span>
       ${d.orderId && d.entries.length ? `<button class="btn btn-sm lockable" onclick="rebuildMirror(['${esc(d.orderId)}'])">إعادة بناء المرآة</button>` : ''}</div></div>
-    ${renderSettlement(d)}
+    ${renderSettlement(d, cmp)}
     <div class="panel-card ord-tabs-card" style="padding:0"><div class="ord-tabs" role="tablist">${tabs.map((t, i) => `<button class="ord-tab" role="tab" aria-selected="${i === 0}" onclick="ordTab(this,'${t[0]}')">${t[1]}${t[2] !== '' ? `<span class="ord-cnt">${t[2]}</span>` : ''}</button>`).join('')}</div>
       ${tabs.map((t, i) => `<div class="ord-pane" data-pane="${t[0]}" ${i ? 'hidden' : ''}>${t[3]}</div>`).join('')}</div>`;
 }
