@@ -502,6 +502,11 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 .ord-tok small { font-size:11px; color:var(--text-secondary); font-weight:700; }
 .ord-tok b { font-size:15px; font-weight:800; font-family:var(--font-mono); direction:ltr; text-align:right; }
 .ord-tok.hl { background:var(--accent-light); border-color:var(--accent-border); }
+.ord-tok.neg { background:var(--red-light); border-color:var(--red-border); }
+.ord-tok.neg b, .ord-tok.neg small { color:var(--red-dark); }
+.ord-sub-rows { display:flex; flex-direction:column; gap:3px; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); }
+.ord-sub-rows span { display:flex; justify-content:space-between; gap:10px; font-size:11px; color:var(--text-secondary); font-weight:600; }
+.ord-sub-rows strong { font-family:var(--font-mono); direction:ltr; color:var(--text-primary); }
 .ord-op { align-self:center; font-weight:800; color:var(--text-muted); font-size:16px; }
 .ord-parts { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .ord-parts:empty { display:none; }
@@ -2528,7 +2533,7 @@ function ordVerdict(st) {
   else if (prov) { tone = 'warn'; head = 'خسارة مؤقتة'; sub = (st.reasons || []).join(' · ') + (st.projectedLoss != null ? ` — بعد تسجيل الجلسة المعلّقة هتبقى ${fmtNum(st.projectedLoss)}` : ''); }
   else if (loss > 0) { tone = 'danger'; head = 'خسارة على الأوردر'; sub = bosta ? bostaSub : xs > 0 && !Number(l.other) ? 'كلها شحن إضافي' : 'شحن إضافي + فرق غير مفسَّر'; }
   else { tone = 'success'; head = 'مفيش خسارة'; sub = 'الداخل للخزنة = المتحصَّل بعد الشحن المخصوم'; }
-  return { c, l, prov, loss, tone, head, sub, otherLabel };
+  return { c, l, prov, loss, tone, head, sub, otherLabel, bosta };
 }
 // حالة التحصيل المتبقي على الأوردر — بتظهر في بطاقة رقم الأوردر
 function ordSettledBadge(st) {
@@ -2544,9 +2549,13 @@ function renderSettlement(d, cmp) {
   const v = ordVerdict(st), c = v.c, t = st.treasury;
   const tok = (k, val, hl) => `<div class="ord-tok${hl ? ' hl' : ''}"><small>${esc(k)}</small><b>${val}</b></div>`;
   const d0 = st.deducted;
-  const shipChips = (Number(d0.total) ? `<span class="chip">مصاريف شحن الأوردر <strong>${fmtNum(d0.shipping)}</strong></span>` +
-      (Number(d0.returnFees) ? `<span class="chip">مصاريف شحن المرتجع/الاستبدال <strong>${fmtNum(d0.returnFees)}</strong></span>` : '') : '') +
-    (v.l.bostaFees != null && Number(d0.total) ? `<span class="chip">رسوم بوسطة الكاملة <strong>${fmtNum(v.l.bostaFees)}</strong></span>` : '');
+  // مصاريف الشحن + تفصيلها جوه نفس المربع (v1.7.4)
+  const shipTok = `<div class="ord-tok"><small>مصاريف الشحن</small><b>${fmtNum(d0.total)}</b>${Number(d0.total) ? `<div class="ord-sub-rows"><span>مصاريف شحن الأوردر <strong>${fmtNum(d0.shipping)}</strong></span>${Number(d0.returnFees) ? `<span>مصاريف شحن المرتجع/الاستبدال <strong>${fmtNum(d0.returnFees)}</strong></span>` : ''}</div>` : ''}</div>`;
+  const shipChips = v.l.bostaFees != null && Number(d0.total) ? `<span class="chip">رسوم بوسطة الكاملة <strong>${fmtNum(v.l.bostaFees)}</strong></span>` : '';
+  const netOrder = Number(c.cashReceived) - Number(d0.total);
+  const neg = Number(v.l.total) !== 0 && (Number(v.l.total) > 0 || st.over); // الخزنة أقل من صافي الأوردر (أو أكتر منه بشكل غير طبيعي)
+  const diffVal = Number(v.l.total) > 0 ? '−' + fmtNum(v.l.total) : fmtNum(v.l.total);
+  const diffTok = `<div class="ord-tok${neg ? ' neg' : ''}"><small>${v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : 'مصاريف شحن إضافية'}${neg && !st.over ? ' <span class="badge badge-danger">خسارة</span>' : ''}</small><b>${diffVal}</b></div>`;
   const notes = [
     Number(c.nonCash) ? `<div class="note-box amber">فيه ${fmtNum(c.nonCash)} مدفوعة بوسيلة غير نقدية — مش مفروض تدخل الخزنة وما اتحسبتش في الخسارة.</div>` : '',
     c.cashSource === 'netPayment' ? '<div class="note-box amber">معاملات Shopify ما اتجابتش — الحساب على صافي المدفوع.</div>' : '',
@@ -2558,8 +2567,8 @@ function renderSettlement(d, cmp) {
   ].join('');
   return `<div class="ord-hero">
     <div class="panel-card"><div class="ord-h">تفصيل المبلغ</div>
-      <div class="ord-eq">${tok('إجمالي الأوردر بالشحن', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${tok('مصاريف الشحن', fmtNum(st.deducted.total))}<span class="ord-op">−</span>${tok('دخل الخزنة', fmtNum(t.net), true)}<span class="ord-op">=</span>${tok(v.prov ? 'مصاريف شحن إضافية (مؤقتة)' : 'مصاريف شحن إضافية', fmtNum(v.l.total))}</div>
-      <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}${cmp.chips ? `<div class="bar-row" style="margin-top:8px">${cmp.chips}</div>` : ''}${cmp.body}</div></div>`;
+      <div class="ord-eq">${tok('إجمالي الأوردر بالشحن', fmtNum(c.cashReceived))}<span class="ord-op">−</span>${shipTok}<span class="ord-op">=</span>${tok('صافي الأوردر', fmtNum(netOrder))}<span class="ord-op">−</span>${tok('دخل الخزنة', fmtNum(t.net), true)}<span class="ord-op">=</span>${diffTok}</div>
+      <div class="ord-parts">${Number(v.l.extraShipping) ? `<span class="chip">شحن إضافي <strong>${fmtNum(v.l.extraShipping)}</strong></span>` : ''}${Number(v.l.other) && !(v.bosta) ? `<span class="chip">${esc(v.otherLabel)} <strong>${fmtNum(v.l.other)}</strong></span>` : ''}${shipChips}</div>${notes}${cmp.chips ? `<div class="bar-row" style="margin-top:8px">${cmp.chips}</div>` : ''}${cmp.body}</div></div>`;
 }
 function renderOrder(d) {
   const reversed = new Set(d.entries.filter(e => e.reversesId).map(e => e.reversesId));
