@@ -923,7 +923,13 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
     <div class="eco-modal-hdr"><span>📋 سجل التحديثات</span><button class="modal-close-x" onclick="closeChangelog()">✕</button></div>
     <div class="eco-modal-body">
       <div class="cl-version-block">
-        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">10-11-2026</span></div>
+        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">11-11-2026</span></div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>تاب «تقسيم الشحنات»: المتحصَّل ورسوم بوسطة ودخل الخزنة بقوا بييجوا من سجل التحصيل نفسه لكل رجل (مش مطابقة بالمبلغ)، ومعاهم رقم التتبع والـ Slot وتاريخ التحويل. شحن العميل وخسارة الرجل لسه من Shopify بالترتيب الزمني، وبيتعلّموا «تقريبي» لو الأوردر عليه أكتر من مرتجع. يتطلب Worker v1.4.2.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.7.1</span><span class="cl-ver-date">10-11-2026</span></div>
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: «أين راح المبلغ؟» بقى «تفصيل المبلغ» والمعادلة: إجمالي الأوردر بالشحن − مصاريف الشحن − دخل الخزنة = مصاريف شحن إضافية. والتابات: سجلات الخزنة · المقارنة مع Shopify · سجلات التحصيل · تقسيم الشحنات. والشارة والشرائح بنفس الأسماء. واتصلح سكرول رأسي صغير ظاهر جنب شريط التابات. يتطلب Worker v1.4.1.</span></li>
           <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>خسارة أوردرات بوسطة بقت بتخصم الشحن اللي دفعه العميل (شحن الأوردر + شحن المرتجع/الاستبدال): الخسارة = رسوم بوسطة − شحن العميل. مثال #49395: 6,200 − 75 − 75 − 5,844.6 = <strong>205.4</strong> (كانت 355.4). وتقسيم الرجلين بقى بالترتيب الزمني وفيه شحن كل رجل وخسارته.</span></li>
@@ -1177,8 +1183,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // ══════════════════════════════════════════════════════
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
-const MIN_WORKER_VERSION = '1.4.1'; // 1.4.1 = settlement.legs اتسمّت settlement.shipments · 1.4.0 = خصم شحن العميل من رسوم بوسطة (loss.bostaFees · legs[].shipping/loss · overKind)
-const TOOL_VERSION = 'v1.7.1';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const MIN_WORKER_VERSION = '1.4.2'; // 1.4.2 = تقسيم الشحنات من سجلات التحصيل (shipments[].gross بدل shopify · shipmentsSource · shippingApprox) · 1.4.1 = settlement.legs اتسمّت settlement.shipments · 1.4.0 = خصم شحن العميل من رسوم بوسطة
+const TOOL_VERSION = 'v1.7.2';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2573,9 +2579,10 @@ function renderOrder(d) {
       <td>${esc(employeeDisplayName(r.collector))}</td><td>${esc(r.courier || '')}</td><td class="num">${r.courierCollect === null ? '—' : ordAmt(r.courierCollect)}</td>
       <td><span class="badge ${r.inLedger ? 'badge-success' : r.confirmed ? 'badge-warn' : 'badge-neutral'}">${r.inLedger ? 'في الدفتر' : r.confirmed ? 'جلسة مؤكدة (الصف مش في الدفتر)' : 'لسه ماتأكدش'}</span></td></tr>`).join('');
   const shipCol = st && st.shipments && st.shipments.every(x => x.shipping != null);
-  const shipments = st && st.shipments ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th>#</th><th class="num">المتحصَّل (Shopify)</th><th class="num">دخل الخزنة</th><th class="num">رسوم بوسطة</th>${shipCol ? '<th class="num">شحن العميل</th><th class="num">خسارة الرجل</th>' : ''}</tr></thead><tbody>
-      ${st.shipments.map((x, i) => `<tr><td>${i + 1}</td><td class="num">${fmtNum(x.shopify)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num">${ordAmt('-' + x.fee)}</td>${shipCol ? `<td class="num">${fmtNum(x.shipping)}</td><td class="num">${ordAmt(String(-Number(x.loss)))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
-      <div class="ord-foot">تقسيم تقريبي — مطابقة بالمبلغ وترتيب زمني${shipCol ? " · شحن الأوردر على أول رجل ورسوم كل مرتجع على الرجل اللي بعده" : ""}</div>` : '';
+  const fromLogs = st && st.shipmentsSource === 'logs';
+  const shipments = st && st.shipments ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th>#</th>${fromLogs ? '<th>التتبع</th>' : ''}<th class="num">المتحصَّل</th><th class="num">دخل الخزنة</th><th class="num">رسوم بوسطة</th>${shipCol ? '<th class="num">شحن العميل</th><th class="num">خسارة الرجل</th>' : ''}</tr></thead><tbody>
+      ${st.shipments.map((x, i) => `<tr><td>${i + 1}</td>${fromLogs ? `<td>${esc(x.tracking || '—')}${x.slot ? ` <span class="badge badge-neutral">${esc(x.slot)}</span>` : ''}</td>` : ''}<td class="num">${fmtNum(x.gross)}</td><td class="num">${fmtNum(x.ledger)}</td><td class="num">${ordAmt('-' + x.fee)}</td>${shipCol ? `<td class="num">${fmtNum(x.shipping)}</td><td class="num">${ordAmt(String(-Number(x.loss)))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
+      <div class="ord-foot">${fromLogs ? 'المتحصَّل والرسوم ودخل الخزنة من سجل التحصيل لكل رجل' : 'تقسيم تقريبي — مطابقة بالمبلغ وترتيب زمني (الحركة مش مربوطة بسجل تحصيل)'}${shipCol ? ` · شحن العميل من Shopify: شحن الأوردر على أول رجل ورسوم كل مرتجع على الرجل اللي بعده${st.shippingApprox ? ' — <strong>توزيعه تقريبي</strong> (فيه أكتر من مرتجع ومفيش ربط بينهم وبين رقم التتبع)' : ''}` : ''}</div>` : '';
   const tabs = [
     ['ent', 'سجلات الخزنة', d.entries.length, d.entries.length ? `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">#</th><th>التاريخ والوقت</th><th>النوع</th><th class="num">المبلغ</th><th>موظف الخزنة</th><th>المندوب</th><th>ملاحظة</th><th></th></tr></thead><tbody>${ent}</tbody></table></div>` : '<div class="note-box blue" style="margin:10px">مفيش حركات للأوردر ده في الدفتر</div>'],
     ['src', 'سجلات التحصيل', (d.sources || []).length, `<div class="tbl-wrap"><table class="dt"><thead><tr><th class="num">log</th><th>الوقت</th><th>النوع</th><th>موظف التحصيل</th><th>المندوب</th><th class="num">courierCollect</th><th>في الدفتر؟</th></tr></thead>

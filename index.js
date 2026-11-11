@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.4.1 — settlement.legs اتسمّت settlement.shipments)
+// EcomModa — Treasury-Ledger (v1.4.2 — تقسيم الشحنات من سجلات التحصيل بدل المطابقة بالمبلغ)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.4.1';
+const WORKER_VERSION = '1.4.2';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -1007,7 +1007,52 @@ function pairLegs(sales, saleAt, ledgerIns, legShipping) {
   return legs;
 }
 
-function compareOrder(entries, node, preWindow, pending = null) {
+// 🆕 v1.4.2 — تقسيم الشحنات من **سجلات التحصيل** (D1) بدل المطابقة بالمبلغ.
+//    كل حركة دفتر بوسطة ليها `source_log_id` → صف `cod_payment` فيه رجلها بالظبط (`grossCollected` · `bostaFees` · `flexShipAmount` ·
+//    `trackingNumber` · `slot` · `paidAt` · `cashOutId`). فالمتحصَّل والرسوم ودخل الخزنة بقوا دقيقين حتى مع أكتر من استبدال.
+//    اللي مش في السجلات: شحن العميل لكل رجل (`returnShipping` = null في صفوف بوسطة) ← بيفضل من Shopify بالترتيب الزمني.
+async function loadBostaLegInfo(db, entries) {
+  const ids = [...new Set((entries || []).filter(e => e.source === BOSTA_SRC && e.source_log_id !== null && e.source_log_id !== undefined).map(e => e.source_log_id))];
+  const out = new Map();
+  try {
+    for (const part of chunk(ids, BIND_CHUNK)) {
+      const { results } = await db.prepare(
+        `SELECT id, timestamp, json_extract(extra,'$.grossCollected') AS gross, json_extract(extra,'$.bostaFees') AS fees,
+                json_extract(extra,'$.flexShipAmount') AS flex, json_extract(extra,'$.trackingNumber') AS tracking,
+                json_extract(extra,'$.slot') AS slot, json_extract(extra,'$.paidAt') AS paid_at, json_extract(extra,'$.cashOutId') AS cash_out
+           FROM logs WHERE tool = ? AND id IN (${part.map(() => '?').join(',')})`).bind(SOURCE_TOOL, ...part).all();
+      for (const r of results || []) {
+        const gross = toPiastres(r.gross);
+        if (gross === null) continue;                       // صف قديم/ناقص — الأوردر يرجع للتقدير القديم
+        out.set(r.id, { logId: r.id, ts: String(r.timestamp || ''), gross, fees: toPiastres(r.fees), flex: toPiastres(r.flex) ?? 0,
+          tracking: r.tracking ? String(r.tracking) : null, slot: r.slot || null, paidAt: r.paid_at || null, cashOut: r.cash_out || null });
+      }
+    }
+  } catch (e) { return new Map(); }                         // JSON فاسد في صف = رجوع للتقدير بدل ما نكسر الفحص كله
+  return out;
+}
+
+// الرجلين من سجلات التحصيل. بترجّع null لو أي حركة بوسطة ملهاش صف تحصيل (أو فيه تصحيح REVERSAL) — وقتها pairLegs القديمة.
+// الترتيب: S1 الأول ثم باقي الصفوف بتاريخ التحويل (paidAt) ثم رقم اللوج. ⚠️ الـ slot ثنائي (SEND=S1 وأي حاجة تانية=S2)
+// فالاستبدالات المتعددة كلها S2 — بنفرّقهم بتاريخ التحويل ورقم التتبع.
+function legsFromLogs(cashEntries, info, legShipping) {
+  if (!cashEntries.length || !info?.size) return null;
+  const legs = [];
+  for (const e of cashEntries) {
+    const x = e.source === BOSTA_SRC && e.kind !== KIND.REV && !e.reverses_id ? info.get(e.source_log_id) : null;
+    if (!x) return null;
+    legs.push({ ...x, net: e.amount_piastres, fee: x.gross - e.amount_piastres, at: x.paidAt || x.ts });
+  }
+  legs.sort((a, b) => (a.slot === 'S1' ? 0 : 1) - (b.slot === 'S1' ? 0 : 1) || String(a.paidAt || '').localeCompare(String(b.paidAt || '')) || a.logId - b.logId);
+  const alloc = legShipping && legShipping.length === legs.length;
+  for (const [i, l] of legs.entries()) {
+    l.ship = alloc ? legShipping[i] : null;
+    l.loss = alloc ? l.fee - legShipping[i] : null;
+  }
+  return legs;
+}
+
+function compareOrder(entries, node, preWindow, pending = null, legInfo = null) {
   const byId = new Map(entries.map(e => [e.id, e]));
   const isXs = (e) => e.source === 'cod_extra_shipping' ||
     (e.reverses_id && byId.get(e.reverses_id)?.source === 'cod_extra_shipping');
@@ -1062,8 +1107,12 @@ function compareOrder(entries, node, preWindow, pending = null) {
   if (retPaid !== retFees) reasons.push('رسوم المرتجع لسه على العميل — ما اتخصمتش');
   // شحن كل رجل بالترتيب: الشحن الأصلي ثم رسوم كل مرتجع — بس لو المدفوع كامل (من غير قصّ ولا رسوم معلّقة)
   const legShipping = !capped && retPaid === retFees ? [ship, ...retList] : null;
-  const legs = bosta && cashTx && !cashTx.refunds.length && cashEntries.length && cashEntries.every(e => e.kind === KIND.IN && e.amount_piastres > 0)
-    ? pairLegs(cashTx.sales, cashTx.saleAt, cashEntries.map(e => e.amount_piastres), legShipping) : null;
+  let legs = bosta ? legsFromLogs(cashEntries, legInfo, legShipping) : null;
+  let legsSource = legs ? 'logs' : null;
+  if (!legs && bosta && cashTx && !cashTx.refunds.length && cashEntries.length && cashEntries.every(e => e.kind === KIND.IN && e.amount_piastres > 0)) {
+    legs = pairLegs(cashTx.sales, cashTx.saleAt, cashEntries.map(e => e.amount_piastres), legShipping);   // تقدير قديم: مفيش صف تحصيل مربوط
+    legsSource = legs ? 'amount_pairing' : null;
+  }
   const settlement = {
     customer: { total: total === null ? null : fmtMoney(total), netPayment: fmtMoney(net), cashReceived: fmtMoney(cashReceived),
       cashSource: cashTx ? 'transactions' : 'netPayment', nonCash: fmtMoney(nonCash), outstanding: fmtMoney(outstanding),
@@ -1080,8 +1129,13 @@ function compareOrder(entries, node, preWindow, pending = null) {
     // 🆕 v1.4.0: بيشتغل على العميل المقفول بس — غير كده الخسارة أصلاً مؤقتة والفرق ممكن يكون تحصيل/استرداد لسه ما حصلش.
     over: other < 0 && settled && !pending && !preWindow,
     overKind: other < 0 ? (bosta && ledgerNet <= cashReceived ? 'BOSTA_FEES_BELOW_SHIPPING' : 'OVER_COLLECTED') : null,
-    shipments: legs ? legs.map(l => ({ shopify: fmtMoney(l.gross), ledger: fmtMoney(l.net), fee: fmtMoney(l.fee),
-      shipping: l.ship === null ? null : fmtMoney(l.ship), loss: l.loss === null ? null : fmtMoney(l.loss) })) : null,
+    // 🆕 v1.4.2: `gross`/`ledger`/`fee` من سجل التحصيل (`shipmentsSource:'logs'`) — `shipping`/`loss` من Shopify بالترتيب الزمني، وتقريبية
+    //    (`shippingApprox`) لو الأوردر عليه أكتر من مرتجع (Shopify مابيربطش المرتجع برقم تتبع بوسطة). `shipmentsSource:'amount_pairing'` = تقدير قديم.
+    shipments: legs ? legs.map(l => ({ gross: fmtMoney(l.gross), ledger: fmtMoney(l.net), fee: fmtMoney(l.fee),
+      shipping: l.ship === null ? null : fmtMoney(l.ship), loss: l.loss === null ? null : fmtMoney(l.loss),
+      slot: l.slot || null, tracking: l.tracking || null, paidAt: l.paidAt || null, cashOutId: l.cashOut || null, logId: l.logId ?? null })) : null,
+    shipmentsSource: legsSource,
+    shippingApprox: legs ? retList.length > 1 || legsSource === 'amount_pairing' : null,
   };
 
   // الرجل المعلّقة ليها الأولوية: الحكم النهائي بعد ما الجلسة المعلّقة تتسجّل
@@ -1635,7 +1689,7 @@ if (action === 'get_employees') {
             const costLog = [];
             const map = await fetchShopifyOrders(env, token, [id], costLog);
             const pre = await preWindowOrderSet(env.DB, [name]);
-            shopify = compareOrder(ledger, map.get(String(id)) || null, pre.has(name), pending);
+            shopify = compareOrder(ledger, map.get(String(id)) || null, pre.has(name), pending, await loadBostaLegInfo(env.DB, ledger));
             await syncSettlementAlerts(env.DB, [{ orderId: id, orderName: name, cmp: shopify }]).catch(() => {});
           }
         } catch (e) { shopifyError = e.message; }
@@ -1671,10 +1725,11 @@ if (action === 'get_employees') {
         const names = [...ledger.values()].map(rows => rows[0].order_name);
         const pre = await preWindowOrderSet(env.DB, names);
         const legs = await loadPendingLegs(env.DB, ids, ledger);
+        const legInfo = await loadBostaLegInfo(env.DB, [...ledger.values()].flat());
         const results = ids.map(id => {
           const entries = ledger.get(id) || [];
           const nm = entries[0]?.order_name || null;
-          return { orderId: id, orderName: nm, ...compareOrder(entries, nodes.get(id) || null, nm ? pre.has(nm) : false, legs.get(id)) };
+          return { orderId: id, orderName: nm, ...compareOrder(entries, nodes.get(id) || null, nm ? pre.has(nm) : false, legs.get(id), legInfo) };
         });
         await syncSettlementAlerts(env.DB, results.map(r => ({ orderId: r.orderId, orderName: r.orderName, cmp: r }))).catch(() => {});
         return json({ ok: true, results, queryCost: costLog }, 200, request);
