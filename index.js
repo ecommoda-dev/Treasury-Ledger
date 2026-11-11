@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.4.2 — تقسيم الشحنات من سجلات التحصيل بدل المطابقة بالمبلغ)
+// EcomModa — Treasury-Ledger (v1.4.3 — sources فيها تفاصيل رجل بوسطة + حذف التقدير بالمبلغ)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.4.2';
+const WORKER_VERSION = '1.4.3';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -977,34 +977,15 @@ const CASH_GATEWAY_RE = /cash on delivery|\bcod\b|manual/i;
 // بيرجّع null لو المعاملات ما اتجابتش (الحقل غايب) — وقتها بنرجع لـ netPaymentSet.
 function cashFromTransactions(node) {
   if (!Array.isArray(node?.transactions)) return null;
-  const sales = [], refunds = [], saleAt = [];
+  const sales = [], refunds = [];
   for (const t of node.transactions) {
     if (!t || t.status !== 'SUCCESS' || !CASH_GATEWAY_RE.test(String(t.gateway || ''))) continue;
     const p = money(t.amountSet);
-    if (t.kind === 'SALE' || t.kind === 'CAPTURE') { sales.push(p); saleAt.push(String(t.processedAt || '')); }
+    if (t.kind === 'SALE' || t.kind === 'CAPTURE') sales.push(p);
     else if (t.kind === 'REFUND') refunds.push(p);
   }
   const sum = (a) => a.reduce((s, x) => s + x, 0);
-  return { sales, refunds, saleAt, received: sum(sales) - sum(refunds) };
-}
-
-// تقسيم الخسارة على الرجلين (تقريبي): بنزاوج كل معاملة Shopify بحركة الدفتر بترتيب المبلغ (الصافي ≤ الإجمالي دايمًا).
-// مابنزاوجش إلا لو العدد متساوي ومفيش استردادات/تصحيحات والرسوم منطقية — غير كده null (يفضل الإجمالي بس).
-// 🆕 v1.4.0: الرجلين بيترتّبوا بتاريخ المعاملة، وشحن العميل بيتوزّع: الشحن الأصلي على أول رجل ورسوم كل مرتجع
-//    (بترتيب createdAt) على الرجل اللي بعده ← خسارة الرجل = رسوم بوسطة − شحنه. لو العدد مش متطابق: shipping/loss = null.
-function pairLegs(sales, saleAt, ledgerIns, legShipping) {
-  if (!sales.length || sales.length !== ledgerIns.length) return null;
-  const a = sales.map((gross, i) => ({ gross, at: saleAt?.[i] || '' })).sort((x, y) => y.gross - x.gross);
-  const b = [...ledgerIns].sort((x, y) => y - x);
-  const legs = a.map((x, i) => ({ gross: x.gross, at: x.at, net: b[i], fee: x.gross - b[i] }));
-  if (legs.some(l => l.fee < 0 || l.fee > l.gross * 0.5)) return null;
-  legs.sort((x, y) => x.at.localeCompare(y.at));
-  const alloc = legShipping && legShipping.length === legs.length;
-  for (const [i, l] of legs.entries()) {
-    l.ship = alloc ? legShipping[i] : null;
-    l.loss = alloc ? l.fee - legShipping[i] : null;
-  }
-  return legs;
+  return { sales, refunds, received: sum(sales) - sum(refunds) };
 }
 
 // 🆕 v1.4.2 — تقسيم الشحنات من **سجلات التحصيل** (D1) بدل المطابقة بالمبلغ.
@@ -1032,7 +1013,7 @@ async function loadBostaLegInfo(db, entries) {
   return out;
 }
 
-// الرجلين من سجلات التحصيل. بترجّع null لو أي حركة بوسطة ملهاش صف تحصيل (أو فيه تصحيح REVERSAL) — وقتها pairLegs القديمة.
+// الرجلين من سجلات التحصيل. بترجّع null لو أي حركة بوسطة ملهاش صف تحصيل (أو فيه تصحيح REVERSAL) — وقتها مفيش تقسيم (مابنخمّنش).
 // الترتيب: S1 الأول ثم باقي الصفوف بتاريخ التحويل (paidAt) ثم رقم اللوج. ⚠️ الـ slot ثنائي (SEND=S1 وأي حاجة تانية=S2)
 // فالاستبدالات المتعددة كلها S2 — بنفرّقهم بتاريخ التحويل ورقم التتبع.
 function legsFromLogs(cashEntries, info, legShipping) {
@@ -1107,12 +1088,7 @@ function compareOrder(entries, node, preWindow, pending = null, legInfo = null) 
   if (retPaid !== retFees) reasons.push('رسوم المرتجع لسه على العميل — ما اتخصمتش');
   // شحن كل رجل بالترتيب: الشحن الأصلي ثم رسوم كل مرتجع — بس لو المدفوع كامل (من غير قصّ ولا رسوم معلّقة)
   const legShipping = !capped && retPaid === retFees ? [ship, ...retList] : null;
-  let legs = bosta ? legsFromLogs(cashEntries, legInfo, legShipping) : null;
-  let legsSource = legs ? 'logs' : null;
-  if (!legs && bosta && cashTx && !cashTx.refunds.length && cashEntries.length && cashEntries.every(e => e.kind === KIND.IN && e.amount_piastres > 0)) {
-    legs = pairLegs(cashTx.sales, cashTx.saleAt, cashEntries.map(e => e.amount_piastres), legShipping);   // تقدير قديم: مفيش صف تحصيل مربوط
-    legsSource = legs ? 'amount_pairing' : null;
-  }
+  const legs = bosta ? legsFromLogs(cashEntries, legInfo, legShipping) : null;
   const settlement = {
     customer: { total: total === null ? null : fmtMoney(total), netPayment: fmtMoney(net), cashReceived: fmtMoney(cashReceived),
       cashSource: cashTx ? 'transactions' : 'netPayment', nonCash: fmtMoney(nonCash), outstanding: fmtMoney(outstanding),
@@ -1129,13 +1105,13 @@ function compareOrder(entries, node, preWindow, pending = null, legInfo = null) 
     // 🆕 v1.4.0: بيشتغل على العميل المقفول بس — غير كده الخسارة أصلاً مؤقتة والفرق ممكن يكون تحصيل/استرداد لسه ما حصلش.
     over: other < 0 && settled && !pending && !preWindow,
     overKind: other < 0 ? (bosta && ledgerNet <= cashReceived ? 'BOSTA_FEES_BELOW_SHIPPING' : 'OVER_COLLECTED') : null,
-    // 🆕 v1.4.2: `gross`/`ledger`/`fee` من سجل التحصيل (`shipmentsSource:'logs'`) — `shipping`/`loss` من Shopify بالترتيب الزمني، وتقريبية
-    //    (`shippingApprox`) لو الأوردر عليه أكتر من مرتجع (Shopify مابيربطش المرتجع برقم تتبع بوسطة). `shipmentsSource:'amount_pairing'` = تقدير قديم.
+    // v1.4.2/v1.4.3: `gross`/`ledger`/`fee` من سجل التحصيل — `shipping`/`loss` من Shopify بالترتيب الزمني، وتقريبية (`shippingApprox`)
+    //    لو الأوردر عليه أكتر من مرتجع (Shopify مابيربطش المرتجع برقم تتبع بوسطة). حركة بوسطة ملهاش صف تحصيل مربوط (أو عليها REVERSAL) ← `shipments = null`
+    //    (v1.4.3: اتشال التقدير القديم بالمبلغ — الواجهة بتربط الرجل بصف التحصيل بالـ `logId`).
     shipments: legs ? legs.map(l => ({ gross: fmtMoney(l.gross), ledger: fmtMoney(l.net), fee: fmtMoney(l.fee),
       shipping: l.ship === null ? null : fmtMoney(l.ship), loss: l.loss === null ? null : fmtMoney(l.loss),
       slot: l.slot || null, tracking: l.tracking || null, paidAt: l.paidAt || null, cashOutId: l.cashOut || null, logId: l.logId ?? null })) : null,
-    shipmentsSource: legsSource,
-    shippingApprox: legs ? retList.length > 1 || legsSource === 'amount_pairing' : null,
+    shippingApprox: legs ? retList.length > 1 : null,
   };
 
   // الرجل المعلّقة ليها الأولوية: الحكم النهائي بعد ما الجلسة المعلّقة تتسجّل
@@ -1662,13 +1638,20 @@ if (action === 'get_employees') {
         const { results: ledger } = await env.DB.prepare('SELECT * FROM treasury_ledger WHERE order_name = ? ORDER BY id').bind(name).all();
         const { results: src } = await env.DB.prepare(
           `SELECT id, timestamp, type, employee, json_extract(extra,'$.batchId') AS batch_id, json_extract(extra,'$.courier') AS courier,
-                  json_extract(extra,'$.courierCollect') AS cc, json_extract(extra,'$.source') AS src
+                  json_extract(extra,'$.courierCollect') AS cc, json_extract(extra,'$.source') AS src,
+                  json_extract(extra,'$.grossCollected') AS gross, json_extract(extra,'$.netValue') AS net_value,
+                  json_extract(extra,'$.trackingNumber') AS tracking, json_extract(extra,'$.slot') AS slot,
+                  json_extract(extra,'$.paidAt') AS paid_at, json_extract(extra,'$.cashOutId') AS cash_out
              FROM logs WHERE tool = ? AND type IN ('payment','refund') AND timestamp >= ? AND order_name = ? ORDER BY id`
         ).bind(SOURCE_TOOL, ORDER_HISTORY_FROM, name).all();
         const confs = await loadConfirmations(env.DB, [...new Set(src.map(r => r.batch_id).filter(Boolean))]);
         const sources = src.map(r => ({ logId: r.id, timestamp: r.timestamp, type: r.type, collector: r.employee, courier: r.courier,
           courierCollect: toPiastres(r.cc) === null ? null : fmtMoney(toPiastres(r.cc)), batchId: r.batch_id,
-          confirmed: confs.has(r.batch_id), inLedger: ledger.some(l => l.source_log_id === r.id) }));
+          confirmed: confs.has(r.batch_id), inLedger: ledger.some(l => l.source_log_id === r.id),
+          // 🆕 v1.4.3 — تفاصيل رجل بوسطة من نفس الصف (حتى لو لسه ما اتسجّلش في الدفتر): fee = المتحصَّل − الصافي (رسوم بوسطة بعد الـ Flex)
+          ...(r.src === BOSTA_SRC ? { bosta: true, gross: toPiastres(r.gross) === null ? null : fmtMoney(toPiastres(r.gross)),
+            fee: toPiastres(r.gross) === null || toPiastres(r.net_value) === null ? null : fmtMoney(toPiastres(r.gross) - toPiastres(r.net_value)),
+            tracking: r.tracking ? String(r.tracking) : null, slot: r.slot || null, paidAt: r.paid_at || null, cashOutId: r.cash_out || null } : {}) }));
         const orderId = ledger[0]?.order_id ?? null;
         const winStart = cairoDayBoundsUTC(MIN_DATE).start;
         const pending = pendingLegsFrom(src.filter(r => r.timestamp >= winStart),

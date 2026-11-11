@@ -437,10 +437,8 @@ test('التسوية: #49395 (بوسطة · رجلين) — 6200 − شحن 75 �
     assert.deepEqual(st.loss, { total: '205.40', extraShipping: '0.00', other: '205.40', otherKind: 'BOSTA_FEES', bostaFees: '355.40' });
     assert.deepEqual(st.deducted, { total: '150.00', shipping: '75.00', returnFees: '75.00', returnFeesUnpaid: '0.00' });   // v1.4.0: شحن العميل بيغطّي جزء من رسوم بوسطة
     assert.equal(st.state, 'FINAL'); assert.equal(st.over, false); assert.equal(st.overKind, null);
-    // الحركات هنا من غير source_log_id (دفتر قديم) ← تقدير بالمبلغ، ومتعلّم
-    assert.deepEqual(st.shipments.map(x => [x.gross, x.ledger, x.fee, x.shipping, x.loss]),
-      [['4975.00', '4791.74', '183.26', '75.00', '108.26'], ['1225.00', '1052.86', '172.14', '75.00', '97.14']]);
-    assert.equal(st.shipmentsSource, 'amount_pairing'); assert.equal(st.shippingApprox, true);
+    // الحركات هنا من غير source_log_id ← مفيش تقسيم (v1.4.3: اتشال التقدير بالمبلغ) والأرقام الإجمالية سليمة
+    assert.equal(st.shipments, null); assert.equal(st.shippingApprox, null);
   } finally { globalThis.fetch = realFetch; }
 });
 
@@ -465,13 +463,13 @@ test('تقسيم الشحنات v1.4.2: #49395 من سجلات التحصيل (s
     const l1 = bostaLeg(DB, { order: '49395', name: '#49395', slot: 'S1', type: 'SEND', gross: '4975.00', fees: '183.26', net: '4791.74', tracking: '6579132603', paidAt: '2026-08-05', cashOut: 'WEDCOD05AUG26', ts: '2026-11-10T13:13:43.909Z' });
     for (const body of [{ action: 'compare_orders', b: { orderIds: ['49395'] } }]) {
       const st = (await call(env, body.action, { method: 'POST', body: body.b })).body.results[0].settlement;
-      assert.equal(st.shipmentsSource, 'logs'); assert.equal(st.shippingApprox, false);
+      assert.equal(st.shippingApprox, false);
       assert.deepEqual(st.shipments, [
         { gross: '4975.00', ledger: '4791.74', fee: '183.26', shipping: '75.00', loss: '108.26', slot: 'S1', tracking: '6579132603', paidAt: '2026-08-05', cashOutId: 'WEDCOD05AUG26', logId: l1 },
         { gross: '1225.00', ledger: '1052.86', fee: '172.14', shipping: '75.00', loss: '97.14', slot: 'S2', tracking: '8145633046', paidAt: '2026-08-12', cashOutId: 'WEDCOD12AUG26', logId: l2 }]);
     }
     const o = (await call(env, 'get_order', { params: { orderName: '49395' } })).body.shopify.settlement;     // نفس النتيجة من get_order
-    assert.equal(o.shipmentsSource, 'logs'); assert.equal(o.shipments[0].tracking, '6579132603');
+    assert.equal(o.shipments[0].tracking, '6579132603');
   } finally { globalThis.fetch = realFetch; }
 });
 
@@ -486,13 +484,13 @@ test('تقسيم الشحنات v1.4.2: أكتر من استبدال — الر�
     bostaLeg(DB, { order: '9', name: '#9', slot: 'S1', type: 'SEND', gross: '2000.00', fees: '140.00', net: '1860.00', tracking: 'T1', paidAt: '2026-08-05', cashOut: 'C1', ts: '2026-11-10T10:01:00Z' });
     bostaLeg(DB, { order: '9', name: '#9', slot: 'S2', gross: '500.00', fees: '160.00', net: '340.00', tracking: 'T2', paidAt: '2026-08-12', cashOut: 'C2', ts: '2026-11-10T10:02:00Z' });
     const st = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['9'] } })).body.results[0].settlement;
-    assert.equal(st.shipmentsSource, 'logs'); assert.equal(st.shippingApprox, true);
+    assert.equal(st.shippingApprox, true);
     assert.deepEqual(st.shipments.map(x => [x.tracking, x.slot, x.fee, x.shipping, x.loss]),
       [['T1', 'S1', '140.00', '80.00', '60.00'], ['T2', 'S2', '160.00', '60.00', '100.00'], ['T3', 'S2', '150.00', '90.00', '60.00']]);
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('تقسيم الشحنات v1.4.2: عدد الرجلين مختلف عن الشحن/المرتجعات — الأرقام الأساسية من السجل وشحن العميل null، وحركة ملهاش صف تحصيل = رجوع للتقدير', async () => {
+test('تقسيم الشحنات v1.4.2: عدد الرجلين مختلف عن الشحن/المرتجعات — الأرقام الأساسية من السجل وشحن العميل null، وREVERSAL = مفيش تقسيم', async () => {
   const realFetch = globalThis.fetch;
   try {
     // رجل واحدة بس في الدفتر لكن على Shopify مرتجع — شحن العميل ما يتوزّعش
@@ -500,12 +498,12 @@ test('تقسيم الشحنات v1.4.2: عدد الرجلين مختلف عن ا
     let { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
     bostaLeg(DB, { order: '10', name: '#10', slot: 'S1', type: 'SEND', gross: '1000.00', fees: '120.00', net: '880.00', tracking: 'T1', paidAt: '2026-08-05', cashOut: 'C1', ts: '2026-11-10T10:01:00Z' });
     let st = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['10'] } })).body.results[0].settlement;
-    assert.equal(st.shipmentsSource, 'logs'); assert.equal(st.shipments.length, 1);
+    assert.equal(st.shipments.length, 1);
     assert.deepEqual([st.shipments[0].gross, st.shipments[0].fee, st.shipments[0].shipping, st.shipments[0].loss], ['1000.00', '120.00', null, null]);
-    // تصحيح REVERSAL على الأوردر = السجل مش مصدر موثوق ← رجوع للتقدير القديم (مش بنخمّن من سجلات اتصحّحت)
+    // تصحيح REVERSAL على الأوردر = السجل مش مصدر موثوق ← مفيش تقسيم (مش بنخمّن من سجلات اتصحّحت)
     DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, source, treasury_employee, reverses_id, idempotency_key) VALUES ('2026-11-10T11:00:00Z','10','#10','REVERSAL',-88000,'bosta_cash_cycle','X',1,'rev:1')`).run();
     st = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['10'] } })).body.results[0].settlement;
-    assert.notEqual(st.shipmentsSource, 'logs');
+    assert.equal(st.shipments, null);
   } finally { globalThis.fetch = realFetch; }
 });
 
@@ -587,7 +585,7 @@ test('التسوية v1.4.0: رسوم مرتجع لسه على العميل ما
     returns: [retNode('100.0')], tx: [txn('SALE', 'Cash on Delivery (COD)', '1099.0')] })]);
   try {
     const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
-    insL(DB, '6', '#6', 'CASH_IN', 95536, 'bosta_cash_cycle', 'بوسطة — صافي بعد الرسوم');
+    bostaLeg(DB, { order: '6', name: '#6', slot: 'S1', type: 'SEND', gross: '1099.00', fees: '143.64', net: '955.36', tracking: 'T6', paidAt: '2026-08-05', cashOut: 'C6', ts: '2026-11-10T10:00:00Z' });
     const st = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['6'] } })).body.results[0].settlement;
     assert.deepEqual(st.deducted, { total: '100.00', shipping: '100.00', returnFees: '0.00', returnFeesUnpaid: '100.00' });
     assert.equal(st.loss.total, '43.64'); assert.equal(st.state, 'PROVISIONAL'); assert.equal(st.over, false);
@@ -621,5 +619,27 @@ test('التسوية v1.4.0: مرتجع ملغي (CANCELED) رسومه ما بت
     const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['9'] } })).body.results[0];
     assert.equal(r.status, 'MATCH'); assert.equal(r.parts.returnFees, '0.00');
     assert.equal(r.settlement.deducted.total, '75.00'); assert.equal(r.settlement.loss.total, '0.00');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('get_order v1.4.3: sources فيها تفاصيل رجل بوسطة (حتى الصف اللي لسه مش في الدفتر)، والمندوب من غيرها', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('11', '#11', { net: '1500.00', ship: '70.00', curShip: '70.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '1500.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    const l1 = bostaLeg(DB, { order: '11', name: '#11', slot: 'S1', type: 'SEND', gross: '1000.00', fees: '120.00', net: '880.00', tracking: 'T1', paidAt: '2026-08-05', cashOut: 'C1', ts: '2026-11-10T10:01:00Z' });
+    // رجل تانية صف تحصيل بس (لسه ما اتسجّلتش في الدفتر) — noCollection: gross 0 · رسوم 145.35 · flex 100
+    DB.raw.prepare(`INSERT INTO logs (timestamp, tool, type, employee, order_id, order_name, extra) VALUES ('2026-11-10T10:02:00Z','cod_payment','payment','Ahmed_Ibraheem','11','#11',?)`)
+      .run(JSON.stringify({ result: 'success', batchId: 'bosta-C2', courier: 'Bosta', courierCollect: -45.35, source: 'bosta_cash_cycle', cashOutId: 'C2', paidAt: '2026-08-12', trackingNumber: 'T2', slot: 'S2',
+        grossCollected: '0.00', bostaFees: '145.35', flexShipAmount: '100.00', netValue: '-45.35' }));
+    const d = (await call(env, 'get_order', { params: { orderName: '11' } })).body;
+    const [a, b] = d.sources;
+    assert.deepEqual([a.bosta, a.gross, a.fee, a.tracking, a.slot, a.paidAt, a.cashOutId, a.inLedger], [true, '1000.00', '120.00', 'T1', 'S1', '2026-08-05', 'C1', true]);
+    assert.deepEqual([b.bosta, b.gross, b.fee, b.tracking, b.slot, b.inLedger], [true, '0.00', '45.35', 'T2', 'S2', false]);   // fee = gross − net (بعد الـ Flex)
+    assert.equal(a.logId, l1); assert.equal(d.shopify.settlement.shipments[0].logId, l1);                                   // الربط بين sources وshipments بالـ logId
+    // صف مندوب عادي: من غير حقول بوسطة
+    seed(DB, { ts: '2026-11-10T09:00:00.000Z', orderId: '12', orderName: '#12', extra: { result: 'success', batchId: 'b1', courier: 'Saif', courierCollect: 100, extraShipping: [], extraShippingTotal: '0.00', batchExpected: { orders: 1, payOrders: 1, refundOrders: 0, collect: '100.00', net: '100.00' } } });
+    const c = (await call(env, 'get_order', { params: { orderName: '12' } })).body.sources[0];
+    assert.equal(c.bosta, undefined); assert.equal(c.gross, undefined);
   } finally { globalThis.fetch = realFetch; }
 });
