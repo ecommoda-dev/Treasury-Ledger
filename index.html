@@ -931,6 +931,12 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">11-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر · «تفصيل المبلغ»: مربع جديد «صافي الأوردر» (إجمالي الأوردر بالشحن − مصاريف الشحن)، والفرق بينه وبين دخل الخزنة = مصاريف شحن إضافية؛ لو الفرق بالسالب المربع بيتلوّن أحمر وبيظهر بادج «خسارة». بادجات مصاريف شحن الأوردر والمرتجع/الاستبدال اندمجت جوه مربع «مصاريف الشحن»، وبادج «رسوم بوسطة بعد شحن العميل» اتشال. الواجهة بس — مفيش تغيير في الـ Worker.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.7.3</span><span class="cl-ver-date">11-11-2026</span></div>
+        <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر: دمج «سجلات التحصيل» و«تقسيم الشحنات» في تاب واحدة اسمها «سجلات التحصيل» — صف لكل شحنة بالتتبع والمتحصَّل والرسوم ودخل الخزنة وشحن العميل وخسارة الشحنة (للبوسطة)، بترتيب الشحنتين، وصف إجمالي بيطابق رسوم بوسطة بعد شحن العميل. شحن العميل وخسارة الشحنة بيتعلّموا «≈» لو فيه أكتر من مرتجع. اتشال التقدير بالمبلغ. يتطلب Worker v1.4.3.</span></li>
         </ul>
       </div>
@@ -1196,7 +1202,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.4.3'; // 1.4.3 = sources فيها تفاصيل شحنة بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
-const TOOL_VERSION = 'v1.7.3';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.7.4';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)

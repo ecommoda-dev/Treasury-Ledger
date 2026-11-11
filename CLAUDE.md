@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.7.3-blue)
+![version](https://img.shields.io/badge/version-v1.7.4-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -124,6 +124,9 @@
 - 🔴 `MIN_WORKER_VERSION = 1.4.3` (انشر الـ Worker قبل الصفحة). كسر صغير: `settlement.shipmentsSource` اتشال.
 - الفحص: 29 اختبار (اختبار جديد لـ `sources`) + فحص بصري بـ Playwright (#49395 · أوردر بمرتجعين · شحنة معلّقة · أوردر مندوب).
 
+## 🆕 تفصيل المبلغ: «صافي الأوردر» (واجهة v1.7.4 · 11-11-2026) — `index.html` فقط
+المعادلة: إجمالي الأوردر بالشحن − مصاريف الشحن = **صافي الأوردر** − دخل الخزنة = مصاريف شحن إضافية. الفرق الموجب (الخزنة أقل) = خسارة: المربع أحمر والرقم بالسالب + بادج «خسارة». بادجات شحن الأوردر/المرتجع اندمجت جوه مربع «مصاريف الشحن»، وبادج «رسوم بوسطة بعد شحن العميل» اتشال (رسوم بوسطة الكاملة فضلت). الـ Worker ما اتغيّرش.
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -165,9 +168,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 11-11-2026 · `index.js` v1.4.3 · `index.html` v1.7.3
+آخر مطابقة: 11-11-2026 · `index.js` v1.4.3 · `index.html` v1.7.4
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 11-11-2026 — Worker v1.4.3 + `index.html` v1.7.3 (دمج «تقسيم الشحنات» في «سجلات التحصيل»)
+آخر تحديث: 11-11-2026 — Worker v1.4.3 + `index.html` v1.7.4 (مربع «صافي الأوردر» في تفصيل المبلغ)
 
 </div>
