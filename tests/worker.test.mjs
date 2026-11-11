@@ -316,7 +316,7 @@ test('الطبقة ٥: كل type بيكتبه الكود مسجّل (مفيش _u
   assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM log_value_alerts').get().n, 0);
 });
 
-// ─── v1.2.0 — التسوية التاريخية + الرجل المعلّقة ───
+// ─── v1.2.0 — التسوية التاريخية + الشحنة المعلّقة ───
 const shopNode = (id, name, net, ship = '0.00', fees = []) => ({ id: `gid://shopify/Order/${id}`, legacyResourceId: id, name, displayFinancialStatus: 'PARTIALLY_REFUNDED', cancelledAt: null,
   netPaymentSet: { shopMoney: { amount: net } }, totalShippingPriceSet: { shopMoney: { amount: ship } }, totalOutstandingSet: { shopMoney: { amount: '0.0' } },
   returns: { pageInfo: { hasNextPage: false }, nodes: [{ returnShippingFees: fees.map(f => ({ amountSet: { shopMoney: { amount: f } } })) }] } });
@@ -380,7 +380,7 @@ test('تسوية تاريخية: أحمد بس + PIN، مش النهارده، �
   assert.equal(bad, 0);
 });
 
-test('الرجل المعلّقة (#63567): تحصيل معلّق + استرداد متسجّل = AWAITING_LEG (مش SHORT)، وبعد التسوية = MATCH', async () => {
+test('الشحنة المعلّقة (#63567): تحصيل معلّق + استرداد متسجّل = AWAITING_LEG (مش SHORT)، وبعد التسوية = MATCH', async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = mockShopify([shopNode('63', '#63567', '75.00', '0.00', ['75.00'])]);   // متوقع شوبيفاي 0
   try {
@@ -419,7 +419,7 @@ const settleNode = (id, name, { net, total = net, ship = '0.00', curShip, outsta
   returns: { pageInfo: { hasNextPage: false }, nodes: returns } });
 const insL = (DB, o, n, kind, amt, src, note = null) => DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, note, source, treasury_employee, idempotency_key) VALUES ('2026-11-10T10:00:00Z', ?, ?, ?, ?, ?, ?, 'X', ?)`).run(o, n, kind, amt, note, src, `s${o}${src}${amt}${Math.random()}`);
 
-test('التسوية: #49395 (بوسطة · رجلين) — 6200 − شحن 75 − شحن استبدال 75 − 5844.60 = خسارة 205.40 مقسّمة على الرجلين', async () => {
+test('التسوية: #49395 (بوسطة · شحنتين) — 6200 − شحن 75 − شحن استبدال 75 − 5844.60 = خسارة 205.40 مقسّمة على الشحنتين', async () => {
   const realFetch = globalThis.fetch;
   // بيانات Shopify الحية (10-11-2026): الـ SALE المعلّقة الأولى مش بتتحسب، والتانية manual بعد الاستبدال
   globalThis.fetch = mockShopify([settleNode('49395', '#49395', { net: '6200.00', ship: '75.00', curShip: '75.00', returns: [retNode('75.0')],
@@ -473,7 +473,7 @@ test('تقسيم الشحنات v1.4.2: #49395 من سجلات التحصيل (s
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('تقسيم الشحنات v1.4.2: أكتر من استبدال — الرجلين بالتتبع والتاريخ، وشحن العميل تقريبي (أكتر من مرتجع)، وبدون ما نعتمد على Shopify transactions', async () => {
+test('تقسيم الشحنات v1.4.2: أكتر من استبدال — الشحنتين بالتتبع والتاريخ، وشحن العميل تقريبي (أكتر من مرتجع)، وبدون ما نعتمد على Shopify transactions', async () => {
   const realFetch = globalThis.fetch;
   // S1 + استبدالين S2: المرتجعين رسومهم مختلفة (60 · 90) — Shopify مابيربطهم برقم تتبع
   globalThis.fetch = mockShopify([settleNode('9', '#9', { net: '3000.00', ship: '80.00', curShip: '80.00', returns: [retNode('60.0', '2026-08-02T10:00:00Z'), retNode('90.0', '2026-08-09T10:00:00Z')],
@@ -490,10 +490,10 @@ test('تقسيم الشحنات v1.4.2: أكتر من استبدال — الر�
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('تقسيم الشحنات v1.4.2: عدد الرجلين مختلف عن الشحن/المرتجعات — الأرقام الأساسية من السجل وشحن العميل null، وREVERSAL = مفيش تقسيم', async () => {
+test('تقسيم الشحنات v1.4.2: عدد الشحنتين مختلف عن الشحن/المرتجعات — الأرقام الأساسية من السجل وشحن العميل null، وREVERSAL = مفيش تقسيم', async () => {
   const realFetch = globalThis.fetch;
   try {
-    // رجل واحدة بس في الدفتر لكن على Shopify مرتجع — شحن العميل ما يتوزّعش
+    // شحنة واحدة بس في الدفتر لكن على Shopify مرتجع — شحن العميل ما يتوزّعش
     globalThis.fetch = mockShopify([settleNode('10', '#10', { net: '1000.00', ship: '70.00', curShip: '70.00', returns: [retNode('70.0')], tx: [txn('SALE', 'Cash on Delivery (COD)', '1000.00')] })]);
     let { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
     bostaLeg(DB, { order: '10', name: '#10', slot: 'S1', type: 'SEND', gross: '1000.00', fees: '120.00', net: '880.00', tracking: 'T1', paidAt: '2026-08-05', cashOut: 'C1', ts: '2026-11-10T10:01:00Z' });
@@ -590,7 +590,7 @@ test('التسوية v1.4.0: رسوم مرتجع لسه على العميل ما
     assert.deepEqual(st.deducted, { total: '100.00', shipping: '100.00', returnFees: '0.00', returnFeesUnpaid: '100.00' });
     assert.equal(st.loss.total, '43.64'); assert.equal(st.state, 'PROVISIONAL'); assert.equal(st.over, false);
     assert.ok(st.reasons.some(x => x.includes('رسوم المرتجع لسه على العميل')));
-    assert.equal(st.shipments[0].shipping, null);              // الرسوم المعلّقة بتلغي توزيع الشحن على الرجل
+    assert.equal(st.shipments[0].shipping, null);              // الرسوم المعلّقة بتلغي توزيع الشحن على الشحنة
   } finally { globalThis.fetch = realFetch; }
 });
 
@@ -622,13 +622,13 @@ test('التسوية v1.4.0: مرتجع ملغي (CANCELED) رسومه ما بت
   } finally { globalThis.fetch = realFetch; }
 });
 
-test('get_order v1.4.3: sources فيها تفاصيل رجل بوسطة (حتى الصف اللي لسه مش في الدفتر)، والمندوب من غيرها', async () => {
+test('get_order v1.4.3: sources فيها تفاصيل شحنة بوسطة (حتى الصف اللي لسه مش في الدفتر)، والمندوب من غيرها', async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = mockShopify([settleNode('11', '#11', { net: '1500.00', ship: '70.00', curShip: '70.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '1500.00')] })]);
   try {
     const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
     const l1 = bostaLeg(DB, { order: '11', name: '#11', slot: 'S1', type: 'SEND', gross: '1000.00', fees: '120.00', net: '880.00', tracking: 'T1', paidAt: '2026-08-05', cashOut: 'C1', ts: '2026-11-10T10:01:00Z' });
-    // رجل تانية صف تحصيل بس (لسه ما اتسجّلتش في الدفتر) — noCollection: gross 0 · رسوم 145.35 · flex 100
+    // شحنة تانية صف تحصيل بس (لسه ما اتسجّلتش في الدفتر) — noCollection: gross 0 · رسوم 145.35 · flex 100
     DB.raw.prepare(`INSERT INTO logs (timestamp, tool, type, employee, order_id, order_name, extra) VALUES ('2026-11-10T10:02:00Z','cod_payment','payment','Ahmed_Ibraheem','11','#11',?)`)
       .run(JSON.stringify({ result: 'success', batchId: 'bosta-C2', courier: 'Bosta', courierCollect: -45.35, source: 'bosta_cash_cycle', cashOutId: 'C2', paidAt: '2026-08-12', trackingNumber: 'T2', slot: 'S2',
         grossCollected: '0.00', bostaFees: '145.35', flexShipAmount: '100.00', netValue: '-45.35' }));
