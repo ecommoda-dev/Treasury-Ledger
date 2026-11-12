@@ -2192,6 +2192,10 @@ function dayBar(vi) {
 
 function renderViews() {
   const box = document.getElementById('daySessions'), pendingScope = confScope === 'pending';
+  // الطي/الفتح (وأي إعادة رسم) ما يمسحش المبالغ اللي الموظف كتبها — نحفظها بالـ id ونرجّعها بعد الرسم
+  const keep = {};
+  box.querySelectorAll('input.inp').forEach(i => { if (i.id && i.value) keep[i.id] = i.value; });
+  const focusId = document.activeElement && box.contains(document.activeElement) ? document.activeElement.id : '';
   let html = '';
   views.forEach((v, vi) => {
     const groups = new Map();
@@ -2208,6 +2212,13 @@ function renderViews() {
   });
   if (!html) html = pendingScope ? `<div class="empty-box">✅ كل الجلسات من ${esc(dmy(MIN_DATE))} اتسجّلت</div>` : `<div class="empty-box">مفيش جلسات تحصيل يوم ${dmy(dayDate)}</div>`;
   box.innerHTML = html;
+  // نرجّع القيم بس لو نفس الأيام/المناديب (غير كده الـ id ممكن يبقى لمندوب تاني بعد تغيير اليوم)
+  const sig = views.map(v => v.day + ':' + (v.groups || []).map(g => g[0]).join('|')).join(';');
+  if (sig === renderViews.lastSig) {
+    for (const [id, v] of Object.entries(keep)) { const el = document.getElementById(id); if (el) el.value = v; }
+    if (focusId) document.getElementById(focusId)?.focus();
+  }
+  renderViews.lastSig = sig;
   refreshAllAmountState();
 }
 const toPi = v => Math.round(parseFloat(v) * 100);
