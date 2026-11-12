@@ -52,7 +52,7 @@ check('الدخول ناجح', await page.locator('#loginOverlay.hidden').count(
 await page.waitForSelector('.cg');
 
 check('مندوب واحد وجدول واحد (من غير تأكيد منفصل للجلسة)', await page.locator('.cg').count() === 1 && await page.locator('.sess-dt').count() === 1 && (await page.locator('.cg-head').innerText()).includes('Abo Yassin'));
-check('المتوقع = 24,400 (بعد خصم الشحن الإضافي)', (await page.locator('.cg-total .amt').innerText()).includes('24,400'));
+check('المتوقع = 24,400 (بعد خصم الشحن الإضافي)', (await page.locator('.cg-due .amt').innerText()).includes('24,400'));
 check('الجدول مفتوح تلقائي ومفيش صف «بانتظار التسجيل» فوقه', await page.locator('.sess-dt').isVisible() && await page.locator('.cg-sec').count() === 0);
 check('الحالة «لم يتم التسجيل» على كل الصفوف', (await page.locator('.sess-dt tbody .badge-warn:text("لم يتم التسجيل")').count()) === 4);
 check('خانة المبلغ المستلم فاضية وزرار التأكيد مقفول', (await page.inputValue('#camt-0-0')) === '' && await page.locator('#ccbtn-0-0').isDisabled());
@@ -79,6 +79,12 @@ await page.waitForSelector('.sess-dt .badge-danger');
 check('الحالة بقت حمراء (diff) وبتعرض آخر محاولة', (await page.locator('.sess-dt .note-box.red').innerText()).includes('24,000'));
 if (shots) await page.screenshot({ path: `${shots}/02-diff.png`, fullPage: true });
 
+// v1.8.0 — الشريط الجانبي: توريد اليوم بالكامل + «توريد المحدّدين» مايظهرش لو حددت كل المناديب (نفس الرقم)
+check('الشريط الجانبي فيه توريد اليوم بالكامل بنفس المتوقع', (await page.locator('#confReg .reg-amt').first().innerText()).includes('24,400') && await page.locator('#damt-0').count() === 1);
+await page.fill('#camt-0-0', '123'); await page.click('.cg-arrow'); await page.click('.cg-arrow');
+check('طي/فتح المندوب ما بيمسحش المبلغ المكتوب', (await page.inputValue('#camt-0-0')) === '123');
+await page.click('.pick'); check('تحديد كل المناديب ← مفيش «توريد المحدّدين» مكرر', await page.locator('#samt').count() === 0);
+await page.click('.pick');
 // صح: 24400
 await page.fill('#camt-0-0', '24,400');
 check('مطابق: الزرار اتفتح', await page.locator('#ccbtn-0-0').isEnabled());
@@ -91,7 +97,17 @@ check('التأكيد الصح: الملخص ظاهر (تحذير المرآة �
 check('الدفتر: 4 حركات مجموعها 24400', DB.raw.prepare('SELECT COUNT(*) n, SUM(amount_piastres) s FROM treasury_ledger').get().s === 2440000);
 await page.click('#summaryOverlay .eco-modal-ftr .btn-primary');
 await page.waitForSelector('.cg.all-ok');
-check('المندوب كله اتسجّل: مفيش خانة مبلغ وقسم «تم تسجيله» مفتوح بحالة خضرا', await page.locator('#camt-0-0').count() === 0 && (await page.locator('.cg-sec.done').innerText()).includes('تم تسجيله') && await page.locator('.sess-dt .badge-success:text("تم التسجيل")').count() === 4);
+check('المندوب كله اتسجّل: مفيش خانة مبلغ وقسم «تم تسجيله» بحالة خضرا (والكارت اتطوى لوحده)', await page.locator('#camt-0-0').count() === 0 && (await page.locator('.cg-sec.done').textContent()).includes('تم تسجيله') && await page.locator('.cg.closed').count() === 1 && await page.locator('.sess-dt .badge-success:text("تم التسجيل")').count() === 4);
+// v1.8.0 — الصف كله بيطوي/يفتح، والضغط على الخانة ما بيطويش
+await page.click('.cg-head .cg-meta'); check('الضغط على أي مكان في الصف بيفتح الكارت', await page.locator('.cg.closed').count() === 0);
+await page.click('.cg-head .cg-meta'); check('…وبيطويه تاني', await page.locator('.cg.closed').count() === 1);
+await page.click('.bulkbtn:has-text("افتح الكل")'); check('«افتح الكل» (من غير توست)', await page.locator('.cg.closed').count() === 0 && !(await page.locator('.toast').allInnerTexts()).some(t => /افتح|اتفتح|اتطوى/.test(t)));
+await page.click('.bulkbtn:has-text("اقفل الكل")'); check('«اقفل الكل»', await page.locator('.cg.closed').count() === 1);
+await page.click('.bulkbtn:has-text("افتح الكل")');
+// ترتيب بعمود المبلغ: 3 حالات والأيقونة بس عند التفعيل
+await page.click('.th-label[data-sort="amt"]'); check('ترتيب تصاعدي ▲', (await page.locator('th.sorted .sort-icon').innerText()) === '▲');
+await page.click('.th-label[data-sort="amt"]'); check('ترتيب تنازلي ▼', (await page.locator('th.sorted .sort-icon').innerText()) === '▼');
+await page.click('.th-label[data-sort="amt"]'); check('بلا ترتيب (مفيش أيقونة)', await page.locator('th.sorted').count() === 0);
 if (shots) await page.screenshot({ path: `${shots}/03-confirmed.png`, fullPage: true });
 
 // سجل الأوردر + التصحيح

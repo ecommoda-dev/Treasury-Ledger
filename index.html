@@ -356,17 +356,6 @@ body {
 .badge-purple  { background: var(--purple-light); color: var(--purple-dark); border-color: var(--purple-border); }
 
 /* بطاقة المندوب (الأهمية لتحصيل المندوب كله) */
-.cg { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; }
-.cg.all-ok { border-color: var(--green-border); }
-.cg-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; background: var(--surface-2); border-bottom: 1px solid var(--border); }
-.cg-cell { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 14px; border-inline-start: 1px solid var(--border); min-width: 0; }
-.cg-cell:first-child { border-inline-start: 0; }
-@media (max-width: 760px) { .cg-head { grid-template-columns: 1fr auto; } .cg-cell { border-inline-start: 0; border-top: 1px solid var(--border); } .cg-cell.c-id { grid-column: 1 / -1; border-top: 0; } .cg-cell.c-in { grid-column: 1 / -1; } }
-.cg.all-ok .cg-head { background: var(--green-light); border-color: var(--green-border); }
-.cg-name { font-size: 16px; font-weight: 800; }
-.cg-total { display: flex; align-items: baseline; gap: 6px; line-height: 1.2; }
-.cg-total .k { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
-.cg-total .amt { font-family: var(--font-mono); font-size: 18px; font-weight: 800; direction: ltr; }
 .cg-sec { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--border); background: var(--surface-2); font-size: 13px; font-weight: 800; width: 100%; text-align: start; font-family: inherit; color: inherit; }
 .cg-sec .sub { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
 .cg-sec .amt { margin-inline-start: auto; font-family: var(--font-mono); direction: ltr; font-weight: 800; }
@@ -376,9 +365,6 @@ body {
 .inw { position: relative; display: inline-flex; align-items: center; }
 .inw .inp { direction: ltr; text-align: right; padding-left: 46px; padding-right: 11px; }
 .inw .cur { position: absolute; left: 12px; font-style: normal; font-size: 13px; font-weight: 700; color: var(--text-muted); pointer-events: none; }
-.cg-arrow { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent-dark); background: var(--surface); color: var(--accent-dark); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; flex: none; }
-.cg-arrow:hover { background: var(--accent-light); }
-.cg-arrow svg { width: 16px; height: 16px; }
 .day-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 12px; background: var(--surface); border: 1.5px dashed var(--border-strong); border-radius: var(--radius); }
 .day-bar .inp { width: 170px; font-size: 15px; font-weight: 700; }
 .day-bar .lbl { font-size: 13px; font-weight: 800; }
@@ -388,6 +374,105 @@ body {
 .cg-confirm-inline .inp { width: 170px; font-size: 15px; font-weight: 700; }
 .cg-confirm-inline .grow { font-size: 12.5px; font-weight: 700; color: var(--text-secondary); }
 .cg-err { padding: 8px 14px; }
+
+/* ── تأكيد التوريد v1.8.0: شريط جانبي + بطاقات مناديب + جدول بمعيار الجداول ── */
+.conf-layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 12px; align-items: start; }
+.conf-col { min-width: 0; }
+.conf-side { position: sticky; top: 78px; max-height: calc(100vh - 92px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; margin-bottom: 0; }
+.conf-side .seg { display: flex; } .conf-side .seg-btn { flex: 1; padding: 8px 6px; }
+.conf-side .bar-row { gap: 6px; }
+.conf-side .bar-row:empty { display: none; }
+@media (max-width: 1000px) { .conf-layout { display: block; } .conf-side { position: static; max-height: none; margin-bottom: 12px; } }
+.stepper { display: flex; align-items: stretch; height: 40px; border: 1.5px solid var(--border-strong); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.stepper button { border: 0; background: transparent; width: 38px; display: grid; place-items: center; cursor: pointer; color: var(--text-secondary); padding: 0; font-family: inherit; }
+.stepper button:hover:not(:disabled) { background: var(--accent-light); color: var(--accent-dark); }
+.stepper button:disabled { opacity: .4; cursor: not-allowed; }
+.stepper svg { width: 16px; height: 16px; }
+.stepper .inp { flex: 1; min-width: 0; height: auto; border: 0; border-radius: 0; border-inline: 1px solid var(--border); text-align: center; font-weight: 800; font-size: 13px; background: transparent; box-shadow: none; padding: 0 6px; }
+.stepper .today { width: auto; padding: 0 12px; font-size: 12.5px; font-weight: 800; color: var(--accent-dark); }
+.reg { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.reg + .reg { border-top: 1px solid var(--border); padding-top: 12px; }
+.reg-info { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.reg-t { font-size: 13.5px; font-weight: 800; } .reg-s { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.reg-amt { font-family: var(--font-mono); direction: ltr; text-align: right; font-size: 24px; font-weight: 800; color: var(--green-dark); line-height: 1.15; }
+.reg-amt small { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-inline-start: 4px; }
+.selreg .reg-t, .selreg .reg-amt { color: var(--accent-dark); }
+.linkbtn { border: 0; background: transparent; color: var(--accent-dark); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 0; margin-inline-start: auto; }
+.entry { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.entry-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.conf-side .inw, .conf-side .inw .inp { width: 100%; } .conf-side .entry-row { flex-direction: column; align-items: stretch; } .conf-side .entry-row .btn { width: 100%; }
+.inw .inp { width: 168px; font-size: 15px; font-weight: 800; padding-right: 12px; }
+.inw .ok-ic { display: none; position: absolute; right: 9px; width: 22px; height: 22px; border-radius: 50%; background: var(--green); color: var(--on-accent); font-style: normal; font-size: 13px; font-weight: 800; align-items: center; justify-content: center; pointer-events: none; }
+.inw.ok .ok-ic { display: inline-flex; }
+.inw.ok .inp { border-color: var(--green); background: var(--green-light); padding-right: 40px; }
+.inw.short .inp { border-color: var(--amber); background: var(--amber-light); }
+.inw.over .inp { border-color: var(--red); background: var(--red-light); }
+.hint { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+.hint[hidden] { display: none; }
+.hint.short { color: var(--amber-dark); } .hint.over { color: var(--red-dark); }
+.rowbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 12px; }
+.rowbar .grow { flex: 1; }
+.bulk { display: flex; gap: 6px; }
+.bulkbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 34px; padding: 0 12px; border: 1.5px solid var(--border-strong); border-radius: 10px; background: var(--surface); font-family: inherit; font-size: 13px; font-weight: 800; color: var(--text-primary); cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+.bulkbtn:hover { border-color: var(--accent); background: var(--accent-light); color: var(--accent-dark); }
+.bulkbtn svg { width: 16px; height: 16px; flex: none; }
+/* بطاقة المندوب: الصف كله بيطوي ويفتح */
+.cg { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 12px; transition: border-color .2s; }
+.cg.all-ok { border-color: var(--green-border); }
+.cg:has(.pick:checked) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-hover); }
+.cg-head { display: grid; grid-template-columns: minmax(180px, 1.1fr) auto minmax(0, 1.4fr) auto; align-items: center; gap: 18px; padding: 10px 16px; cursor: pointer; border-radius: var(--radius) var(--radius) 0 0; background: var(--surface-2); border-bottom: 1px solid var(--border); transition: background .15s; }
+.cg.closed .cg-head { border-radius: var(--radius); border-bottom-color: transparent; }
+.cg-head:hover { background: var(--surface-hover); }
+.cg.all-ok .cg-head { background: var(--green-light); }
+.cg-id { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.pick { width: 20px; height: 20px; accent-color: var(--accent); flex: none; cursor: pointer; margin: 0; }
+.av { width: 38px; height: 38px; flex: none; border-radius: 50%; background: var(--accent-light); color: var(--accent-dark); border: 1.5px solid var(--accent-border); display: grid; place-items: center; font-size: 12.5px; font-weight: 800; direction: ltr; }
+.cg.all-ok .av { background: var(--green-light); color: var(--green-dark); border-color: var(--green-border); }
+.cg-name { font-size: 16px; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+.cg-meta { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.cg-due { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.cg-due .k { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+.cg-due .amt { font-family: var(--font-mono); direction: ltr; font-size: 20px; font-weight: 800; }
+.cg-arrow { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent-dark); background: var(--surface); color: var(--accent-dark); display: grid; place-items: center; cursor: pointer; padding: 0; flex: none; }
+.cg-arrow:hover { background: var(--accent-hover); }
+.cg-arrow svg { width: 16px; height: 16px; transition: transform .25s; }
+.cg.closed .cg-arrow svg { transform: rotate(180deg); }
+.cg.closed .cg-progress { opacity: 0; }
+.cg-body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr; transition: grid-template-rows .3s ease, visibility .3s; }
+.cg-body > div { min-height: 0; }
+.cg.closed .cg-body { grid-template-rows: 0fr; visibility: hidden; }
+.cg.closed .cg-body > div { overflow: hidden; }
+@media (max-width: 900px) {
+  .cg-head { grid-template-columns: 1fr auto auto; grid-template-areas: "id due arr" "entry entry entry"; row-gap: 10px; }
+  .cg-head .cg-id { grid-area: id; } .cg-head .cg-due { grid-area: due; } .cg-head .cg-arrow { grid-area: arr; }
+  .cg-head .entry { grid-area: entry; padding-top: 10px; border-top: 1px dashed var(--border-strong); }
+  .inw .inp { width: 100%; } .inw { flex: 1 1 150px; }
+}
+/* جدول المندوب: عناوين بترتيب 3 حالات · عرض أعمدة بالسحب · تظليل · كثافة مضغوطة */
+.sess-wrap .tbl-scroll { overflow-x: auto; }
+table.sess-dt { border-collapse: separate; border-spacing: 0; table-layout: fixed; width: 100%; }
+table.sess-dt.measuring { table-layout: auto; width: auto; }
+table.sess-dt.measuring th, table.sess-dt.measuring td { white-space: nowrap; }
+table.sess-dt th { position: relative; box-shadow: inset 0 -2px 0 var(--border-strong); border-bottom: 0; padding: 7px 12px; white-space: normal; }
+table.sess-dt td { padding: 4px 12px; overflow-wrap: anywhere; vertical-align: middle; }
+table.sess-dt tr.alrow td { white-space: normal; }
+table.sess-dt tbody tr:nth-child(even) td:not(.sg) { background: var(--surface-2); }
+table.sess-dt tbody tr:hover td:not(.sg) { background: var(--accent-light); }
+table.sess-dt tr.xs td:not(.sg) { background: var(--amber-light); }
+table.sess-dt tr.first td { border-top: 2px solid var(--border-strong); }
+.th-in { display: flex; align-items: center; gap: 4px; }
+.th-label { cursor: pointer; user-select: none; padding: 2px 4px; margin: -2px -4px; border-radius: 5px; }
+.th-label:hover { background: var(--accent-light); color: var(--accent-dark); }
+table.sess-dt th.sorted .th-label { background: var(--accent-light); color: var(--accent-dark); }
+.sort-icon { font-size: 10px; color: var(--accent); font-weight: 900; margin-inline-start: 4px; }
+.col-rz { position: absolute; top: 0; bottom: 0; inset-inline-end: 0; width: 10px; cursor: col-resize; touch-action: none; z-index: 3; }
+.col-rz::after { content: ''; position: absolute; top: 24%; bottom: 24%; inset-inline-end: 3px; width: 2px; border-radius: 2px; background: var(--border-strong); }
+.col-rz:hover::after, .col-rz.active::after { background: var(--accent); top: 8%; bottom: 8%; }
+body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+col.hl { background: var(--accent-light); }
+.rz-badge { position: fixed; inset-inline-start: 50%; bottom: 24px; transform: translateX(-50%); background: var(--neutral-dark); color: var(--on-accent); font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; z-index: 9998; font-family: var(--font-mono); }
+.sess-notes { padding: 0 10px 8px; }
+.sess-notes .note-box { margin-top: 6px; }
 table.sess-dt td.sg { background: var(--surface-2); vertical-align: middle; }
 table.sess-dt td.sg-emp { font-weight: 700; white-space: nowrap; }
 table.sess-dt td.sg-time { white-space: nowrap; color: var(--text-secondary); }
@@ -771,25 +856,23 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 
 <!-- ───────── §TOOL::confirmPanel ───────── -->
 <div class="tab-panel active" id="panelConfirm">
-  <div class="panel-card">
-    <div class="bar-row">
+  <div class="conf-layout" id="confLayout">
+    <!-- v1.8.0 — شريط جانبي لاصق: النطاق + اليوم + توريد اليوم بالكامل + توريد المحدّدين -->
+    <aside class="panel-card conf-side" id="confSide">
       <div class="seg" role="group" aria-label="نطاق العرض">
         <button class="seg-btn on" id="segDay" onclick="switchMainTab('confirm')">يوم واحد</button>
         <button class="seg-btn" id="segPending" onclick="switchMainTab('pending')">كل الأيام المعلّقة</button>
       </div>
-      <div class="bar-row" id="dayControls">
-        <button class="btn btn-sm" id="dayPrev" onclick="shiftDay(-1)" title="اليوم السابق">→ السابق</button>
-        <div>
-          <span class="field-label">اليوم (بتوقيت القاهرة)</span>
-          <input type="date" class="inp" id="dayInput" onchange="onDayInput()" onclick="openPicker(this)" />
-        </div>
-        <button class="btn btn-sm" id="dayNext" onclick="shiftDay(1)" title="اليوم التالي">التالي ←</button>
-        <button class="btn btn-sm" id="dayToday" onclick="goToday()">اليوم</button>
+      <div class="stepper" id="dayControls" role="group" aria-label="اليوم (بتوقيت القاهرة)">
+        <button type="button" id="dayPrev" onclick="shiftDay(-1)" title="اليوم السابق" aria-label="اليوم السابق"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+        <input type="date" class="inp" id="dayInput" aria-label="اليوم (بتوقيت القاهرة)" onchange="onDayInput()" onclick="openPicker(this)" />
+        <button type="button" id="dayNext" onclick="shiftDay(1)" title="اليوم التالي" aria-label="اليوم التالي"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <button type="button" class="today" id="dayToday" onclick="goToday()">اليوم</button>
       </div>
-      <span class="grow"></span>
       <div class="bar-row" id="dayTally"></div>
-    </div>
-  </div>
+      <div id="confReg"></div>
+    </aside>
+    <div class="conf-col">
   <!-- 🆕 v1.4.0 — تسوية تاريخية (أحمد بس · بتظهر في «كل الأيام المعلّقة») -->
   <div class="panel-card" id="settleCard" style="display:none">
     <div class="bar-row">
@@ -808,7 +891,10 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
     <div class="bar-row" id="stProgressRow" style="display:none;margin-top:10px"><div class="progress"><i id="stBar"></i></div><span class="chip" id="stProgressTxt">—</span></div>
     <div id="stResult" style="margin-top:10px"></div>
   </div>
-  <div id="daySessions"><div class="empty-box">اختار يوم لعرض جلسات التحصيل</div></div>
+      <div id="confBar"></div>
+      <div id="daySessions"><div class="empty-box">اختار يوم لعرض جلسات التحصيل</div></div>
+    </div>
+  </div>
 </div>
 
 <!-- ───────── §TOOL::orderPanel ───────── -->
@@ -929,7 +1015,17 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
     <div class="eco-modal-hdr"><span>📋 سجل التحديثات</span><button class="modal-close-x" onclick="closeChangelog()">✕</button></div>
     <div class="eco-modal-body">
       <div class="cl-version-block">
-        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">11-11-2026</span></div>
+        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">12-11-2026</span></div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تأكيد التوريد · يوم واحد: شريط جانبي لاصق (النطاق · اليوم · توريد اليوم بالكامل) وصف فوق المناديب فيه «تحديد كل غير المسجّل» و«افتح الكل / اقفل الكل».</span></li>
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تحديد أكتر من مندوب وتسجيلهم بمبلغ واحد: قسم «توريد المحدّدين فقط» تحت توريد اليوم بالكامل (بيختفي لو حددت كل المناديب لأنه نفس الرقم). نفس قاعدة المطابقة بالظبط.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>رأس المندوب: الصف كله بيطوي ويفتح (الخانة والأزرار ومربع التحديد مستثنيين) · المندوب بيتطوي لوحده بعد التسجيل · علامة ✓ جوه خانة المبلغ لما يطابق، والفرق (▼ ناقص / ▲ زيادة) بيظهر تحتها بس.</span></li>
+          <li class="cl-item"><span class="cl-tag change">تغيير</span><span>جدول المندوب بمعيار الجداول (من غير فلاتر): ترتيب 3 حالات · عرض أعمدة بالسحب (دبل كليك = ضبط تلقائي) · تظليل · كثافة مضغوطة. صف «النتائج» وشارات الجلسات اتشالت.</span></li>
+          <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>المبلغ المكتوب في الخانة كان بيختفي لما تطوي أو تفتح مندوب — دلوقتي بيفضل.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.7.4</span><span class="cl-ver-date">11-11-2026</span></div>
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag change">تغيير</span><span>سجل الأوردر · «تفصيل المبلغ»: مربع جديد «صافي الأوردر» (إجمالي الأوردر بالشحن − مصاريف الشحن)، والفرق بينه وبين دخل الخزنة = مصاريف شحن إضافية؛ لو الفرق بالسالب المربع بيتلوّن أحمر وبيظهر بادج «خسارة». بادجات مصاريف شحن الأوردر والمرتجع/الاستبدال اندمجت جوه مربع «مصاريف الشحن»، وبادج «رسوم بوسطة بعد شحن العميل» اتشال. الواجهة بس — مفيش تغيير في الـ Worker.</span></li>
         </ul>
@@ -1058,7 +1154,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
           <ul>
             <li><code>§CONFIG</code> — ثوابت + <code>esc</code> + توقيت القاهرة بـ Intl + <code>apiRequest</code> (مهلة 90 ث)</li>
             <li><code>§AUTH-JS</code> / <code>§IDLE-JS</code> — دخول PIN على خطوتين + خروج تلقائي 60 دقيقة</li>
-            <li><code>§TOOL-JS::confirm</code> — اليوم والجلسات والتأكيد · <code>§TOOL-JS::pending</code> · <code>§TOOL-JS::order</code> · <code>§TOOL-JS::alerts</code></li>
+            <li><code>§TOOL-JS::confirm</code> — اليوم والجلسات والتأكيد (<code>courierCard</code> · <code>sessionsTable</code> بترتيب وعرض أعمدة · <code>renderConfReg</code> الشريط الجانبي وتحديد المناديب · <code>renderConfBar</code>) · <code>§TOOL-JS::pending</code> · <code>§TOOL-JS::order</code> · <code>§TOOL-JS::alerts</code></li>
             <li><code>§LOG-JS</code> — سجل العمليات (فلاتر server-side · ترتيب · ترقيم · تصدير بتحذير القص)</li>
           </ul>
           <h4>KEY VARIABLES</h4>
@@ -1072,6 +1168,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
           <ul>
             <li>كل المبالغ في D1 بالقروش (integer)؛ الواجهة بتعرض نصوص جاهزة من الـ Worker مش بتحسب.</li>
             <li>المتوقع للجلسة = اللي D1 مثبّته (الصفوف المكتوبة − الشحن الإضافي)؛ الجلسة الناقصة عن <code>batchExpected</code> بتتعلّم «ناقصة» وتنبيه دايم.</li>
+            <li>تأكيد المحدّدين: بيستدعي <code>confirm_session</code> لكل جلسة مفتوحة للمناديب المحدّدين بنفس قاعدة المطابقة (مجموع المتوقع = المكتوب)؛ التحديد بالاسم ويتمسح مع تغيير اليوم.</li>
+            <li>عرض أعمدة جدول المندوب محفوظ في <code>localStorage['treasury_ledger_col_widths_v1']</code> (تفضيل واجهة، مش هوية).</li>
             <li>لو المرآة على Shopify فشلت: الدفتر محفوظ، والجلسة تطلع «تم مع تحذير» — استخدم إعادة بناء المرآة.</li>
             <li>فلتر التاريخ في سجل العمليات بيقارن بيوم UTC (العرض بتوقيت القاهرة) — فرق ساعتين/تلات ممكن يظهر على حدود اليوم.</li>
             <li>سجل العمليات هنا بفلاتر أعلى الجدول (مش أيقونة قمع في رأس كل عمود) — مؤجل للإصدار الجاي.</li>
@@ -1202,7 +1300,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.4.3'; // 1.4.3 = sources فيها تفاصيل شحنة بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
-const TOOL_VERSION = 'v1.7.4';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.8.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2015,12 +2113,12 @@ function initDayInput() {
   document.getElementById('dayPrev').disabled = dayDate <= MIN_DATE;
   document.getElementById('dayNext').disabled = dayDate >= cairoDateStr();
 }
-function shiftDay(n) { const d = addDays(dayDate, n); if (d < MIN_DATE || d > cairoDateStr() || isUpdating) return; dayDate = d; loadDay(); }
-function goToday() { if (isUpdating) return; dayDate = cairoDateStr(); loadDay(); }
+function shiftDay(n) { const d = addDays(dayDate, n); if (d < MIN_DATE || d > cairoDateStr() || isUpdating) return; dayDate = d; selCg.clear(); loadDay(); }
+function goToday() { if (isUpdating) return; dayDate = cairoDateStr(); selCg.clear(); loadDay(); }
 function onDayInput() {
   const i = document.getElementById('dayInput'), v = i.value;
   if (isUpdating || !v || v < MIN_DATE || v > cairoDateStr()) { i.value = dayDate; if (v) showToast(`الأيام المسموحة من ${dmy(MIN_DATE)} لحد النهاردة`, 'warning'); return; }
-  dayDate = v; loadDay();
+  dayDate = v; selCg.clear(); loadDay();
 }
 
 // ── نطاق العرض: يوم واحد / كل الأيام المعلّقة (نفس الشاشة · التأكيد دايمًا جوه حدود اليوم) ──
@@ -2037,6 +2135,7 @@ async function loadDay() {
   const my = ++dayReq, box = document.getElementById('daySessions');
   initDayInput(); updateScopeUI();
   box.innerHTML = '<div class="empty-box"><span class="spinner"></span> جارٍ تحميل جلسات اليوم…</div>';
+  document.getElementById('confBar').innerHTML = '';
   try {
     const d = await apiGet('get_day', { date: dayDate });
     if (my !== dayReq || confScope !== 'day') return;
@@ -2075,15 +2174,7 @@ async function loadPendingScope() {
     document.getElementById('dayTally').innerHTML = '';
   }
 }
-function renderTally(t) {
-  if (!t) { document.getElementById('dayTally').innerHTML = ''; return; }
-  document.getElementById('dayTally').innerHTML =
-    `<span class="chip">الجلسات: <strong>${t.total}</strong></span>` +
-    `<span class="chip ok">تم التسجيل: <strong>${t.confirmed}</strong></span>` +
-    `<span class="chip warn">لم يتم التسجيل: <strong>${t.pending}</strong></span>` +
-    (t.diff ? `<span class="chip bad">بفرق: <strong>${t.diff}</strong></span>` : '') +
-    (t.blocked ? `<span class="chip bad">مرفوضة: <strong>${t.blocked}</strong></span>` : '');
-}
+function renderTally() { document.getElementById('dayTally').innerHTML = ''; }   // v1.8.0: شارات «الجلسات / تم / لم يتم» اتشالت من يوم واحد
 
 const SESSION_BADGE = {
   confirmed: ['badge-success', '✓ تم التسجيل'], pending: ['badge-warn', '⏳ لم يتم التسجيل'],
@@ -2095,7 +2186,21 @@ const isOpenSess = s => s.status === 'pending' || s.status === 'diff';
 const cgKey = (vi, gi) => `${views[vi].day}|${views[vi].groups[gi][0]}`;
 const sessOrderIds = s => [...(s.rows || []).map(r => r.orderId), ...(s.extraShipping || []).map(x => x.orderId)];
 const countOrders = list => new Set(list.flatMap(sessOrderIds)).size;
-function toggleCourier(vi, gi) { const k = cgKey(vi, gi); closedCg.has(k) ? closedCg.delete(k) : closedCg.add(k); renderViews(); }
+function toggleCourier(vi, gi) {
+  const k = cgKey(vi, gi), nowClosed = !closedCg.has(k);
+  nowClosed ? closedCg.add(k) : closedCg.delete(k);
+  const el = document.querySelector(`.cg[data-cg="${vi}-${gi}"]`);
+  if (el) { el.classList.toggle('closed', nowClosed); el.querySelector('.cg-arrow')?.setAttribute('aria-expanded', String(!nowClosed)); }
+  if (!nowClosed) applyAllW();
+}
+function setAllCg(close) {
+  views.forEach((v, vi) => (v.groups || []).forEach((_, gi) => {
+    const k = cgKey(vi, gi); close ? closedCg.add(k) : closedCg.delete(k);
+    const el = document.querySelector(`.cg[data-cg="${vi}-${gi}"]`);
+    if (el) { el.classList.toggle('closed', close); el.querySelector('.cg-arrow')?.setAttribute('aria-expanded', String(!close)); }
+  }));
+  if (!close) applyAllW();
+}
 function toggleDone(vi, gi) { const k = cgKey(vi, gi); openDone.has(k) ? openDone.delete(k) : openDone.add(k); renderViews(); }
 
 // صفوف الجلسة: الشحن الإضافي تحت أوردر البند نفسه (D15)؛ اللي ملوش بند بيتحط في الآخر
@@ -2119,62 +2224,167 @@ function sessionNotes(s) {
   else if (s.status === 'confirmed' && s.confirmation) notes += `<div class="note-box green">✓ اتسجّلت بواسطة ${esc(employeeDisplayName(s.confirmation.by))} — ${esc(formatDateTime(s.confirmation.at))} — المستلم ${fmtNum(s.confirmation.received)}</div>`;
   return notes;
 }
-// جدول واحد (الموظف · الوقت · الجلسة مدموجين على أوردرات الجلسة) — لا يظهر فيه أي تأكيد منفصل للجلسة
-function sessionsTable(list) {
-  const body = list.map((s, si) => {
-    const items = sessionItems(s), n = items.length || 1;
-    const [bcls, btxt] = SESSION_BADGE[s.status] || SESSION_BADGE.pending;
-    const status = `<span class="badge ${bcls}">${btxt}</span>`;
-    const merged = `<td rowspan="${n}" class="sg sg-emp">${esc(employeeDisplayName(s.collector))}</td>
-      <td rowspan="${n}" class="sg sg-time">${esc(formatTimeOnly(s.firstTimestamp))}</td>
-      <td rowspan="${n}" class="sg"><span class="sid">${esc(String(s.batchId).slice(0, 8))}</span><div class="sg-sub">${countOrders([s])} أوردر · ${fmtNum(s.expected)}</div>${s.incomplete ? '<span class="badge badge-warn">ناقصة</span>' : ''}</td>`;
-    const cls = s.status === 'confirmed' ? 'row-done' : '';
-    const rows = items.map((it, i) => {
-      const lead = i === 0 ? merged : '';
-      if (it.r) {
-        const r = it.r;
-        return `<tr class="${cls}">${lead}<td>${orderLink(r.orderName, r.orderId)}</td><td>${typeBadges(r)}</td>
-          <td class="num ${amtClass(r.amount)}">${fmtSignedNum(r.amount)}</td><td>${r.note ? `<span class="note-red">${esc(r.note)}</span>` : ''}${r.elsewhere ? `${r.note ? '<br>' : ''}<span class="note-red" title="الأوردر ده عليه حركة اتسجّلت في جلسة تانية — دفتره ناقص لحد ما الجلسة دي تتسجّل">⚠️ عليه ${fmtSignedNum(r.elsewhere)} متسجّل في جلسة تانية</span>` : ''}</td><td>${status}</td></tr>`;
-      }
-      const x = it.x;
-      return `<tr class="xs ${cls}">${lead}<td>${orderLink(x.orderName, x.orderId)}</td><td><span class="badge badge-warn">شحن إضافي</span></td>
-        <td class="num neg">${fmtSignedNum('-' + x.amount)}</td><td><span class="note-red">Extra Shipping</span></td><td>${status}</td></tr>`;
-    }).join('');
-    const notes = sessionNotes(s);
-    return rows + (notes ? `<tr class="alrow"><td colspan="8">${notes}</td></tr>` : '');
-  }).join('');
-  return `<div class="tbl-wrap"><table class="dt sess-dt"><thead><tr><th>الموظف</th><th>الوقت</th><th>الجلسة</th><th>الأوردر</th><th>النوع</th><th class="num">المبلغ</th><th>ملاحظات</th><th>الحالة</th></tr></thead><tbody>${body}</tbody></table></div>`;
+// جدول المندوب بمعيار الجداول (v1.8.0): ترتيب 3 حالات · عرض أعمدة بالسحب (محفوظ) · تظليل · بدون فلاتر
+const SESS_COLS = [
+  { k: 'emp', l: 'الموظف', w: 110 }, { k: 'time', l: 'الوقت', w: 85 }, { k: 'sess', l: 'الجلسة', w: 105 }, { k: 'ord', l: 'الأوردر', w: 85 },
+  { k: 'type', l: 'النوع', w: 95 }, { k: 'amt', l: 'المبلغ', w: 85, num: 1 }, { k: 'note', l: 'ملاحظات', w: 140 }, { k: 'st', l: 'الحالة', w: 120 },
+];
+const SESS_LEVEL = ['emp', 'time', 'sess', 'st'];   // أعمدة على مستوى الجلسة: الترتيب بيها بيحافظ على دمج الخلايا
+const LS_COLS = 'treasury_ledger_col_widths_v1';    // تفضيل واجهة (مش هوية) — ارفع _v1 لو الأعمدة اتغيّرت
+const MIN_COL_W = 64, MAX_COL_W = 700;
+let colWidths = null;
+const sortSt = {};                                  // { [مفتاح الجدول]: { k, d: 'asc'|'desc' } }
+function getColW() {
+  if (colWidths) return colWidths;
+  try { const w = JSON.parse(localStorage.getItem(LS_COLS) || 'null'); if (Array.isArray(w) && w.length === SESS_COLS.length && w.every(x => x >= MIN_COL_W && x <= MAX_COL_W)) return (colWidths = w); } catch { /* تخزين معطّل */ }
+  return (colWidths = SESS_COLS.map(c => c.w));
 }
+function saveColW() { try { localStorage.setItem(LS_COLS, JSON.stringify(colWidths)); } catch { /* تخزين معطّل */ } }
+const sessSortVal = (r, k) => {
+  switch (k) {
+    case 'emp': return employeeDisplayName(r.s.collector);
+    case 'time': return r.s.firstTimestamp || '';
+    case 'sess': return String(r.s.batchId);
+    case 'ord': return Number(String((r.it.r || r.it.x).orderName || '').replace(/\D/g, '')) || 0;
+    case 'type': return r.it.x ? 'شحن إضافي' : (r.it.r.srcType === 'refund' ? 'استرداد' : 'تحصيل');
+    case 'amt': return r.it.r ? Number(r.it.r.amount) : -Number(r.it.x.amount);
+    case 'note': return r.it.r ? (r.it.r.note || '') : 'Extra Shipping';
+    case 'st': return ({ pending: 0, diff: 1, blocked: 2, confirmed: 3 })[r.s.status] ?? 0;
+  }
+};
+const sessCmp = (a, b) => typeof a === 'number' ? a - b : String(a).localeCompare(String(b), 'ar');
+function cycleSort(tk, k) {
+  const cur = sortSt[tk];
+  if (!cur || cur.k !== k) sortSt[tk] = { k, d: 'asc' }; else if (cur.d === 'asc') sortSt[tk] = { k, d: 'desc' }; else delete sortSt[tk];
+  renderViews();
+}
+function sessionsTable(list, tk) {
+  const st = sortSt[tk], k = st && st.k, dir = st && st.d === 'desc' ? -1 : 1;
+  const merged = !k || SESS_LEVEL.includes(k);        // ترتيب بعمود أوردر/مبلغ… ← الجلسات بتتكرر في كل صف مؤقتًا
+  let sessions = [...list];
+  if (k && merged) sessions.sort((a, b) => dir * sessCmp(sessSortVal({ s: a }, k), sessSortVal({ s: b }, k)));
+  let flat = sessions.flatMap(s => { const items = sessionItems(s); return items.map((it, i) => ({ s, it, first: i === 0, n: items.length })); });
+  if (k && !merged) flat.sort((a, b) => dir * sessCmp(sessSortVal(a, k), sessSortVal(b, k)));
+  const W = getColW();
+  const colg = `<colgroup>${SESS_COLS.map((c, i) => `<col data-c="${c.k}" style="width:${W[i]}px">`).join('')}</colgroup>`;
+  const head = SESS_COLS.map(c => {
+    const on = k === c.k;
+    return `<th data-c="${c.k}" class="${c.num ? 'num' : ''} ${on ? 'sorted' : ''}"><div class="th-in"><span class="th-label" data-sort="${c.k}" data-tk="${esc(tk)}">${c.l}${on ? `<span class="sort-icon">${st.d === 'asc' ? '▲' : '▼'}</span>` : ''}</span></div><span class="col-rz" data-rz="${c.k}"></span></th>`;
+  }).join('');
+  const body = flat.map((r, ri) => {
+    const { s, it } = r, [bcls, btxt] = SESSION_BADGE[s.status] || SESSION_BADGE.pending;
+    const status = `<span class="badge ${bcls}">${btxt}</span>`;
+    const showLead = merged ? r.first : true;
+    const lead = !showLead ? '' : merged
+      ? `<td data-c="emp" rowspan="${r.n}" class="sg sg-emp">${esc(employeeDisplayName(s.collector))}</td>
+      <td data-c="time" rowspan="${r.n}" class="sg sg-time">${esc(formatTimeOnly(s.firstTimestamp))}</td>
+      <td data-c="sess" rowspan="${r.n}" class="sg"><span class="sid">${esc(String(s.batchId).slice(0, 8))}</span><div class="sg-sub">${countOrders([s])} أوردر · ${fmtNum(s.expected)}</div>${s.incomplete ? '<span class="badge badge-warn">ناقصة</span>' : ''}</td>`
+      : `<td data-c="emp">${esc(employeeDisplayName(s.collector))}</td><td data-c="time">${esc(formatTimeOnly(s.firstTimestamp))}</td><td data-c="sess"><span class="sid">${esc(String(s.batchId).slice(0, 8))}</span>${s.incomplete ? ' <span class="badge badge-warn">ناقصة</span>' : ''}</td>`;
+    const cls = [s.status === 'confirmed' ? 'row-done' : '', it.x ? 'xs' : '', merged && r.first && ri > 0 ? 'first' : ''].join(' ');
+    let cells;
+    if (it.r) {
+      const x = it.r;
+      cells = `<td data-c="ord">${orderLink(x.orderName, x.orderId)}</td><td data-c="type">${typeBadges(x)}</td>
+          <td data-c="amt" class="num ${amtClass(x.amount)}">${fmtSignedNum(x.amount)}</td><td data-c="note">${x.note ? `<span class="note-red">${esc(x.note)}</span>` : ''}${x.elsewhere ? `${x.note ? '<br>' : ''}<span class="note-red" title="الأوردر ده عليه حركة اتسجّلت في جلسة تانية — دفتره ناقص لحد ما الجلسة دي تتسجّل">⚠️ عليه ${fmtSignedNum(x.elsewhere)} متسجّل في جلسة تانية</span>` : ''}</td><td data-c="st">${status}</td>`;
+    } else {
+      const x = it.x;
+      cells = `<td data-c="ord">${orderLink(x.orderName, x.orderId)}</td><td data-c="type"><span class="badge badge-warn">شحن إضافي</span></td>
+        <td data-c="amt" class="num neg">${fmtSignedNum('-' + x.amount)}</td><td data-c="note"><span class="note-red">Extra Shipping</span></td><td data-c="st">${status}</td>`;
+    }
+    return `<tr class="${cls}">${lead}${cells}</tr>`;
+  });
+  // ملاحظات الجلسة: تحت آخر صف لها في الوضع المدموج، وتحت الجدول بمعرّف الجلسة في الوضع المسطّح
+  let out = '', flatNotes = '';
+  flat.forEach((r, i) => {
+    out += body[i];
+    if (merged && (i === flat.length - 1 || flat[i + 1].s !== r.s)) {
+      const notes = sessionNotes(r.s);
+      if (notes) out += `<tr class="alrow"><td colspan="8">${notes}</td></tr>`;
+    }
+  });
+  if (!merged) sessions.forEach(s => {
+    const notes = sessionNotes(s);
+    if (notes) flatNotes += `<div>${notes.replace(/<div class="note-box ([a-z]+)">/g, `<div class="note-box $1"><span class="sid">${esc(String(s.batchId).slice(0, 8))}</span> `)}</div>`;
+  });
+  return `<div class="sess-wrap"><div class="tbl-scroll"><table class="dt sess-dt" data-tk="${esc(tk)}">${colg}<thead><tr>${head}</tr></thead><tbody>${out}</tbody></table></div>${flatNotes ? `<div class="sess-notes">${flatNotes}</div>` : ''}</div>`;
+}
+// عرض الأعمدة: تناسبي — لو مجموع المفضّل أصغر من المتاح كل الأعمدة بتتمدّد بالنسبة، لو أكبر سكرول أفقي
+function applyAllW(live) {
+  const W = live || getColW();
+  document.querySelectorAll('#daySessions .tbl-scroll').forEach(host => {
+    const t = host.querySelector('table'), avail = host.clientWidth; if (!t || !avail) return;
+    const tot = W.reduce((a, b) => a + b, 0); let E = W.slice();
+    if (tot < avail) { E = W.map(x => Math.floor(x * avail / tot)); E[E.length - 1] += avail - E.reduce((a, b) => a + b, 0); }
+    t.querySelectorAll('col').forEach((c, i) => { c.style.width = E[i] + 'px'; });
+    t.style.width = E.reduce((a, b) => a + b, 0) + 'px';
+  });
+}
+let colDrag = null;
+document.addEventListener('pointerdown', e => {
+  const h = e.target.closest('.col-rz'); if (!h) return;
+  e.preventDefault();
+  const t = h.closest('table'), i = SESS_COLS.findIndex(c => c.k === h.dataset.rz);
+  const shown = [...t.querySelectorAll('col')].map(c => parseFloat(c.style.width));   // المعروض فعلًا يبقى المفضّل عند الإمساك
+  colDrag = { i, x: e.clientX, start: shown[i], base: shown, dir: getComputedStyle(t).direction === 'rtl' ? -1 : 1, h, cur: null };
+  h.classList.add('active'); document.body.classList.add('col-resizing');
+  document.querySelectorAll(`#daySessions col[data-c="${h.dataset.rz}"]`).forEach(c => c.classList.add('hl'));
+  try { h.setPointerCapture(e.pointerId); } catch { /* مش مدعوم */ }
+  const b = document.createElement('div'); b.className = 'rz-badge'; b.id = 'rzBadge'; document.body.appendChild(b);
+});
+document.addEventListener('pointermove', e => {
+  if (!colDrag) return;
+  const nw = Math.max(MIN_COL_W, Math.min(MAX_COL_W, colDrag.start + (e.clientX - colDrag.x) * colDrag.dir));
+  const w = colDrag.base.slice(); w[colDrag.i] = nw; colDrag.cur = w; applyAllW(w);
+  const b = document.getElementById('rzBadge'); if (b) b.textContent = Math.round(nw) + ' px';
+});
+function endColDrag() {
+  if (!colDrag) return;
+  if (colDrag.cur) { colWidths = colDrag.cur.map(Math.round); saveColW(); }
+  colDrag.h.classList.remove('active'); document.body.classList.remove('col-resizing');
+  document.querySelectorAll('#daySessions col.hl').forEach(c => c.classList.remove('hl'));
+  document.getElementById('rzBadge')?.remove(); colDrag = null;
+}
+document.addEventListener('pointerup', endColDrag); document.addEventListener('pointercancel', endColDrag);
+document.addEventListener('dblclick', e => {            // ضبط تلقائي على أطول محتوى
+  const h = e.target.closest('.col-rz'); if (!h) return;
+  const t = h.closest('table'), i = SESS_COLS.findIndex(c => c.k === h.dataset.rz);
+  t.classList.add('measuring'); let m = 0;
+  t.querySelectorAll(`[data-c="${h.dataset.rz}"]`).forEach(c => { if (c.tagName !== 'COL') m = Math.max(m, c.scrollWidth + 26); });
+  t.classList.remove('measuring');
+  const w = getColW().slice(); w[i] = Math.max(MIN_COL_W, Math.min(260, Math.ceil(m))); colWidths = w; saveColW(); applyAllW();
+});
+if ('ResizeObserver' in window) { const ro = new ResizeObserver(() => applyAllW()); ro.observe(document.getElementById('daySessions')); }
+window.addEventListener('resize', () => applyAllW());
 
 const CHEV = { up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>', down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' };
+const initials = n => String(n).trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+const selCg = new Set();    // مناديب محدّدين (يوم واحد بس) — بالاسم
 function courierCard(vi, gi, courier, list, pendingScope) {
   const key = cgKey(vi, gi);
   const open = list.filter(isOpenSess), pend = list.filter(s => s.status !== 'confirmed'), done = list.filter(s => s.status === 'confirmed');
   const allN = countOrders(list), allOk = !pend.length;
   const openPi = open.reduce((t, s) => t + s.expectedPiastres, 0), donePi = done.reduce((t, s) => t + s.expectedPiastres, 0);
   const totalPi = open.length ? openPi : donePi, closed = closedCg.has(key);
+  const pick = (confScope === 'day' && open.length) ? `<input type="checkbox" class="pick lockable" data-pick="${esc(courier)}" ${selCg.has(courier) ? 'checked' : ''} aria-label="تحديد ${esc(courier)}">` : '';
   const box = open.length
-    ? `<div class="cg-confirm-inline"><span class="inw"><input type="text" class="inp lockable" id="camt-${vi}-${gi}" inputmode="decimal" autocomplete="off" aria-label="المبلغ المستلم من ${esc(courier)}" oninput="onCourierAmtInput(${vi},${gi})" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('ccbtn-${vi}-${gi}').disabled)startCourierConfirm(${vi},${gi})}" /><i class="cur">ج.م</i></span>
-        <button class="btn btn-primary lockable" id="ccbtn-${vi}-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${vi},${gi})">تسجيل توريد المندوب</button>
-        <span class="grow" id="chint-${vi}-${gi}"></span></div>`
-    : `<span class="badge ${allOk ? 'badge-success' : 'badge-danger'}">${allOk ? '✓ تم تسجيل الكل' : '⛔ مفيش حاجة تتسجّل — فيها مشكلة'}</span>`;
-  const pendSec = pend.length ? sessionsTable(pend) : '';
+    ? `<div class="entry"><div class="entry-row"><span class="inw"><input type="text" class="inp lockable" id="camt-${vi}-${gi}" inputmode="decimal" autocomplete="off" aria-label="المبلغ المستلم من ${esc(courier)}" oninput="onCourierAmtInput(${vi},${gi})" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('ccbtn-${vi}-${gi}').disabled)startCourierConfirm(${vi},${gi})}" /><i class="cur">ج.م</i><i class="ok-ic" aria-hidden="true">✓</i></span>
+        <button class="btn btn-primary lockable" id="ccbtn-${vi}-${gi}" data-dis="1" disabled onclick="startCourierConfirm(${vi},${gi})">تسجيل توريد المندوب</button></div>
+        <div class="hint" id="chint-${vi}-${gi}" hidden></div></div>`
+    : `<div class="entry"><span class="badge ${allOk ? 'badge-success' : 'badge-danger'}">${allOk ? '✓ تم تسجيل الكل' : '⛔ مفيش حاجة تتسجّل — فيها مشكلة'}</span></div>`;
+  const pendSec = pend.length ? sessionsTable(pend, key + '#p') : '';
   const isDoneOpen = openDone.has(key);
   const doneSec = (!pendingScope && done.length) ? `<button type="button" class="cg-sec done" aria-expanded="${isDoneOpen}" onclick="toggleDone(${vi},${gi})">
       <span class="car">${isDoneOpen ? '▼' : '◀'}</span><span>✓ تم تسجيله</span><span class="sub">${countOrders(done)} أوردر</span>
-      <span class="amt ${amtClass(donePi)}">${fmtNum((donePi / 100).toFixed(2))}</span></button>${isDoneOpen ? sessionsTable(done) : ''}` : '';
-  return `<div class="cg ${allOk ? 'all-ok' : ''}" data-cg="${vi}-${gi}">
-    <div class="cg-head">
-      <div class="cg-cell c-id">
-        <span class="cg-name">🛵 ${esc(courier)}</span>
-        <span class="chip"><strong>${allN}</strong> أوردر</span>
-        <span class="cg-total">${open.length ? '' : '<span class="k">إجمالي المسجّل</span>'}<span class="amt ${amtClass(totalPi)}">${fmtNum((totalPi / 100).toFixed(2))}</span></span>
-      </div>
-      <div class="cg-cell c-in">${box}</div>
-      <div class="cg-cell c-ar"><button type="button" class="cg-arrow" onclick="toggleCourier(${vi},${gi})" aria-expanded="${!closed}" aria-label="${closed ? 'فتح' : 'طيّ'} ${esc(courier)}" title="${closed ? 'فتح' : 'طيّ'}">${closed ? CHEV.down : CHEV.up}</button></div>
+      <span class="amt ${amtClass(donePi)}">${fmtNum((donePi / 100).toFixed(2))}</span></button>${isDoneOpen ? sessionsTable(done, key + '#d') : ''}` : '';
+  return `<div class="cg ${allOk ? 'all-ok' : ''} ${closed ? 'closed' : ''}" data-cg="${vi}-${gi}">
+    <div class="cg-head" data-head="${vi}-${gi}">
+      <div class="cg-id">${pick}<span class="av">${esc(initials(courier))}</span><div><div class="cg-name">${esc(courier)}</div><div class="cg-meta">${allN} أوردر · ${list.length} جلسة</div></div></div>
+      <div class="cg-due"><span class="k">${open.length ? 'المطلوب توريده' : 'إجمالي المسجّل'}</span><span class="amt ${amtClass(totalPi)}">${fmtNum((totalPi / 100).toFixed(2))}</span></div>
+      ${box}
+      <button type="button" class="cg-arrow" onclick="toggleCourier(${vi},${gi})" aria-expanded="${!closed}" aria-label="${esc(courier)}: طيّ أو فتح" title="طيّ / فتح">${CHEV.up}</button>
     </div>
     <div class="cg-progress"><i style="width:${allN ? Math.round(countOrders(done) / allN * 100) : 0}%"></i></div>
-    ${closed ? '' : pendSec + doneSec}
+    <div class="cg-body"><div>${pendSec + doneSec}</div></div>
   </div>`;
 }
 
@@ -2184,7 +2394,7 @@ function dayBar(vi) {
   if (!open.length) return '';
   const totalPi = open.reduce((t, s) => t + s.expectedPiastres, 0);
   return `<div class="day-bar"><span class="lbl">توريد اليوم بالكامل</span>
-    <span class="inw"><input type="text" class="inp lockable" id="damt-${vi}" inputmode="decimal" autocomplete="off" aria-label="إجمالي المبلغ المستلم لليوم" oninput="onDayAmtInput(${vi})" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('dbtn-${vi}').disabled)startDayConfirm(${vi})}" /><i class="cur">ج.م</i></span>
+    <span class="inw"><input type="text" class="inp lockable" id="damt-${vi}" inputmode="decimal" autocomplete="off" aria-label="إجمالي المبلغ المستلم لليوم" oninput="onDayAmtInput(${vi})" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('dbtn-${vi}').disabled)startDayConfirm(${vi})}" /><i class="cur">ج.م</i><i class="ok-ic" aria-hidden="true">✓</i></span>
     <button class="btn btn-primary lockable" id="dbtn-${vi}" data-dis="1" disabled onclick="startDayConfirm(${vi})">تسجيل توريد اليوم بالكامل</button>
     <span class="grow" id="dhint-${vi}" style="font-size:12.5px;font-weight:700;color:var(--text-secondary)"></span>
     <span class="sp" style="flex:1"></span><span class="amt ${amtClass(totalPi)}" style="font-family:var(--font-mono);font-weight:800;direction:ltr">${fmtNum((totalPi / 100).toFixed(2))}</span></div>`;
@@ -2192,6 +2402,10 @@ function dayBar(vi) {
 
 function renderViews() {
   const box = document.getElementById('daySessions'), pendingScope = confScope === 'pending';
+  // الطي/الفتح (وأي إعادة رسم) ما يمسحش المبالغ اللي الموظف كتبها — نحفظها بالـ id ونرجّعها بعد الرسم
+  const keep = {};
+  box.querySelectorAll('input.inp').forEach(i => { if (/^(camt|damt)-/.test(i.id) && i.value) keep[i.id] = i.value; });
+  const focusId = document.activeElement && box.contains(document.activeElement) ? document.activeElement.id : '';
   let html = '';
   views.forEach((v, vi) => {
     const groups = new Map();
@@ -2204,10 +2418,20 @@ function renderViews() {
       const exp = ps.filter(isOpenSess).reduce((t, s) => t + s.expectedPiastres, 0);
       html += `<div class="day-head">📅 ${esc(dmy(v.day))}<span class="chip">${ps.length} جلسة لم يتم تسجيلها</span><span class="chip">المتوقع <strong>${fmtNum((exp / 100).toFixed(2))}</strong></span>
         <button class="btn btn-sm btn-primary" onclick="openDay('${esc(v.day)}')">فتح اليوم</button></div>${dayBar(vi)}${cards}`;
-    } else html += dayBar(vi) + cards;
+    } else html += cards;
   });
   if (!html) html = pendingScope ? `<div class="empty-box">✅ كل الجلسات من ${esc(dmy(MIN_DATE))} اتسجّلت</div>` : `<div class="empty-box">مفيش جلسات تحصيل يوم ${dmy(dayDate)}</div>`;
   box.innerHTML = html;
+  // نرجّع القيم بس لو نفس الأيام/المناديب (غير كده الـ id ممكن يبقى لمندوب تاني بعد تغيير اليوم)
+  const sig = views.map(v => v.day + ':' + (v.groups || []).map(g => g[0]).join('|')).join(';');
+  const sameView = sig === renderViews.lastSig;
+  if (sameView) {
+    for (const [id, v] of Object.entries(keep)) { const el = document.getElementById(id); if (el) el.value = v; }
+    if (focusId) document.getElementById(focusId)?.focus();
+  }
+  renderViews.lastSig = sig;
+  renderConfReg(sameView);
+  applyAllW();
   refreshAllAmountState();
 }
 const toPi = v => Math.round(parseFloat(v) * 100);
@@ -2215,16 +2439,17 @@ function courierOpen(vi, gi) { return (views[vi]?.groups?.[gi]?.[1] || []).filte
 // الزرار يتفعّل بس لما المبلغ = المطلوب بالظبط؛ غير كده بيظهر الفرق لحظيًا تحت الخانة
 function amtGate(inp, btn, hint, expectedPi) {
   const raw = inp.value.trim(), amt = raw === '' ? null : parseAmount(raw);
-  let ok = false, msg = '';
-  if (raw !== '' && amt === null) msg = 'اكتب رقم (بحد أقصى قرشين)';
+  let ok = false, msg = '', cls = '';
+  if (raw !== '' && amt === null) { cls = 'over'; msg = '⚠ اكتب رقم (بحد أقصى قرشين)'; }
   else if (amt !== null) {
     const diffPi = toPi(amt) - expectedPi;
-    if (diffPi === 0) ok = true;
-    else msg = `${diffPi < 0 ? 'ناقص' : 'زيادة'} ${fmtNum((Math.abs(diffPi) / 100).toFixed(2))}`;
+    if (diffPi === 0) { ok = true; cls = 'ok'; }
+    else { cls = diffPi < 0 ? 'short' : 'over'; msg = `${diffPi < 0 ? '▼ ناقص' : '▲ زيادة'} ${fmtNum((Math.abs(diffPi) / 100).toFixed(2))}`; }
   }
   btn.dataset.dis = ok ? '0' : '1'; btn.disabled = isUpdating || !ok;
   inp.classList.toggle('has-value', !!raw);
-  if (hint) { hint.textContent = msg; hint.style.color = msg ? 'var(--red-dark)' : ''; }
+  const w = inp.closest('.inw'); if (w) w.className = 'inw ' + cls;
+  if (hint) { hint.textContent = msg; hint.className = 'hint ' + cls; hint.hidden = !msg; }
   return ok;
 }
 function onCourierAmtInput(vi, gi) {
@@ -2237,7 +2462,76 @@ function onDayAmtInput(vi) {
   if (!inp || !btn) return;
   amtGate(inp, btn, document.getElementById(`dhint-${vi}`), (views[vi].sessions || []).filter(isOpenSess).reduce((t, s) => t + s.expectedPiastres, 0));
 }
-function refreshAllAmountState() { views.forEach((v, vi) => { onDayAmtInput(vi); (v.groups || []).forEach((_, gi) => onCourierAmtInput(vi, gi)); }); }
+function refreshAllAmountState() { views.forEach((v, vi) => { onDayAmtInput(vi); (v.groups || []).forEach((_, gi) => onCourierAmtInput(vi, gi)); }); onSelAmtInput(); }
+
+// ── الشريط الجانبي (يوم واحد): توريد اليوم بالكامل + توريد المحدّدين فقط ──
+const ICO_EXP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5"/><path d="M7 15l5 5 5-5"/></svg>';
+const ICO_COL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l5 5 5-5"/><path d="M7 20l5-5 5 5"/></svg>';
+const openGroups = () => (views[0]?.groups || []).filter(([, l]) => l.some(isOpenSess));
+function selOpenSessions() { return openGroups().filter(([n]) => selCg.has(n)).flatMap(([, l]) => l.filter(isOpenSess)); }
+function renderConfReg(preserve) {
+  const host = document.getElementById('confReg'); if (!host) return;
+  const keep = {};
+  if (preserve) for (const id of ['damt-0', 'samt']) { const e = document.getElementById(id); if (e && e.value) keep[id] = e.value; }
+  const v = views[0];
+  if (confScope !== 'day' || !v || !(v.sessions || []).length) { host.innerHTML = ''; renderConfBar(); return; }
+  const og = openGroups();
+  [...selCg].forEach(n => { if (!og.some(([c]) => c === n)) selCg.delete(n); });
+  const open = v.sessions.filter(isOpenSess);
+  let html = '';
+  if (!open.length) html = '<div class="note-box green">✓ كل جلسات اليوم اتسجّلت — مفيش حاجة متبقية للتوريد.</div>';
+  else {
+    const tot = open.reduce((t, s) => t + s.expectedPiastres, 0);
+    html = `<div class="reg"><div class="reg-info"><span class="reg-t">توريد اليوم بالكامل</span><span class="reg-s">${og.length} مناديب · ${open.length} جلسة</span></div><div class="reg-amt">${fmtNum((tot / 100).toFixed(2))}<small>ج.م</small></div>
+      <div class="entry"><div class="entry-row"><span class="inw"><input type="text" class="inp lockable" id="damt-0" inputmode="decimal" autocomplete="off" aria-label="إجمالي المبلغ المستلم لليوم" oninput="onDayAmtInput(0)" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('dbtn-0').disabled)startDayConfirm(0)}" /><i class="cur">ج.م</i><i class="ok-ic" aria-hidden="true">✓</i></span>
+      <button class="btn btn-primary lockable" id="dbtn-0" data-dis="1" disabled onclick="startDayConfirm(0)">تسجيل توريد اليوم بالكامل</button></div><div class="hint" id="dhint-0" hidden></div></div></div>`;
+    // «توريد المحدّدين» بيظهر بس لو المحدّد أقل من كل المناديب المعلّقين — لو حددت الكل فهو نفس رقم اليوم بالكامل
+    const sg = og.filter(([n]) => selCg.has(n));
+    if (sg.length && sg.length < og.length) {
+      const so = selOpenSessions(), spi = so.reduce((t, s) => t + s.expectedPiastres, 0);
+      html += `<div class="reg selreg"><div class="reg-info"><span class="reg-t">توريد المحدّدين فقط</span><span class="reg-s">${sg.length} ${sg.length === 1 ? 'مندوب' : 'مناديب'}</span><button type="button" class="linkbtn lockable" onclick="clearSel()">مسح التحديد</button></div><div class="reg-amt">${fmtNum((spi / 100).toFixed(2))}<small>ج.م</small></div>
+      <div class="entry"><div class="entry-row"><span class="inw"><input type="text" class="inp lockable" id="samt" inputmode="decimal" autocomplete="off" aria-label="إجمالي المبلغ المستلم من المناديب المحدّدين" oninput="onSelAmtInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();if(!document.getElementById('sbtn').disabled)startSelConfirm()}" /><i class="cur">ج.م</i><i class="ok-ic" aria-hidden="true">✓</i></span>
+      <button class="btn btn-primary lockable" id="sbtn" data-dis="1" disabled onclick="startSelConfirm()">تسجيل توريد المحدّدين</button></div><div class="hint" id="shint" hidden></div></div></div>`;
+    }
+  }
+  host.innerHTML = html;
+  for (const [id, val] of Object.entries(keep)) { const e = document.getElementById(id); if (e) e.value = val; }
+  onDayAmtInput(0); onSelAmtInput(); renderConfBar();
+}
+function onSelAmtInput() {
+  const inp = document.getElementById('samt'), btn = document.getElementById('sbtn'); if (!inp || !btn) return;
+  amtGate(inp, btn, document.getElementById('shint'), selOpenSessions().reduce((t, s) => t + s.expectedPiastres, 0));
+}
+function startSelConfirm() {
+  const ss = selOpenSessions(), v = views[0], n = openGroups().filter(([c]) => selCg.has(c)).length;
+  const blocked = openGroups().filter(([c]) => selCg.has(c)).reduce((t, [, l]) => t + l.filter(s => s.status === 'blocked').length, 0);
+  return confirmSessions({ sessions: ss, blocked, amtRaw: document.getElementById('samt')?.value, title: `${n} مناديب محدّدين`, header: '⚠️ تأكيد توريد المناديب المحدّدين', done: `✓ تم تسجيل توريد ${n} مناديب`, day: v.day });
+}
+function clearSel() { selCg.clear(); document.querySelectorAll('#daySessions [data-pick]').forEach(c => { c.checked = false; }); renderConfReg(true); }
+function pickAllOpen() {
+  const og = openGroups(); if (!og.length) return;
+  if (og.every(([n]) => selCg.has(n))) selCg.clear(); else og.forEach(([n]) => selCg.add(n));
+  document.querySelectorAll('#daySessions [data-pick]').forEach(c => { c.checked = selCg.has(c.dataset.pick); });
+  renderConfReg(true);
+}
+function renderConfBar() {
+  const host = document.getElementById('confBar'); if (!host) return;
+  if (!views.some(v => (v.groups || []).length)) { host.innerHTML = ''; return; }
+  const og = confScope === 'day' ? openGroups() : [], allSel = og.length && og.every(([n]) => selCg.has(n));
+  host.innerHTML = `<div class="panel-card rowbar">${og.length ? `<button type="button" class="btn btn-sm lockable" onclick="pickAllOpen()">${allSel ? '☐ مسح التحديد' : '☑ تحديد كل غير المسجّل'}</button>` : ''}<span class="grow"></span>
+    <div class="bulk" role="group" aria-label="طي وفتح الكل"><button type="button" class="bulkbtn" onclick="setAllCg(false)"><span>افتح الكل</span>${ICO_EXP}</button><button type="button" class="bulkbtn" onclick="setAllCg(true)"><span>اقفل الكل</span>${ICO_COL}</button></div></div>`;
+}
+// تفويض الأحداث: الصف كله بيطوي/يفتح · ترتيب الجدول · تحديد المناديب
+document.getElementById('daySessions').addEventListener('click', e => {
+  const th = e.target.closest('.th-label[data-sort]');
+  if (th) { cycleSort(th.dataset.tk, th.dataset.sort); return; }
+  const head = e.target.closest('.cg-head');
+  if (head && !e.target.closest('input,button,a,label,.inw')) { const [vi, gi] = head.dataset.head.split('-').map(Number); toggleCourier(vi, gi); }
+});
+document.getElementById('daySessions').addEventListener('change', e => {
+  const p = e.target.closest('[data-pick]'); if (!p) return;
+  p.checked ? selCg.add(p.dataset.pick) : selCg.delete(p.dataset.pick); renderConfReg(true);
+});
 
 function startCourierConfirm(vi, gi) {
   const v = views[vi], courier = v.groups[gi][0], list = v.groups[gi][1];
@@ -2292,7 +2586,7 @@ async function confirmSessions({ sessions, blocked, amtRaw, title, header, done:
       (failed.length ? `<div class="note-box amber">⚠️ الدفتر اتسجّل ✓ — لكن المرآة على ${failed.length} أوردر ما اتكتبتش</div><div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="rebuildMirror(${JSON.stringify(failed.map(f => f.orderId)).replace(/"/g, '&quot;')})">إعادة بناء المرآة</button></div>` : '') +
       (bad.length ? '<p style="margin-top:10px;font-size:13px">راجع الحالة بعد التحديث — <strong>متعيدش المحاولة قبل ما تراجع</strong>.</p>' : ''));
   }
-  if (confScope === 'day') sessions.forEach(s => openDone.add(`${day}|${s.courier || 'بدون مندوب'}`));
+  if (confScope === 'day') sessions.forEach(s => { openDone.add(`${day}|${s.courier || 'بدون مندوب'}`); closedCg.add(`${day}|${s.courier || 'بدون مندوب'}`); });
   await reloadConfirmView();
 }
 function typeBadges(r) {
@@ -2937,7 +3231,7 @@ function resetToolState() {
   for (const k of Object.keys(tabLoaded)) delete tabLoaded[k];
   settleAdmins = []; settlePlan = null; updateSettleCard();
   { const r = document.getElementById('stResult'); if (r) r.innerHTML = ''; const pin = document.getElementById('stPin'); if (pin) pin.value = ''; }
-  for (const id of ['daySessions', 'pendingList', 'orderResult', 'alertsList', 'cmpResult', 'logChips', 'dayTally', 'pendingTally', 'alertsTally', 'diagResult'])
+  for (const id of ['daySessions', 'confReg', 'confBar', 'pendingList', 'orderResult', 'alertsList', 'cmpResult', 'logChips', 'dayTally', 'pendingTally', 'alertsTally', 'diagResult'])
     { const el = document.getElementById(id); if (el) el.innerHTML = ''; }
   document.getElementById('logBody').innerHTML = '<tr><td colspan="7" class="empty-box">اضغط تحديث لتحميل السجل</td></tr>';
   document.getElementById('orderQ').value = '';
