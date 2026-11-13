@@ -643,3 +643,47 @@ test('get_order v1.4.3: sources فيها تفاصيل شحنة بوسطة (حت�
     assert.equal(c.bosta, undefined); assert.equal(c.gross, undefined);
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('v1.5.0: صف اتضاف لجلسة متأكدة = «لم يتم التسجيل» (مش «تم»)، وتأكيده يكتب سطوره بس على نفس صف التأكيد', async () => {
+  const { DB, env } = setup();
+  const D1 = '2026-11-10', D2 = '2026-11-13';
+  // جلسة ملف بوسطة: 3 صفوف من 5 اتكتبوا واتأكدت (ناقصة)
+  session(DB, { batchId: 'bosta-X', ts: '2026-11-10T09:00:00.000Z', courier: 'Bosta', orders: 5, collect: 500, net: 500, rows: [
+    { orderId: '1', orderName: '#1', cc: 100 }, { orderId: '2', orderName: '#2', cc: 100 }, { orderId: '3', orderName: '#3', cc: 100 } ] });
+  assert.equal((await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-X', date: D1, employee: 'Sara_Cash', receivedAmount: '300' } })).body.ok, true);
+  assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n, 3);
+  // بعد التأكيد بيومين: صفين اتسجّلوا في نفس الجلسة (واحد سالب)
+  for (const [oid, cc, type] of [['4', -49.34, 'payment'], ['5', -1285.01, 'refund']]) {
+    seed(DB, { ts: '2026-11-13T15:33:00.000Z', type, orderId: oid, orderName: '#' + oid, extra: { result: 'success', batchId: 'bosta-X', courier: 'Bosta', courierCollect: cc,
+      extraShipping: [], extraShippingTotal: '0.00', batchExpected: { orders: 5, payOrders: 4, refundOrders: 1, collect: '500.00', net: '500.00' } } });
+  }
+  // اليوم الأصلي: لسه متأكد ومفيش فيه صفوف متأخرة
+  const day1 = (await call(env, 'get_day', { params: { date: D1 } })).body;
+  assert.equal(day1.sessions[0].status, 'confirmed'); assert.equal(day1.sessions[0].lateRows, null);
+  // يوم الصفين: معلّقة (مش confirmed) والمتوقع = الصفين بس، وفيها علامة lateRows
+  const day2 = (await call(env, 'get_day', { params: { date: D2 } })).body;
+  const v = day2.sessions.find(x => x.batchId === 'bosta-X');
+  assert.equal(v.status, 'pending'); assert.equal(v.expected, '-1334.35'); assert.equal(v.rows.length, 2);
+  assert.equal(v.lateRows.count, 2); assert.equal(v.lateRows.confirmedBy, 'Sara_Cash');
+  assert.equal(day2.tally.confirmed, 0); assert.equal(day2.tally.pending, 1);
+  // كل الأيام المعلّقة بتشوفها كمان (تحت يوم الصفين)
+  const pend = (await call(env, 'get_pending')).body;
+  assert.equal(pend.count, 1); assert.equal(pend.days[0].day, D2); assert.equal(pend.days[0].expectedTotal, '-1334.35');
+  // مبلغ غلط = رفض (D17) ومفيش كتابة
+  const bad = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-X', date: D2, employee: 'Sara_Cash', receivedAmount: '-1000' } });
+  assert.equal(bad.body.status, 'rejected');
+  assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n, 3);
+  // مبلغ صح: سطرين جداد على نفس صف التأكيد، ومفيش تأكيد جديد
+  const ok = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-X', date: D2, employee: 'Sara_Cash', receivedAmount: '-1334.35' } });
+  assert.equal(ok.body.ok, true); assert.equal(ok.body.summary.entries, 2);
+  assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_confirmations').get().n, 1);
+  const rows = DB.raw.prepare("SELECT * FROM treasury_ledger WHERE order_name IN ('#4','#5') ORDER BY id").all();
+  assert.equal(rows.length, 2); assert.ok(rows.every(r => r.confirmation_id === 1 && r.source_batch_id === 'bosta-X' && r.kind === 'CASH_OUT'));
+  assert.equal(rows.reduce((t, r) => t + r.amount_piastres, 0), -133435);
+  // بعد كده: متأكدة، ومرة تانية = already من غير كتابة
+  assert.equal((await call(env, 'get_day', { params: { date: D2 } })).body.sessions[0].status, 'confirmed');
+  assert.equal((await call(env, 'get_pending')).body.count, 0);
+  const again = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-X', date: D2, employee: 'Sara_Cash', receivedAmount: '-1334.35' } });
+  assert.equal(again.body.status, 'already');
+  assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n, 5);
+});

@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.8.0-blue)
+![version](https://img.shields.io/badge/version-v1.8.1-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -136,6 +136,16 @@
 - **إصلاح:** المبلغ كان بيختفي لما تطوي/تفتح مندوب (`renderViews` كان بيعيد رسم كل حاجة).
 - الفحص: `tests/ui-smoke.mjs` اتحدّث (طي بالصف · افتح/اقفل الكل · ترتيب 3 حالات · الشريط الجانبي · حفظ المبلغ · عدم تكرار «توريد المحدّدين»). تحديد جزئي لمناديب متعددين اتجرّب بسكريبت مؤقت (4 مناديب) — مش في الـ smoke لأن الـ fixture مندوب واحد.
 
+## 🆕 صفوف اتضافت بعد التأكيد (Worker v1.5.0 · واجهة v1.8.1 · 13-11-2026)
+**المشكلة (#48465 و#49231):** جلسة `bosta-WEDCOD12AUG26` اتأكدت يوم 10-11 بـ179 صف (ناقصة)، وبعدها صفين اتسجّلوا فيها يوم 13-11. الجلسة كانت بتتحسب «متأكدة» من وجود صف في `treasury_confirmations` بس، فالصفين ظهروا «تم التسجيل» من غير ولا سطر في `treasury_ledger` (-1,334.35) ومن غير ميتافيلدز.
+- **الحقيقة = الدفتر:** `loadLateSessions` بتحدد أي صف في جلسة متأكدة مالوش `source_log_id` في الدفتر. الجلسة وقتها تتعرض `pending` بـ`lateRows{count,confirmedAt,confirmedBy}`، والمتوقع = الصفوف دي بس، واليوم = يوم أول صف متأخر (في `get_day` و`get_pending`).
+- **التأكيد:** `confirm_session` على جلسة متأكدة وفيها صفوف متأخرة = `appendOnly`: نفس قاعدة D16/D17 (المبلغ يطابق)، بيكتب سطور الصفوف دي بس على **نفس** صف التأكيد (`confirmation_id` القديم، صف تأكيد جديد مابيتكتبش — `batch_id UNIQUE` ثابت)، والمرآة بتتكتب. `idempotency_key = log:<id>` بيمنع التكرار، ولو مفيش صفوف متأخرة الرد `already` زي الأول.
+- `pendingLegsFrom` (AWAITING_LEG) مابقاش بيستثني صفوف الجلسات المتأكدة — الصف المتأخر معلّق لحد ما يتأكد.
+- ما اتغيّرش: عقد القراءة من أداة التحصيل · الشحن الإضافي (اتكتب مع التأكيد الأصلي) · `settle_historical` (لسه بيتخطى الجلسات المتأكدة، والصفوف المتأخرة بتتأكد بالطريقة العادية).
+- 🔴 `MIN_WORKER_VERSION` في الواجهة فضلت `1.4.3` (الواجهة بتشتغل على Worker أقدم من غير ملاحظة «صفوف اتضافت») — **انشر الـ Worker الأول**.
+- ⚠️ **لسه مفتوح (قرار أحمد):** منع تأكيد الجلسة الناقصة (`incomplete`) من الأصل — دلوقتي لسه إجراء تشغيلي.
+- الفحص: اختبار جديد في `tests/worker.test.mjs` (30 اختبار).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -177,9 +187,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 12-11-2026 · `index.js` v1.4.3 · `index.html` v1.8.0
+آخر مطابقة: 13-11-2026 · `index.js` v1.5.0 · `index.html` v1.8.1
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 12-11-2026 — Worker v1.4.3 + `index.html` v1.8.0 (إعادة تصميم تأكيد التوريد · يوم واحد)
+آخر تحديث: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
 
 </div>

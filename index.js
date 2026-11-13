@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.4.3';
+const WORKER_VERSION = '1.5.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -602,7 +602,7 @@ function buildSession(batchId, rows) {
     const hasReturn = r.has_return === 1 || r.has_return === true || r.has_return === 'true';
     if (isRefund && p > 0) warnings.push(`الصف ${r.id} (${r.order_name}): استرداد بمبلغ موجب (${fmtMoney(p)})`);
     items.push({
-      logId: r.id, orderId: String(r.order_id), orderName: r.order_name, srcType: r.type,
+      logId: r.id, timestamp: r.timestamp, orderId: String(r.order_id), orderName: r.order_name, srcType: r.type,
       piastres: p, kind: p < 0 ? KIND.OUT : KIND.IN,
       // 🆕 صفوف بوسطة (extra.source='bosta_cash_cycle'): courierCollect = Net Value (بعد رسوم بوسطة) —
       //    مش مبلغ شوبيفاي، فبتتعلّم بمصدر مستقل عشان مقارنة Shopify تستثنيها (BOSTA_NET).
@@ -699,6 +699,40 @@ async function loadConfirmations(db, batchIds = null) {
   return m;
 }
 
+// 🆕 v1.5.0 — «صفوف اتضافت بعد التأكيد» (late rows): صف تحصيل جلسته اتأكدت قبل ما يتكتب ومالوش سطر في الدفتر.
+//    قبل كده الجلسة كانت تتحسب «متأكدة» من وجود صف في treasury_confirmations بس، فالصف المتأخر كان يبان «تم التسجيل»
+//    وهو مش في الدفتر (مثال: S2 لملف Cash-out اتأكد قبل ما صفوفه كلها تتسجّل — #48465 و#49231، 13-11-2026).
+//    الحقيقة = الدفتر: أي صف مالوش سطر `source_log_id` يتعرض «لم يتم التسجيل»، وتأكيده بيكتب سطوره بس على نفس صف التأكيد القديم.
+async function loadLedgeredLogIds(db, minLogId) {
+  const { results } = await db.prepare('SELECT source_log_id FROM treasury_ledger WHERE source_log_id >= ?').bind(minLogId).all();
+  return new Set((results || []).map(r => r.source_log_id));
+}
+
+// جلسة «متأخرة» = نفس الجلسة بس بالصفوف اللي مالهاش سطر دفتر (الشحن الإضافي اتكتب مع التأكيد الأصلي فبيتشال)
+function lateSession(s, ledgered) {
+  const items = s.items.filter(it => !ledgered.has(it.logId));
+  if (!items.length) return null;
+  // اليوم = يوم أول صف متأخر (مش يوم أول صف في الجلسة الأصلية) عشان يظهر ويتأكد في اليوم اللي اتكتب فيه
+  const firstTimestamp = items[0].timestamp;
+  return { ...s, items, extraShipping: [], rowsCount: items.length, firstTimestamp, day: cairoDayOf(firstTimestamp),
+           expectedPiastres: items.reduce((t, it) => t + it.piastres, 0), late: true };
+}
+
+// جلسات متأكدة (من `sessions`) ليها صفوف متأخرة → Map(batchId → جلسة متأخرة)
+async function loadLateSessions(db, sessions, confs) {
+  const late = new Map();
+  const confirmed = sessions.filter(s => confs.has(s.batchId) && s.items.length);
+  if (!confirmed.length) return late;
+  let minId = Infinity;
+  for (const s of confirmed) for (const it of s.items) if (it.logId < minId) minId = it.logId;
+  const ledgered = await loadLedgeredLogIds(db, minId);
+  for (const s of confirmed) { const l = lateSession(s, ledgered); if (l) late.set(s.batchId, l); }
+  return late;
+}
+
+// محاولة بفرق قبل التأكيد الأصلي بتخص التأكيد ده مش الصفوف المتأخرة
+const lateMismatch = (m, prior) => (m && prior && m.timestamp > prior.confirmed_at) ? m : null;
+
 // آخر محاولة تأكيد بفرق لكل جلسة (من logs) — التنبيه بيفضل لحد ما الجلسة تتأكد
 async function loadMismatches(db, fromIso) {
   const { results } = await db.prepare(
@@ -721,13 +755,15 @@ function sessionStatus(s, confirmation, mismatch) {
   return 'pending';
 }
 
-function sessionView(s, confirmation, mismatch, { withRows = true } = {}) {
+function sessionView(s, confirmation, mismatch, { withRows = true, prior = null } = {}) {
   const status = sessionStatus(s, confirmation, mismatch);
   const v = {
     batchId: s.batchId, status, courier: s.courier, collector: s.collector,
     day: s.day, firstTimestamp: s.firstTimestamp, rowsCount: s.rowsCount,
     expected: fmtMoney(s.expectedPiastres), expectedPiastres: s.expectedPiastres,
     incomplete: s.incomplete, problems: s.problems, warnings: s.warnings,
+    // 🆕 v1.5.0 — جلسة اتأكدت قبل كده وفيها صفوف اتضافت بعدها: المتوقع = الصفوف دي بس
+    lateRows: s.late ? { count: s.items.length, confirmedAt: prior?.confirmed_at || null, confirmedBy: prior?.treasury_employee || null } : null,
     batchExpected: s.batchExpected ? {
       orders: s.batchExpected.orders,
       collect: s.batchExpected.collect === null ? null : fmtMoney(s.batchExpected.collect),
@@ -924,13 +960,12 @@ function money(m) { return toPiastres(m?.shopMoney?.amount) ?? 0; }
 // 🆕 v1.2.0 — «الشحنة المعلّقة»: صفوف تحصيل للأوردر جوه النافذة، مش في الدفتر، وجلستها لسه ما اتأكدتش.
 //    مثال #63567: تحصيل +2,600 يوم 03-11 (معلّق) + استرداد −2,600 يوم 04-11 (اتسجّل) → الدفتر −2,600 مؤقتًا.
 //    من غير ده المقارنة بتقول SHORT كاذب؛ بيها بتقول «مستني تسجيل جلسة 03-11» والمتوقع بعد التسجيل.
-//    صفوف جلسة **اتأكدت** ومش في الدفتر (صف اتضاف لجلسة ناقصة بعد تأكيدها) مش معلّقة — مش هتتسجّل أبدًا، فبتفضل فرق حقيقي.
-function pendingLegsFrom(rows, ledgerLogIds, confirmedBatches) {
+//    🆕 v1.5.0: صف جلسة **اتأكدت** ومش في الدفتر (اتضاف بعد التأكيد) بقى معلّق برضه — بيتسجّل بتأكيد الصفوف المتأخرة (`appendOnly`).
+function pendingLegsFrom(rows, ledgerLogIds) {
   const out = { piastres: 0, count: 0, days: [], bosta: false };
   const days = new Set();
   for (const r of rows) {
     if (ledgerLogIds.has(r.id)) continue;
-    if (r.batch_id && confirmedBatches.has(String(r.batch_id))) continue;
     const p = toPiastres(r.cc);
     if (p === null) continue;
     out.piastres += p; out.count++;
@@ -959,12 +994,10 @@ async function loadPendingLegs(db, orderIds, ledgerByOrder) {
       rowsBy.get(k).push(r);
     }
   }
-  const batchIds = [...new Set([...rowsBy.values()].flat().map(r => r.batch_id).filter(Boolean).map(String))];
-  const confs = batchIds.length ? await loadConfirmations(db, batchIds) : new Map();
   const out = new Map();
   for (const id of ids) {
     const logIds = new Set((ledgerByOrder.get(id) || []).map(e => e.source_log_id).filter(x => x !== null && x !== undefined));
-    out.set(id, pendingLegsFrom(rowsBy.get(id) || [], logIds, confs));
+    out.set(id, pendingLegsFrom(rowsBy.get(id) || [], logIds));
   }
   return out;
 }
@@ -1322,7 +1355,12 @@ if (action === 'get_employees') {
         const sessions = await loadDaySessions(env.DB, date);
         const confs = await loadConfirmations(env.DB, sessions.map(s => s.batchId));
         const mism  = await loadMismatches(env.DB, cairoDayBoundsUTC(date).start);
-        const views = sessions.map(s => sessionView(s, confs.get(s.batchId), mism.get(s.batchId)));
+        const late = await loadLateSessions(env.DB, sessions, confs);
+        const views = sessions.map(s => {
+          const l = late.get(s.batchId), prior = confs.get(s.batchId);
+          return l ? sessionView(l, null, lateMismatch(mism.get(s.batchId), prior), { prior })
+                   : sessionView(s, prior, mism.get(s.batchId));
+        });
         // 🆕 v1.2.0 — حركات الأوردر المتسجّلة في جلسات تانية (مثلاً استرداد اتسجّل والتحصيل الأصلي لسه هنا):
         //    الدفتر على الأوردر ده ناقص لحد ما الجلسة دي تتسجّل → علامة أولوية في الواجهة
         const openViews = views.filter(v => v.status !== 'confirmed');
@@ -1345,11 +1383,14 @@ if (action === 'get_employees') {
         const confs = await loadConfirmations(env.DB);
         const mism  = await loadMismatches(env.DB, from);
         const days = new Map();
+        const late = await loadLateSessions(env.DB, sessions, confs);
         for (const s of sessions) {
-          if (confs.has(s.batchId)) continue;
-          const v = sessionView(s, null, mism.get(s.batchId), { withRows: false });
-          if (!days.has(s.day)) days.set(s.day, []);
-          days.get(s.day).push(v);
+          const l = late.get(s.batchId), prior = confs.get(s.batchId);
+          if (prior && !l) continue;
+          const v = l ? sessionView(l, null, lateMismatch(mism.get(s.batchId), prior), { withRows: false, prior })
+                      : sessionView(s, null, mism.get(s.batchId), { withRows: false });
+          if (!days.has(v.day)) days.set(v.day, []);
+          days.get(v.day).push(v);
         }
         const out = [...days.entries()].sort((a, b) => b[0].localeCompare(a[0]))
           .map(([day, list]) => ({ day, sessions: list,
@@ -1374,11 +1415,17 @@ if (action === 'get_employees') {
 
         // نعيد الحساب كله من D1 — مانثقش في أي رقم جاي من الواجهة
         const sessions = await loadDaySessions(env.DB, date);
-        const s = sessions.find(x => x.batchId === batchId);
-        if (!s) return json({ ok: false, status: 'rejected', stage: 'lookup', error: 'الجلسة دي مش موجودة في اليوم ده' }, 404, request);
+        const s0 = sessions.find(x => x.batchId === batchId);
+        if (!s0) return json({ ok: false, status: 'rejected', stage: 'lookup', error: 'الجلسة دي مش موجودة في اليوم ده' }, 404, request);
 
         const prior = (await loadConfirmations(env.DB, [batchId])).get(batchId);
+        // 🆕 v1.5.0: جلسة متأكدة وفيها صفوف مالهاش سطر دفتر → بنكمّل تسجيل الصفوف دي بس على نفس صف التأكيد (مفيش تأكيد جديد)
+        let s = s0, appendOnly = false;
         if (prior) {
+          const lateS = (await loadLateSessions(env.DB, [s0], new Map([[batchId, prior]]))).get(batchId);
+          if (lateS) { s = lateS; appendOnly = true; }
+        }
+        if (prior && !appendOnly) {
           const logged = await safeLog(env.DB, { type: 'session_already_confirmed', employee, notes: `الجلسة اتأكدت قبل كده`,
             extra: { result: 'already', stage: 'lookup', batchId, confirmedBy: prior.treasury_employee } });
           return json({ ok: true, status: 'already', logged,
@@ -1418,7 +1465,7 @@ if (action === 'get_employees') {
         // الكتابة ذرّية: صف التأكيد + كل الحركات في db.batch() واحد (D1 بينفّذه كـ transaction)
         const now = new Date().toISOString();
         const flags = [s.incomplete ? 'incomplete' : null, s.warnings.length ? 'warnings' : null].filter(Boolean).join(',') || null;
-        const stmts = [env.DB.prepare(
+        const stmts = appendOnly ? [] : [env.DB.prepare(
           `INSERT INTO treasury_confirmations
              (batch_id, confirmed_at, cairo_day, courier, collector_employee, treasury_employee,
               expected_piastres, received_piastres, rows_count, session_flags)
@@ -1454,9 +1501,9 @@ if (action === 'get_employees') {
         const logged = await safeLog(env.DB, {
           type: 'session_confirmed', employee, orderName: null,
           valueAfter: s.expectedPiastres / 100,
-          notes: `${s.courier || '—'} · ${entries.length} حركة · ${fmtMoney(s.expectedPiastres)}` + (s.incomplete ? ' · جلسة ناقصة' : ''),
+          notes: `${s.courier || '—'} · ${entries.length} حركة · ${fmtMoney(s.expectedPiastres)}` + (appendOnly ? ' · صفوف اتضافت بعد التأكيد' : '') + (s.incomplete ? ' · جلسة ناقصة' : ''),
           extra: { result: status, stage: 'write', batchId, day: s.day, courier: s.courier, collector: s.collector,
-                   entries: entries.length, expected: fmtMoney(s.expectedPiastres), incomplete: s.incomplete,
+                   entries: entries.length, expected: fmtMoney(s.expectedPiastres), incomplete: s.incomplete, late: appendOnly,
                    mirrorFailed: mirror.failed.slice(0, 20) },
         });
         return json({
@@ -1655,7 +1702,7 @@ if (action === 'get_employees') {
         const orderId = ledger[0]?.order_id ?? null;
         const winStart = cairoDayBoundsUTC(MIN_DATE).start;
         const pending = pendingLegsFrom(src.filter(r => r.timestamp >= winStart),
-          new Set(ledger.map(l => l.source_log_id).filter(x => x !== null)), confs);
+          new Set(ledger.map(l => l.source_log_id).filter(x => x !== null)));
 
         let shopify = null, shopifyError = null, orderIdOut = orderId;
         try {

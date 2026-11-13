@@ -1015,7 +1015,13 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
     <div class="eco-modal-hdr"><span>📋 سجل التحديثات</span><button class="modal-close-x" onclick="closeChangelog()">✕</button></div>
     <div class="eco-modal-body">
       <div class="cl-version-block">
-        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">12-11-2026</span></div>
+        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">13-11-2026</span></div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>صف اتضاف لجلسة اتأكدت قبل كده (مثلاً S2 لملف Cash-out بوسطة اتأكد ناقص) كان بيظهر «تم التسجيل» وهو مش في الدفتر ومن غير ميتافيلدز. دلوقتي بيظهر «لم يتم التسجيل» بملاحظة «صفوف اتضافت بعد التأكيد»، والمطلوب = الصفوف دي بس، وتأكيدها بيكتب سطورها على نفس التأكيد القديم. يتطلب Worker 1.5.0.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.8.0</span><span class="cl-ver-date">12-11-2026</span></div>
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تأكيد التوريد · يوم واحد: شريط جانبي لاصق (النطاق · اليوم · توريد اليوم بالكامل) وصف فوق المناديب فيه «تحديد كل غير المسجّل» و«افتح الكل / اقفل الكل».</span></li>
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تحديد أكتر من مندوب وتسجيلهم بمبلغ واحد: قسم «توريد المحدّدين فقط» تحت توريد اليوم بالكامل (بيختفي لو حددت كل المناديب لأنه نفس الرقم). نفس قاعدة المطابقة بالظبط.</span></li>
@@ -1300,7 +1306,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.4.3'; // 1.4.3 = sources فيها تفاصيل شحنة بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
-const TOOL_VERSION = 'v1.8.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.8.1';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2216,6 +2222,7 @@ function sessionItems(s) {
 function sessionNotes(s) {
   let notes = '';
   if (s.incomplete) notes += `<div class="note-box amber">⚠️ جلسة ناقصة: صفوف D1 ${s.rowsCount} من ${esc(s.batchExpected?.orders ?? '؟')} (المتوقع عند التحصيل ${esc(s.batchExpected?.collect ?? '؟')}). المتوقع هنا = اللي اتسجّل فعلاً. التنبيه بيفضل لحد ما الأوردر الناقص يظهر في جلسة تانية أو تتراجع.</div>`;
+  if (s.lateRows) notes += `<div class="note-box amber">🕓 صفوف اتضافت بعد التأكيد: ${esc(s.lateRows.count)} صف (جلسة اتأكدت ${esc(formatDateTime(s.lateRows.confirmedAt))} بواسطة ${esc(employeeDisplayName(s.lateRows.confirmedBy))}). المطلوب هنا = الصفوف دي بس.</div>`;
   for (const w of s.warnings || []) notes += `<div class="note-box amber">${esc(w)}</div>`;
   if (s.status === 'blocked') notes += `<div class="note-box red">⛔ مينفعش يتسجّل: ${(s.problems || []).map(esc).join(' · ')}</div>`;
   if (s.status === 'diff' && s.mismatch) notes += `<div class="note-box red">🔴 آخر محاولة (${esc(employeeDisplayName(s.mismatch.by))}): المتوقع ${fmtNum(s.mismatch.expected)} — المكتوب ${fmtNum(s.mismatch.received)}${s.mismatch.diff ? ` — الفرق ${fmtSignedNum(s.mismatch.diff)}` : ''}. التسجيل ممنوع لحد ما المبلغ يكمل.</div>`;
