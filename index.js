@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.5.0';
+const WORKER_VERSION = '1.6.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -1066,7 +1066,28 @@ function legsFromLogs(cashEntries, info, legShipping) {
   return legs;
 }
 
-function compareOrder(entries, node, preWindow, pending = null, legInfo = null) {
+// 🆕 v1.6.0 — الشحن المجاني (COD-Payment-Center Worker ≥ 3.14.0 · قرار أحمد 14-11-2026).
+//    أوردر شحنه 0 على شوبيفاي المندوب بياخد أجره (75 · أو 0 لـ Showroom) رغم كده، فموظف التحصيل بيأكّده وصف التحصيل بيتكتب فيه
+//    `extra.freeShipping.courierFee` و`courierCollect` = المبلغ − الأجر. من غير قراءة الحقل ده مقارنة Shopify (`netPayment − currentShipping`)
+//    كانت هتعلّم الأوردر `SHORT`/`OVER` كاذب وكارت التسوية «فرق غير مفسَّر». Map(logId → الأجر بالقروش) — الصفوف الأقدم مالهاش الحقل.
+async function loadFreeShippingFees(db, entries) {
+  const ids = [...new Set((entries || []).filter(e => e.source !== BOSTA_SRC && e.source_log_id !== null && e.source_log_id !== undefined).map(e => e.source_log_id))];
+  const out = new Map();
+  try {
+    for (const part of chunk(ids, BIND_CHUNK)) {
+      const { results } = await db.prepare(
+        `SELECT id, json_extract(extra,'$.freeShipping.courierFee') AS fee, json_extract(extra,'$.freeShipping.confirmed') AS conf
+           FROM logs WHERE tool = ? AND id IN (${part.map(() => '?').join(',')})`).bind(SOURCE_TOOL, ...part).all();
+      for (const r of results || []) {
+        const p = toPiastres(r.fee);
+        if (p !== null && p >= 0 && (r.conf === 1 || r.conf === true || r.conf === 'true')) out.set(r.id, p);   // بتأكيد موظف التحصيل بس
+      }
+    }
+  } catch (e) { return new Map(); }       // JSON فاسد في صف = رجوع لشحن شوبيفاي بدل ما نكسر الفحص كله
+  return out;
+}
+
+function compareOrder(entries, node, preWindow, pending = null, legInfo = null, freeFees = null) {
   const byId = new Map(entries.map(e => [e.id, e]));
   const isXs = (e) => e.source === 'cod_extra_shipping' ||
     (e.reverses_id && byId.get(e.reverses_id)?.source === 'cod_extra_shipping');
@@ -1079,7 +1100,12 @@ function compareOrder(entries, node, preWindow, pending = null, legInfo = null) 
 
   const bosta = cashEntries.some(e => e.source === BOSTA_SRC) || !!pending?.bosta;
   const net = money(node.netPaymentSet);
-  const ship = node.currentShippingPriceSet ? money(node.currentShippingPriceSet) : money(node.totalShippingPriceSet);
+  const shopShip = node.currentShippingPriceSet ? money(node.currentShippingPriceSet) : money(node.totalShippingPriceSet);
+  // 🆕 v1.6.0 — شحن مجاني اتأكّد وقت التحصيل: أجر المندوب من صف التحصيل بدل شحن شوبيفاي (0). بس لما شوبيفاي لسه شحنه 0
+  //    (لو اتضاف شحن بعد كده بنرجع لشوبيفاي) — وصفوف بوسطة مالهاش علاقة (بتحسب رسومها لوحدها).
+  const fsFees = freeFees ? cashEntries.filter(e => e.source !== BOSTA_SRC && !e.reverses_id && e.kind !== KIND.REV && freeFees.has(e.source_log_id)).map(e => freeFees.get(e.source_log_id)) : [];
+  const fsShip = fsFees.length ? fsFees.reduce((a, x) => a + x, 0) : null;
+  const ship = (fsShip !== null && shopShip === 0 && !bosta) ? fsShip : shopShip;
   // رسوم المرتجع للدورات الفعّالة بس (CANCELED/DECLINED مالهاش رسوم)، بترتيب createdAt (للتوزيع على الشحنتين)
   const retList = (node.returns?.nodes || []).filter(r => !['CANCELED', 'DECLINED'].includes(r?.status))
     .sort((x, y) => String(x.createdAt || '').localeCompare(String(y.createdAt || '')))
@@ -1132,6 +1158,7 @@ function compareOrder(entries, node, preWindow, pending = null, legInfo = null) 
     loss: { total: fmtMoney(lossTotal), extraShipping: fmtMoney(xsCost), other: fmtMoney(other), otherKind: bosta ? 'BOSTA_FEES' : 'UNEXPLAINED',
       bostaFees: bostaFees === null ? null : fmtMoney(bostaFees) },
     bosta,
+    freeShipping: ship !== shopShip ? fmtMoney(ship) : null,    // 🆕 v1.6.0 — الأجر اللي اتخصم لشحن مجاني (بدل شحن شوبيفاي الصفر)
     state: reasons.length ? 'PROVISIONAL' : 'FINAL', reasons,
     projectedLoss: pending ? fmtMoney(xsCost + other - pending.piastres) : null,
     // الداخل أكتر من (المتحصَّل − شحن العميل) — المفروض ما يحصلش. في بوسطة = رسوم بوسطة أقل من شحن العميل (قرار أحمد: تنبيه).
@@ -1719,7 +1746,7 @@ if (action === 'get_employees') {
             const costLog = [];
             const map = await fetchShopifyOrders(env, token, [id], costLog);
             const pre = await preWindowOrderSet(env.DB, [name]);
-            shopify = compareOrder(ledger, map.get(String(id)) || null, pre.has(name), pending, await loadBostaLegInfo(env.DB, ledger));
+            shopify = compareOrder(ledger, map.get(String(id)) || null, pre.has(name), pending, await loadBostaLegInfo(env.DB, ledger), await loadFreeShippingFees(env.DB, ledger));
             await syncSettlementAlerts(env.DB, [{ orderId: id, orderName: name, cmp: shopify }]).catch(() => {});
           }
         } catch (e) { shopifyError = e.message; }
@@ -1756,10 +1783,11 @@ if (action === 'get_employees') {
         const pre = await preWindowOrderSet(env.DB, names);
         const legs = await loadPendingLegs(env.DB, ids, ledger);
         const legInfo = await loadBostaLegInfo(env.DB, [...ledger.values()].flat());
+        const freeFees = await loadFreeShippingFees(env.DB, [...ledger.values()].flat());
         const results = ids.map(id => {
           const entries = ledger.get(id) || [];
           const nm = entries[0]?.order_name || null;
-          return { orderId: id, orderName: nm, ...compareOrder(entries, nodes.get(id) || null, nm ? pre.has(nm) : false, legs.get(id), legInfo) };
+          return { orderId: id, orderName: nm, ...compareOrder(entries, nodes.get(id) || null, nm ? pre.has(nm) : false, legs.get(id), legInfo, freeFees) };
         });
         await syncSettlementAlerts(env.DB, results.map(r => ({ orderId: r.orderId, orderName: r.orderName, cmp: r }))).catch(() => {});
         return json({ ok: true, results, queryCost: costLog }, 200, request);

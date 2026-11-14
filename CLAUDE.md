@@ -146,6 +146,13 @@
 - ⚠️ **لسه مفتوح (قرار أحمد):** منع تأكيد الجلسة الناقصة (`incomplete`) من الأصل — دلوقتي لسه إجراء تشغيلي.
 - الفحص: اختبار جديد في `tests/worker.test.mjs` (30 اختبار).
 
+## 🆕 الشحن المجاني — أجر المندوب من صف التحصيل (Worker v1.6.0 · 14-11-2026)
+**المشكلة:** `COD-Payment-Center` Worker ≥ 3.14.0 بقى بيخصم أجر المندوب (75 · أو 0 لـ Showroom) من `courierCollect` للأوردر اللي شحنه 0 على شوبيفاي — بعد **تأكيد** موظف التحصيل — وبيكتب `extra.freeShipping = { confirmed, courierKind, courierFee }`. تأكيد التوريد ما اتأثرش (المتوقع من `courierCollect` وبس)، لكن مقارنة Shopify (`netPayment − currentShipping`) كانت هتطلّع `SHORT` كاذب (مندوب عادي) وكارت التسوية «فرق غير مفسَّر» 75.
+- `loadFreeShippingFees` (قراءة بس): Map(`source_log_id` → الأجر بالقروش) من صفوف `cod_payment` **المؤكَّدة** (`freeShipping.confirmed`) — صفوف بوسطة والصفوف القديمة مالهاش حقل ← السلوك القديم.
+- `compareOrder`: الشحن = أجر السجل **بس لما شوبيفاي لسه شحنه 0** (لو اتضاف شحن بعد كده نرجع لشحن شوبيفاي — ما بنجمعش الاتنين). بيظهر في `settlement.deducted.shipping` وفي حقل `settlement.freeShipping` (null لو مفيش).
+- ⚠️ **عقد القراءة:** المفتاح الجديد إضافة بحتة (الخزنة بتقرا أعمدة محددة) — ما اتغيّرش أي مفتاح قديم.
+- الفحص: 4 اختبارات جديدة في `tests/worker.test.mjs` (34 اختبار): #64603 = `MATCH` · Showroom (أجر 0) · صف قديم/غير مؤكَّد = `SHORT` (مفيش خصم بالتخمين) · شحن اتضاف بعدين. ⚠️ ما اتجرّبش على D1/شوبيفاي حقيقيين.
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -190,6 +197,6 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 آخر مطابقة: 13-11-2026 · `index.js` v1.5.0 · `index.html` v1.8.1
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
+آخر تحديث: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
 
 </div>

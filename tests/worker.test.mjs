@@ -687,3 +687,64 @@ test('v1.5.0: صف اتضاف لجلسة متأكدة = «لم يتم التسج
   assert.equal(again.body.status, 'already');
   assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n, 5);
 });
+
+// ─── v1.6.0 — الشحن المجاني (COD-Payment-Center ≥ 3.14.0): أجر المندوب من `extra.freeShipping.courierFee` ───
+// #64603 الحقيقي: شحن شوبيفاي 0 · المتحصَّل 4,150 · المندوب ورّد 4,075 (الأجر 75 اتخصم). من غير القراءة دي = SHORT كاذب + «فرق غير مفسَّر» 75.
+function freeShipRow(DB, { id, name, cc, fee = 75, conf = true, courier = 'Mohamed Torky', kind = 'courier' }) {
+  seed(DB, { ts: '2026-11-11T09:50:18.000Z', orderId: id, orderName: name, extra: {
+    result: 'success', batchId: 'fs' + id, courier, courierCollect: cc, hasReturn: false,
+    ...(fee === null ? {} : { freeShipping: { confirmed: conf, courierKind: kind, courierFee: fee, shopifyShipping: 0 } }) } });
+  const logId = DB.raw.prepare('SELECT MAX(id) AS id FROM logs').get().id;
+  DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, source, source_log_id, treasury_employee, idempotency_key) VALUES ('2026-11-14T10:00:00Z', ?, ?, 'CASH_IN', ?, 'cod_payment', ?, 'X', ?)`)
+    .run(id, name, Math.round(cc * 100), logId, `log:${logId}`);
+}
+async function cmpOne(env, id) { return (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: [id] } })).body.results[0]; }
+
+test('شحن مجاني v1.6.0: #64603 (شحن 0 + أجر 75 اتخصم) = MATCH والتسوية بلا فرق غير مفسَّر', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('64603', '#64603', { net: '4150.00', ship: '75.00', curShip: '0.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '4150.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    freeShipRow(DB, { id: '64603', name: '#64603', cc: 4075 });
+    const r = await cmpOne(env, '64603');
+    assert.equal(r.status, 'MATCH'); assert.equal(r.diff, '0.00'); assert.equal(r.shopify, '4075.00');
+    assert.equal(r.settlement.deducted.shipping, '75.00');
+    assert.equal(r.settlement.loss.other, '0.00'); assert.equal(r.settlement.loss.total, '0.00');
+    assert.equal(r.settlement.freeShipping, '75.00');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('شحن مجاني v1.6.0: Showroom (أجر 0 · الدفتر كامل) = MATCH من غير تغيير', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('70', '#70', { net: '3000.00', ship: '0.00', curShip: '0.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '3000.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    freeShipRow(DB, { id: '70', name: '#70', cc: 3000, fee: 0, courier: 'Showroom', kind: 'showroom' });
+    const r = await cmpOne(env, '70');
+    assert.equal(r.status, 'MATCH'); assert.equal(r.settlement.loss.total, '0.00'); assert.equal(r.settlement.freeShipping, null);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('شحن مجاني v1.6.0: صف قديم (بلا freeShipping) أو غير مؤكَّد = السلوك القديم (SHORT) — مفيش خصم بالتخمين', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([
+    settleNode('71', '#71', { net: '4150.00', ship: '75.00', curShip: '0.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '4150.00')] }),
+    settleNode('72', '#72', { net: '4150.00', ship: '75.00', curShip: '0.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '4150.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    freeShipRow(DB, { id: '71', name: '#71', cc: 4075, fee: null });            // صف قديم بلا الحقل
+    freeShipRow(DB, { id: '72', name: '#72', cc: 4075, conf: false });              // مش مؤكَّد
+    for (const id of ['71', '72']) { const r = await cmpOne(env, id); assert.equal(r.status, 'SHORT'); assert.equal(r.diff, '-75.00'); }
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('شحن مجاني v1.6.0: لو شوبيفاي اتضاف عليه شحن بعد التحصيل بنرجع لشحن شوبيفاي (مش بنجمع الاتنين)', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('73', '#73', { net: '4150.00', ship: '75.00', curShip: '75.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '4150.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    freeShipRow(DB, { id: '73', name: '#73', cc: 4075 });
+    const r = await cmpOne(env, '73');
+    assert.equal(r.parts.shipping, '75.00'); assert.equal(r.settlement.freeShipping, null); assert.equal(r.status, 'MATCH');
+  } finally { globalThis.fetch = realFetch; }
+});
