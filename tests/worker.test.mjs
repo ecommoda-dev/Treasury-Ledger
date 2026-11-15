@@ -818,11 +818,11 @@ test('v1.8.0: شحنة RTO «رسوم فقط» (legKind=rto_fee) = ملاحظة 
     const b = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-leg-7217235847', date: '2026-11-15', employee: 'Sara_Cash', receivedAmount: '352.94' } });
     assert.equal(b.body.ok, true);
     const led = Object.fromEntries(DB.raw.prepare('SELECT order_id, kind, note FROM treasury_ledger').all().map(r => [r.order_id, r]));
-    assert.equal(led['47530'].kind, 'CASH_OUT'); assert.equal(led['47530'].note, 'صافي بوسطة — رسوم شحنة راجعة (RTO)');
+    assert.equal(led['47530'].kind, 'CASH_OUT'); assert.equal(led['47530'].note, 'صافي بوسطة [شحنة فشل توصيلها RTO]');
     assert.equal(led['47531'].kind, 'CASH_IN');  assert.equal(led['47531'].note, 'صافي بوسطة');
     const mf = calls.flatMap(c => c.variables.metafields).filter(m => m.key === 'treasury_log');
     const l47530 = mf.find(m => m.ownerId.endsWith('/47530')).value, l47531 = mf.find(m => m.ownerId.endsWith('/47531')).value;
-    assert.match(l47530, /\| 🔴 CASH_OUT \| 💲 -81\.26 \| Sara Cash \| صافي بوسطة — رسوم شحنة راجعة \(RTO\)$/);
+    assert.match(l47530, /\| 🔴 CASH_OUT \| 💲 -81\.26 \| Sara Cash \| صافي بوسطة \[شحنة فشل توصيلها RTO\]$/);
     assert.match(l47531, /\| 🟢 CASH_IN \| 💲 \+352\.94 \| Sara Cash \| صافي بوسطة$/);
     // صف قديم في الدفتر بالنص القديم → المرآة وget_order بيعرضوه بالاسم الجديد (من غير لمس الدفتر)
     DB.raw.prepare("UPDATE treasury_ledger SET note='بوسطة — صافي بعد الرسوم' WHERE order_id='47531'").run();

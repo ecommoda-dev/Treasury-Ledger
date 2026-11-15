@@ -24,7 +24,7 @@ const NOTE_EXTRA_SHIPPING = 'Extra Shipping';   // D15 — بالحرف، الأ
 //   · شحنة RTO «رسوم فقط» (extra.legKind='rto_fee' من COD-Payment-Center ≥ 3.17.0) بتاخد ملاحظة مميّزة.
 //   ⚠️ الدفتر append-only: الملاحظة بتتخزّن وقت التأكيد → الصفوف المتأكدة قبل كده بتفضل بنصها القديم في `treasury_ledger.note`.
 const NOTE_BOSTA        = 'صافي بوسطة';
-const NOTE_BOSTA_RTO    = 'صافي بوسطة — رسوم شحنة راجعة (RTO)';
+const NOTE_BOSTA_RTO    = 'صافي بوسطة [شحنة فشل توصيلها RTO]';
 const NOTE_BOSTA_LEGACY = 'بوسطة — صافي بعد الرسوم';
 const noteForDisplay = n => (n === NOTE_BOSTA_LEGACY ? NOTE_BOSTA : n);
 
