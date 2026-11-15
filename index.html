@@ -231,6 +231,20 @@ body {
 .eco-modal-body { overflow-y: auto; padding: 16px 20px; flex: 1; }
 .eco-modal-ftr  { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
 
+/* ══ §WAIT-MODAL — نافذة «جاري التسجيل…» (نفس تصميم نافذة تقدّم أداة التحصيل)
+   🔴 بلا زرار قفل ولا Esc ولا ضغط برّه — التسجيل بيكتب في الدفتر، وقفل النافذة كان هيدّي انطباع
+      إن العملية وقفت فالموظف يعيد التسجيل. z-index أعلى من نافذة الملخّص عشان ما تتغطّاش. ══ */
+#waitOverlay { z-index: 700; }
+.wt-num { font-family: var(--font-mono); font-size: 34px; font-weight: 800; text-align: center; color: var(--accent-dark); line-height: 1.1; direction: ltr; }
+.wt-bar { height: 16px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border-strong); overflow: hidden; margin: 6px 0 10px; }
+.wt-fill { height: 100%; width: 0; border-radius: 99px; transition: width .4s ease;
+  background: repeating-linear-gradient(45deg, var(--accent) 0 12px, var(--accent-dark) 12px 24px); background-size: 34px 34px; animation: wt-stripes 1s linear infinite; }
+.wt-fill.indet { width: 100% !important; opacity: .85; }
+@keyframes wt-stripes { to { background-position: 34px 0; } }
+.wt-sub  { text-align: center; font-size: 13px; font-weight: 700; color: var(--text-secondary); min-height: 20px; }
+.wt-warn { margin-top: 12px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--amber-dark); }
+@media (prefers-reduced-motion: reduce) { .wt-fill { animation: none; } }
+
 /* ── Changelog — محتوى الجسم فقط ────────────────────────────── */
 .cl-version-block { margin-bottom: 4px; }
 .cl-version-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -1017,6 +1031,12 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
       <div class="cl-version-block">
         <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">15-11-2026</span></div>
         <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>نافذة «⏳ جاري التسجيل...» أثناء أي كتابة في الدفتر (تسجيل توريد مندوب · اليوم بالكامل · المحدّدين · التسوية التاريخية · المرآة · التصحيح · إغلاق التنبيه) — نفس تصميم نافذة التحصيل: رقم N/M وشريط تقدّم وتحذير «متقفلش الصفحة». بلا زرار قفل ولا Esc، وبتتقفل لوحدها لما العملية تخلص. الواجهة بس — الـ Worker ما اتغيّرش.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.9.0</span><span class="cl-ver-date">15-11-2026</span></div>
+        <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag new">جديد</span><span>تبويب التنبيهات: زرار «إغلاق يدوي» على الجلسة الناقصة (لأحمد بس) — سبب إجباري + PIN، والجلسة بتنزل لقسم «اتقفلت يدويًا» مع «إعادة فتح». الدفتر وصفوف التحصيل ما بيتلمسوش، والتنبيه بيرجع لو اتضاف صف جديد للجلسة. يتطلب Worker 1.7.0.</span></li>
         </ul>
       </div>
@@ -1209,6 +1229,19 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
   </div>
 </div>
 
+<!-- نافذة انتظار أثناء أي كتابة في الدفتر (بلا قفل — بتتقفل لوحدها لما العملية تخلص) -->
+<div class="eco-overlay" id="waitOverlay" role="alertdialog" aria-modal="true" aria-live="polite" aria-labelledby="waitHeader">
+  <div class="eco-modal" style="max-width:520px">
+    <div class="eco-modal-hdr"><span id="waitHeader">⏳ جاري التسجيل...</span></div>
+    <div class="eco-modal-body">
+      <div class="wt-num" id="waitNum">0/0</div>
+      <div class="wt-bar"><div class="wt-fill" id="waitFill"></div></div>
+      <div class="wt-sub" id="waitSub"></div>
+      <div class="wt-warn">⚠️ متقفلش الصفحة ومتعيدش التسجيل لحد ما النتيجة تظهر</div>
+    </div>
+  </div>
+</div>
+
 <!-- ملخّص إلزامي بعد أي كتابة -->
 <div class="eco-overlay" id="summaryOverlay" onclick="if(event.target===this)closeSummary()">
   <div class="eco-modal" style="max-width:620px">
@@ -1313,7 +1346,7 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
 const MIN_WORKER_VERSION = '1.4.3'; // (إغلاق الناقصة يدويًا محتاج Worker 1.7.0 — من غيره الزرار بيرجع خطأ «action» بس والباقي شغال) 1.4.3 = sources فيها تفاصيل شحنة بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
-const TOOL_VERSION = 'v1.9.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const TOOL_VERSION = 'v1.9.1';     // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2074,8 +2107,25 @@ function setUpdateLock(on) {
   isUpdating = on;
   document.body.classList.toggle('busy', on);
   document.querySelectorAll('.lockable').forEach(el => { el.disabled = on ? true : el.dataset.dis === '1'; });
-  if (!on) refreshAllAmountState();
+  if (!on) { waitHide(); refreshAllAmountState(); }   // أي فك للقفل بيقفل نافذة الانتظار — مستحيل تفضل معلّقة بعد خطأ
 }
+// ─── §TOOL-JS::wait — نافذة «جاري التسجيل…» أثناء الكتابة (done/total اختياري: من غيرهم شريط شغّال بلا رقم) ───
+function waitShow(header, total, label) {
+  document.getElementById('waitHeader').textContent = header || '⏳ جاري التسجيل...';
+  waitStep(0, total, label);
+  document.getElementById('waitOverlay').classList.add('open');
+}
+function waitStep(done, total, label) {
+  const num = document.getElementById('waitNum'), fill = document.getElementById('waitFill'), sub = document.getElementById('waitSub');
+  if (total > 0) {
+    const pct = Math.round(done / total * 100);
+    fill.classList.remove('indet'); fill.style.width = Math.max(pct, 4) + '%';
+    num.textContent = `${done}/${total}`; sub.textContent = (label ? `${label} — ` : '') + `${pct}٪`;
+  } else {
+    fill.classList.add('indet'); num.textContent = '…'; sub.textContent = label || '';
+  }
+}
+function waitHide() { document.getElementById('waitOverlay').classList.remove('open'); }
 // ─── §TOOL-JS::askConfirm — تأكيد قبل الفعل اللي مالوش رجعة، بيسمّي الأثر بالأرقام ───
 function askConfirm({ header, lead, lines = [], okLabel = 'تأكيد', okClass = 'btn-primary', withReason = false, reasonLabel = 'سبب التصحيح (اختياري)', reasonRequired = false, withPin = false }) {
   return new Promise((resolve) => {
@@ -2572,7 +2622,7 @@ async function confirmSessions({ sessions, blocked, amtRaw, title, header, done:
   if (recvPi !== expectedPi) {
     // أي فرق = ممنوع. المحاولة بتتسجّل على أول جلسة مفتوحة مبلغها مختلف عن المكتوب (عشان ما تتأكدش بالغلط)
     const probe = sessions.find(s => s.expectedPiastres !== recvPi);
-    if (probe) { setUpdateLock(true); try { await apiPost('confirm_session', { batchId: probe.batchId, date: probe.day, employee: currentEmployee.username, receivedAmount: amt }); } catch (_) {} finally { setUpdateLock(false); } }
+    if (probe) { setUpdateLock(true); waitShow('⏳ جاري التحقق من المبلغ...', 0, title); try { await apiPost('confirm_session', { batchId: probe.batchId, date: probe.day, employee: currentEmployee.username, receivedAmount: amt }); } catch (_) {} finally { setUpdateLock(false); } }
     playBeep('error');
     openSummary('🔴 التسجيل ممنوع — فيه فرق', `<div class="note-box red">${esc(title)}: المتوقع ${fmtNum((expectedPi / 100).toFixed(2))} — المكتوب ${fmtNum(amt)} — الفرق ${fmtSignedNum(((recvPi - expectedPi) / 100).toFixed(2))}</div><p style="margin-top:10px;font-size:13px">لما المبلغ يكمل اكتبه كامل ويتسجّل كله مرة واحدة.</p>`);
     await reloadConfirmView(); return;
@@ -2588,11 +2638,14 @@ async function confirmSessions({ sessions, blocked, amtRaw, title, header, done:
   const r = await askConfirm({ header, lead: `${title} — يوم ${dmy(day)}`, lines, okLabel: `تأكيد — سجّل ${fmtNum(amt)}` });
   if (!r.ok) return;
   setUpdateLock(true);
+  waitShow('⏳ جاري تسجيل التوريد...', sessions.length, title);
   const results = [];
   try {
     for (const s of sessions) {
+      waitStep(results.length, sessions.length, `${title} · ${s.courier || 'بدون مندوب'}`);
       try { results.push({ s, r: await apiPost('confirm_session', { batchId: s.batchId, date: s.day, employee: currentEmployee.username, receivedAmount: (s.expectedPiastres / 100).toFixed(2) }) }); }
       catch (e) { results.push({ s, err: e.message }); break; }
+      waitStep(results.length, sessions.length, title);
     }
   } finally { setUpdateLock(false); }
   const okN = results.filter(x => x.r && (x.r.status === 'success' || x.r.status === 'warning' || x.r.status === 'already')).length;
@@ -2621,6 +2674,7 @@ function typeBadges(r) {
 async function rebuildMirror(orderIds) {
   if (isUpdating) return;
   setUpdateLock(true);
+  waitShow('⏳ جاري كتابة المرآة على شوبيفاي...', 0, `${orderIds.length} أوردر`);
   try {
     const r = await apiPost('rebuild_mirror', { orderIds, employee: currentEmployee.username });
     if (r.status === 'success') { showToast(`المرآة اتكتبت على ${r.written} أوردر ✓`, 'success'); closeSummary(); }
@@ -2663,6 +2717,7 @@ function settleInputs() {
   return { from: MIN_DATE, to, pin };
 }
 function stProgress(done, total, label) {
+  if (total && document.getElementById('waitOverlay').classList.contains('open')) waitStep(done, total, label);
   document.getElementById('stProgressRow').style.display = total ? '' : 'none';
   document.getElementById('stBar').style.width = total ? `${Math.round(done / total * 100)}%` : '0%';
   document.getElementById('stProgressTxt').textContent = `${label}: ${done} / ${total}`;
@@ -2741,6 +2796,7 @@ async function runSettle() {
     ], okLabel: `تأكيد — سوّي ${piToNum(t.pi)}` });
   if (!r.ok) return;
   setUpdateLock(true);
+  waitShow('⏳ جاري التسوية التاريخية...', plan.length, 'تسوية الأيام');
   const done = [], ids = new Set();
   let stopped = null, mirror = { written: 0, failed: [] };
   try {
@@ -2771,6 +2827,7 @@ async function runSettle() {
 async function retrySettleMirror() {
   if (isUpdating || !settleMirrorFailed.length) return;
   closeSummary(); setUpdateLock(true);
+  waitShow('⏳ جاري كتابة المرآة على شوبيفاي...', settleMirrorFailed.length, 'المرآة');
   let m;
   try { m = await mirrorInChunks(settleMirrorFailed, 'المرآة'); }
   finally { setUpdateLock(false); stProgress(0, 0, ''); }
@@ -2789,6 +2846,7 @@ async function rebuildSettleMirror() {
     lines: [{ text: 'هيعيد كتابة الميتافيلدين على كل أوردر ليه حركة متسجّلة في الأيام دي — من D1، من غير أي تغيير في الدفتر', soft: true }], okLabel: 'ابدأ' });
   if (!r.ok) return;
   setUpdateLock(true);
+  waitShow('⏳ جاري كتابة المرآة على شوبيفاي...', days.length, 'الأيام');
   let written = 0; const failed = [];
   try {
     for (let i = 0; i < days.length; i++) {
@@ -2977,6 +3035,7 @@ async function startReverse(entryId, amount, orderName) {
             { text: 'المرآة على الأوردر هتتحدّث', soft: true }], okLabel: 'سجّل التصحيح', okClass: 'btn-red', withReason: true });
   if (!r.ok) return;
   setUpdateLock(true);
+  waitShow('⏳ جاري تسجيل التصحيح...', 0, orderName);
   try {
     const res = await apiPost('reverse_entry', { entryId, employee: currentEmployee.username, reason: r.reason });
     if (res.status === 'success') { playBeep('success'); showToast('تم التصحيح ✓', 'success'); }
@@ -3030,6 +3089,7 @@ async function ackIncomplete(batchId, undo) {
         okLabel: 'إغلاق التنبيه', withReason: true, reasonLabel: 'سبب الإغلاق (إجباري)', reasonRequired: true, withPin: true });
   if (!r.ok) return;
   setUpdateLock(true);
+  waitShow(undo ? '⏳ جاري إعادة فتح التنبيه...' : '⏳ جاري إغلاق التنبيه...', 0, '');
   try {
     const res = await apiPost('ack_incomplete', { batchId, employee: currentEmployee.username, pin: r.pin, reason: r.reason, undo: !!undo });
     if (res.ok) { playBeep('success'); showToast(res.message || 'تم', 'success'); }

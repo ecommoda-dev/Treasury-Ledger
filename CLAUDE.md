@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.9.0-blue)
+![version](https://img.shields.io/badge/version-v1.9.1-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -164,6 +164,13 @@
 - 🔴 `MIN_WORKER_VERSION` لسه `1.4.3` (من غير Worker 1.7.0 الزرار بس بيفشل) — انشر الـ Worker الأول.
 - الفحص: اختبار جديد في `tests/worker.test.mjs` (35 اختبار) + فحص بصري بـ Playwright (سارة مفيش زرار · أحمد يقفل ويعيد الفتح).
 
+## 🆕 نافذة «جاري التسجيل…» (واجهة v1.9.1 · 15-11-2026) — `index.html` فقط، الـ Worker ما اتغيّرش
+**الطلب (أحمد):** أثناء التسجيل تظهر نافذة انتظار زي أداة التحصيل (`COD-Payment-Center`) لحد ما التسجيل يخلص بالكامل.
+- النافذة `#waitOverlay` بنفس تصميم `bxp-*` في التحصيل (`.wt-*`): رقم `N/M` + شريط متحرك + سطر المندوب والنسبة + تحذير «متقفلش الصفحة ومتعيدش التسجيل». **بلا زرار قفل ولا Esc ولا ضغط برّه** (z-index 700 فوق الملخّص).
+- الدوال: `waitShow(header, total, label)` · `waitStep(done, total, label)` · `waitHide()`. `total = 0` ← شريط شغّال بلا رقم (نداء واحد). 🔴 **`setUpdateLock(false)` بيقفلها دايمًا** — مستحيل تفضل معلّقة بعد خطأ. `stProgress` بيغذّيها لو مفتوحة (التسوية/المرآة).
+- مربوطة بكل عملية كتابة: `confirmSessions` (تقدّم لكل جلسة `N/M` — توريد مندوب · اليوم بالكامل · المحدّدين) · محاولة الفرق (`confirm_mismatch`) · `runSettle` · `retrySettleMirror` · `rebuildSettleMirror` · `rebuildMirror` · `startReverse` · `ackIncomplete`. ⛔ `runCompareAll`/`previewSettle` ما اتربطوش (قراءة بس، وليهم شريطهم وزرار إيقاف).
+- الفحص: بند جديد في `tests/ui-smoke.mjs` (MutationObserver بيمسك ظهورها أثناء `confirm_session` الحقيقي واختفاءها قبل الملخّص) + `check:ui` عدّى.
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `ack_incomplete` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -205,9 +212,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 15-11-2026 · `index.js` v1.7.0 · `index.html` v1.9.0
+آخر مطابقة: 15-11-2026 · `index.js` v1.7.0 · `index.html` v1.9.1
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 15-11-2026 — Worker v1.7.0 + `index.html` v1.9.0 (إغلاق يدوي للجلسة الناقصة). السابق: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
+آخر تحديث: 15-11-2026 — `index.html` v1.9.1 (نافذة «جاري التسجيل…» أثناء الكتابة). السابق: 15-11-2026 — Worker v1.7.0 + `index.html` v1.9.0 (إغلاق يدوي للجلسة الناقصة). السابق: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
 
 </div>
