@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (Worker v1.8.0 — ملاحظة «صافي بوسطة» + ملاحظة RTO + أيقونة اتجاه في سطر المرآة)
+// EcomModa — Treasury-Ledger (Worker v1.9.0 — «استرداد جزئي بوسطة» (extra.source='bosta_partial_refund') + ملاحظة «صافي بوسطة» + ملاحظة RTO + أيقونة اتجاه في سطر المرآة)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,9 +10,15 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.8.0';
+const WORKER_VERSION = '1.9.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
+// 🆕 v1.9.0 (15-11-2026 · قرار أحمد) — «استرداد جزئي بوسطة»: بوسطة بتدفع للعميل 2000 كاش بس (حد بوسطة) والباقي بيحوّله موظف التحصيل
+//   (انستاباي/محفظة). COD-Payment-Center Worker ≥ 3.19.0 بيكتب صف `refund` على `tool='cod_payment'` بـ `extra.source='bosta_partial_refund'`
+//   و`courier` = اسم الموظف اللي حوّل و`courierCollect` سالب = الباقي (الخزنة بتدفع للموظف). بنفس عقد القراءة — مفتاح `source` موجود أصلاً في SRC_COLS.
+//   ⚠️ أي تغيير في قيمة المفتاح ده هناك لازم ينزل هنا.
+const PARTIAL_SRC = 'bosta_partial_refund';
+const isBostaFamily = src => src === BOSTA_SRC || src === PARTIAL_SRC;   // مقارنة Shopify: الاتنين مالهمش معادلة الشحن (الصافي بعد رسوم بوسطة)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
 const MIN_DATE    = '2026-10-01';         // أول يوم مسموح بتوقيت القاهرة (قرار أحمد D19)
 
@@ -26,6 +32,7 @@ const NOTE_EXTRA_SHIPPING = 'Extra Shipping';   // D15 — بالحرف، الأ
 const NOTE_BOSTA        = 'صافي بوسطة';
 const NOTE_BOSTA_RTO    = 'صافي بوسطة [شحنة فشل توصيلها RTO]';
 const NOTE_BOSTA_LEGACY = 'بوسطة — صافي بعد الرسوم';
+const NOTE_BOSTA_PARTIAL = 'استرداد جزئي بوسطة';   // 🆕 v1.9.0
 const noteForDisplay = n => (n === NOTE_BOSTA_LEGACY ? NOTE_BOSTA : n);
 
 // 🆕 v1.8.0 — أيقونة الاتجاه في سطر المرآة (custom.treasury_log نص عادي — اللون بالإيموجي بس: 🟢 داخل · 🔴 خارج).
@@ -620,8 +627,8 @@ function buildSession(batchId, rows) {
       piastres: p, kind: p < 0 ? KIND.OUT : KIND.IN,
       // 🆕 صفوف بوسطة (extra.source='bosta_cash_cycle'): courierCollect = Net Value (بعد رسوم بوسطة) —
       //    مش مبلغ شوبيفاي، فبتتعلّم بمصدر مستقل عشان مقارنة Shopify تستثنيها (BOSTA_NET).
-      source: r.src === BOSTA_SRC ? BOSTA_SRC : (isRefund ? 'cod_refund' : 'cod_payment'),
-      note: r.src === BOSTA_SRC ? (r.leg_kind === 'rto_fee' ? NOTE_BOSTA_RTO : NOTE_BOSTA) : (isRefund ? 'استرداد' : (pre ? 'مسجل مسبقاً' : null)),
+      source: r.src === BOSTA_SRC ? BOSTA_SRC : r.src === PARTIAL_SRC ? PARTIAL_SRC : (isRefund ? 'cod_refund' : 'cod_payment'),
+      note: r.src === PARTIAL_SRC ? NOTE_BOSTA_PARTIAL : r.src === BOSTA_SRC ? (r.leg_kind === 'rto_fee' ? NOTE_BOSTA_RTO : NOTE_BOSTA) : (isRefund ? 'استرداد' : (pre ? 'مسجل مسبقاً' : null)),
       preRegistered: pre, hasReturn,
     });
   }
@@ -1002,7 +1009,7 @@ function pendingLegsFrom(rows, ledgerLogIds) {
     if (p === null) continue;
     out.piastres += p; out.count++;
     days.add(cairoDayOf(r.timestamp));
-    if (r.src === BOSTA_SRC) out.bosta = true;
+    if (isBostaFamily(r.src)) out.bosta = true;
   }
   out.days = [...days].sort();
   return out.count ? out : null;
@@ -1103,7 +1110,7 @@ function legsFromLogs(cashEntries, info, legShipping) {
 //    `extra.freeShipping.courierFee` و`courierCollect` = المبلغ − الأجر. من غير قراءة الحقل ده مقارنة Shopify (`netPayment − currentShipping`)
 //    كانت هتعلّم الأوردر `SHORT`/`OVER` كاذب وكارت التسوية «فرق غير مفسَّر». Map(logId → الأجر بالقروش) — الصفوف الأقدم مالهاش الحقل.
 async function loadFreeShippingFees(db, entries) {
-  const ids = [...new Set((entries || []).filter(e => e.source !== BOSTA_SRC && e.source_log_id !== null && e.source_log_id !== undefined).map(e => e.source_log_id))];
+  const ids = [...new Set((entries || []).filter(e => !isBostaFamily(e.source) && e.source_log_id !== null && e.source_log_id !== undefined).map(e => e.source_log_id))];
   const out = new Map();
   try {
     for (const part of chunk(ids, BIND_CHUNK)) {
@@ -1130,12 +1137,12 @@ function compareOrder(entries, node, preWindow, pending = null, legInfo = null, 
   const pendingOut = pending ? { amount: fmtSigned(pending.piastres), count: pending.count, days: pending.days } : null;
   if (!node) return { status: 'UNKNOWN', ledger: fmtMoney(ledgerNet), shopify: null, diff: null, pending: pendingOut, settlement: null, reason: 'الأوردر مش لاقيه على شوبيفاي' };
 
-  const bosta = cashEntries.some(e => e.source === BOSTA_SRC) || !!pending?.bosta;
+  const bosta = cashEntries.some(e => isBostaFamily(e.source)) || !!pending?.bosta;
   const net = money(node.netPaymentSet);
   const shopShip = node.currentShippingPriceSet ? money(node.currentShippingPriceSet) : money(node.totalShippingPriceSet);
   // 🆕 v1.6.0 — شحن مجاني اتأكّد وقت التحصيل: أجر المندوب من صف التحصيل بدل شحن شوبيفاي (0). بس لما شوبيفاي لسه شحنه 0
   //    (لو اتضاف شحن بعد كده بنرجع لشوبيفاي) — وصفوف بوسطة مالهاش علاقة (بتحسب رسومها لوحدها).
-  const fsFees = freeFees ? cashEntries.filter(e => e.source !== BOSTA_SRC && !e.reverses_id && e.kind !== KIND.REV && freeFees.has(e.source_log_id)).map(e => freeFees.get(e.source_log_id)) : [];
+  const fsFees = freeFees ? cashEntries.filter(e => !isBostaFamily(e.source) && !e.reverses_id && e.kind !== KIND.REV && freeFees.has(e.source_log_id)).map(e => freeFees.get(e.source_log_id)) : [];
   const fsShip = fsFees.length ? fsFees.reduce((a, x) => a + x, 0) : null;
   const ship = (fsShip !== null && shopShip === 0 && !bosta) ? fsShip : shopShip;
   // رسوم المرتجع للدورات الفعّالة بس (CANCELED/DECLINED مالهاش رسوم)، بترتيب createdAt (للتوزيع على الشحنتين)
@@ -1175,11 +1182,11 @@ function compareOrder(entries, node, preWindow, pending = null, legInfo = null, 
   if (refundDue > 0) reasons.push('لسه فيه استرداد للعميل');
   if (preWindow) reasons.push('الأوردر ليه صفوف قبل 01-10 (الدفتر ناقص بطبيعته)');
   if (!cashEntries.length && cashReceived - deducted !== 0) reasons.push('الأوردر مش في الدفتر');
-  if (cashEntries.length && cashEntries.some(e => e.source === BOSTA_SRC) && cashEntries.some(e => e.source !== BOSTA_SRC)) reasons.push('الأوردر عليه مصدرين (بوسطة + مندوب) — الفرق مش كله رسوم بوسطة');
+  if (cashEntries.length && cashEntries.some(e => e.source === BOSTA_SRC) && cashEntries.some(e => !isBostaFamily(e.source))) reasons.push('الأوردر عليه مصدرين (بوسطة + مندوب) — الفرق مش كله رسوم بوسطة');
   if (retPaid !== retFees) reasons.push('رسوم المرتجع لسه على العميل — ما اتخصمتش');
   // شحن كل شحنة بالترتيب: الشحن الأصلي ثم رسوم كل مرتجع — بس لو المدفوع كامل (من غير قصّ ولا رسوم معلّقة)
   const legShipping = !capped && retPaid === retFees ? [ship, ...retList] : null;
-  const legs = bosta ? legsFromLogs(cashEntries, legInfo, legShipping) : null;
+  const legs = bosta ? legsFromLogs(cashEntries.filter(e => e.source !== PARTIAL_SRC), legInfo, legShipping) : null;   // الاسترداد الجزئي مش شحنة — مالوش صف في تقسيم الشحنات
   const settlement = {
     customer: { total: total === null ? null : fmtMoney(total), netPayment: fmtMoney(net), cashReceived: fmtMoney(cashReceived),
       cashSource: cashTx ? 'transactions' : 'netPayment', nonCash: fmtMoney(nonCash), outstanding: fmtMoney(outstanding),
@@ -1757,7 +1764,8 @@ if (action === 'get_employees') {
           // 🆕 v1.4.3 — تفاصيل شحنة بوسطة من نفس الصف (حتى لو لسه ما اتسجّلش في الدفتر): fee = المتحصَّل − الصافي (رسوم بوسطة بعد الـ Flex)
           ...(r.src === BOSTA_SRC ? { bosta: true, gross: toPiastres(r.gross) === null ? null : fmtMoney(toPiastres(r.gross)),
             fee: toPiastres(r.gross) === null || toPiastres(r.net_value) === null ? null : fmtMoney(toPiastres(r.gross) - toPiastres(r.net_value)),
-            tracking: r.tracking ? String(r.tracking) : null, slot: r.slot || null, paidAt: r.paid_at || null, cashOutId: r.cash_out || null } : {}) }));
+            tracking: r.tracking ? String(r.tracking) : null, slot: r.slot || null, paidAt: r.paid_at || null, cashOutId: r.cash_out || null }
+            : r.src === PARTIAL_SRC ? { partial: true, tracking: r.tracking ? String(r.tracking) : null } : {}) }));
         const orderId = ledger[0]?.order_id ?? null;
         const winStart = cairoDayBoundsUTC(MIN_DATE).start;
         const pending = pendingLegsFrom(src.filter(r => r.timestamp >= winStart),

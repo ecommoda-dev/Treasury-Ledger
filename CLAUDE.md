@@ -178,6 +178,17 @@
 - **المرآة:** `🟢 CASH_IN` / `🔴 CASH_OUT` — اللون بإشارة المبلغ (REVERSAL موجب 🟢 وسالب 🔴). الميتافيلد `multi_line_text_field` نص عادي فاللون مستحيل غير بالإيموجي، ومفيش إيموجي سهم أخضر لأعلى (🔺/🔻 الاتنين أحمر) فاستخدمنا الدايرة. تغييرها = ثابت `DIR_ICON` في `index.js`. الأوردرات اللي مراياها اتكتبت قبل كده بتاخد الشكل الجديد عند أول كتابة/`rebuild_mirror` عليها (المرآة بتتبني من كل حركات الأوردر).
 - الفحص: اختبار جديد في `tests/worker.test.mjs` (36).
 
+## 🆕 «استرداد جزئي بوسطة» (Worker v1.9.0 · 15-11-2026) — `index.js` فقط، الواجهة ما اتغيّرتش
+**الفكرة (قرار أحمد):** بوسطة بتدفع للعميل 2000 كاش بس (حد بوسطة على استرداد CRP/Exchange) والباقي بيحوّله **موظف التحصيل** (انستاباي/محفظة). `COD-Payment-Center` Worker ≥ 3.19.0 بيكتب لده صف `refund` على `tool='cod_payment'` بـ:
+`extra.source='bosta_partial_refund'` · `courier` = اسم الموظف اللي حوّل · `courierCollect` سالب = الباقي (الخزنة بتدفع للموظف) · `batchId='bosta-partial-<تتبع>'` · `trackingNumber` · `slot='S2'`.
+- **نفس عقد القراءة:** `source` موجود أصلاً في `SRC_COLS`. الجلسة جلسة مستقلة بتتأكد زي أي جلسة (الموظف = «مندوب» في التجميع، مفيش قايمة مقفولة).
+- **الدفتر:** `source='bosta_partial_refund'` وملاحظة `استرداد جزئي بوسطة` (`NOTE_BOSTA_PARTIAL`) · `CASH_OUT`.
+- **المقارنة مع Shopify:** `isBostaFamily(src)` = `bosta_cash_cycle` أو `bosta_partial_refund` — الصف الجزئي بيدخل عيلة بوسطة (مالوش معادلة الشحن)، فمفيش سبب «الأوردر عليه مصدرين (بوسطة + مندوب)» الكاذب، ومش بيتحسب في خصم الشحن المجاني. `legsFromLogs` بتتخطّاه (مش شحنة) فتقسيم الشحنتين بيفضل.
+- **الحساب سليم:** استرداد شوبيفاي بـ500 بيقابله −500 في الدفتر، فـ`loss.other` = رسوم بوسطة الكاملة بس (#63994: 135 + 133.38 = 268.38).
+- `get_order.sources[]`: `partial:true` + `tracking`.
+- ⚠️ **أي تغيير في قيمة `source` أو في `courierCollect` (سالب = الباقي) في `COD-Payment-Center` لازم ينزل هنا.**
+- الفحص: `tests/worker.test.mjs` 37 اختبار (+1 على #63994 — بيفشل من غير التعديل). ⚠️ ما اتجرّبش على D1 حقيقي (لسه مفيش صف بالمصدر ده).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `ack_incomplete` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -194,7 +205,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## الاختبارات
 ```bash
-npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 36 اختبار
+npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 37 اختبار
 node check-log-values.mjs
 npm i --no-save postcss && npm run check:ui     # فحص CSS (parser) + ربط JS
 node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الواجهة الحقيقية ↔ الـ Worker الحقيقي
@@ -222,6 +233,6 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 آخر مطابقة: 15-11-2026 · `index.js` v1.8.0 · `index.html` v1.9.1
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 15-11-2026 — Worker v1.8.0 (ملاحظة «صافي بوسطة» + ملاحظة RTO + 🟢/🔴 في المرآة). السابق: 15-11-2026 — `index.html` v1.9.1 (نافذة «جاري التسجيل…» أثناء الكتابة). السابق: 15-11-2026 — Worker v1.7.0 + `index.html` v1.9.0 (إغلاق يدوي للجلسة الناقصة). السابق: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
+آخر تحديث: 15-11-2026 — Worker v1.9.0 («استرداد جزئي بوسطة» · `bosta_partial_refund`). السابق: 15-11-2026 — Worker v1.8.0 (ملاحظة «صافي بوسطة» + ملاحظة RTO + 🟢/🔴 في المرآة). السابق: 15-11-2026 — `index.html` v1.9.1 (نافذة «جاري التسجيل…» أثناء الكتابة). السابق: 15-11-2026 — Worker v1.7.0 + `index.html` v1.9.0 (إغلاق يدوي للجلسة الناقصة). السابق: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
 
 </div>

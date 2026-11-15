@@ -831,3 +831,36 @@ test('v1.8.0: شحنة RTO «رسوم فقط» (legKind=rto_fee) = ملاحظة 
     assert.equal(DB.raw.prepare("SELECT note FROM treasury_ledger WHERE order_id='47531'").get().note, 'بوسطة — صافي بعد الرسوم');
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('v1.9.0: «استرداد جزئي بوسطة» (bosta_partial_refund) — الجلسة بتتأكد بملاحظتها، ومقارنة #63994 = رسوم بوسطة بس (مفيش «مصدرين») وتقسيم الشحنات سليم', async () => {
+  const realFetch = globalThis.fetch;
+  // #63994: SALE 2675 · استرداد بوسطة 2000 + استرداد جزئي 500 (موظف التحصيل) = المتحصَّل 175
+  globalThis.fetch = mockShopify([settleNode('63994', '#63994', { net: '175.00', total: '175.00', ship: '0.00', curShip: '0.00',
+    tx: [txn('SALE', 'Cash on Delivery (COD)', '2675.00'), txn('REFUND', 'manual', '2000.00'), txn('REFUND', 'manual', '500.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    bostaLeg(DB, { order: '63994', name: '#63994', slot: 'S1', type: 'SEND', gross: '2675.00', fees: '135.00', net: '2540.00', tracking: 'T1', paidAt: '2026-11-01', cashOut: 'C1', ts: '2026-11-10T10:01:00Z' });
+    bostaLeg(DB, { order: '63994', name: '#63994', slot: 'S2', type: 'CUSTOMER_RETURN_PICKUP', gross: '-2000.00', fees: '133.38', net: '-2133.38', tracking: 'T2', paidAt: '2026-11-12', cashOut: 'C2', ts: '2026-11-12T10:01:00Z' });
+    seed(DB, { ts: '2026-11-15T12:00:00.000Z', type: 'refund', emp: 'Ahmed_Ibraheem', orderId: '63994', orderName: '#63994', extra: {
+      result: 'success', batchId: 'bosta-partial-4962164025', courier: 'Ahmed Ibraheem', courierCollect: -500, source: 'bosta_partial_refund', trackingNumber: '4962164025', slot: 'S2',
+      extraShipping: null, extraShippingTotal: '0.00', preRegistered: false, hasReturn: true,
+      batchExpected: { orders: 1, payOrders: 0, refundOrders: 1, collect: '-500.00', extraShippingTotal: '0.00', net: '-500.00' } } });
+    // الجلسة بتتأكد بالمبلغ السالب والملاحظة «استرداد جزئي بوسطة»
+    const c = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-partial-4962164025', date: '2026-11-15', employee: 'Sara_Cash', receivedAmount: '-500.00' } });
+    assert.equal(c.body.ok, true);
+    const led = DB.raw.prepare("SELECT kind, amount_piastres, note, source FROM treasury_ledger WHERE order_id='63994' AND source='bosta_partial_refund'").all();
+    assert.deepEqual(led.map(r => [r.kind, r.amount_piastres, r.note]), [['CASH_OUT', -50000, 'استرداد جزئي بوسطة']]);
+    // المقارنة: بوسطة (الرسوم الكاملة 268.38 = 135 + 133.38) — من غير سبب «مصدرين» ومن غير حكم فرق كاذب
+    const r = (await call(env, 'compare_orders', { method: 'POST', body: { orderIds: ['63994'] } })).body.results[0];
+    assert.equal(r.status, 'BOSTA_FEES');
+    assert.equal(r.settlement.bosta, true);
+    assert.equal(r.settlement.loss.other, '268.38'); assert.equal(r.settlement.loss.bostaFees, '268.38');
+    assert.ok(!r.settlement.reasons.some(x => /مصدرين/.test(x)), 'الاسترداد الجزئي ما يتحسبش مصدر تاني');
+    // تقسيم الشحنات بيفضل على شحنتين بوسطة بس (الاسترداد الجزئي مش شحنة)
+    assert.deepEqual(r.settlement.shipments.map(x => [x.tracking, x.slot, x.fee]), [['T1', 'S1', '135.00'], ['T2', 'S2', '133.38']]);
+    // get_order: الصف معلّم partial وبالتتبع
+    const o = (await call(env, 'get_order', { params: { orderName: '#63994' } })).body;
+    const p = o.sources.find(x => x.partial);
+    assert.equal(p.tracking, '4962164025'); assert.equal(p.courier, 'Ahmed Ibraheem'); assert.equal(p.inLedger, true);
+  } finally { globalThis.fetch = realFetch; }
+});
