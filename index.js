@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (v1.4.3 — sources فيها تفاصيل شحنة بوسطة + حذف التقدير بالمبلغ)
+// EcomModa — Treasury-Ledger (Worker v1.8.0 — ملاحظة «صافي بوسطة» + ملاحظة RTO + أيقونة اتجاه في سطر المرآة)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.7.0';
+const WORKER_VERSION = '1.8.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -18,6 +18,19 @@ const MIN_DATE    = '2026-10-01';         // أول يوم مسموح بتوقي
 
 const KIND = { IN: 'CASH_IN', OUT: 'CASH_OUT', REV: 'REVERSAL' };
 const NOTE_EXTRA_SHIPPING = 'Extra Shipping';   // D15 — بالحرف، الأداة بتعتمد عليه في المقارنة
+
+// 🆕 v1.8.0 (15-11-2026 · طلب أحمد) — ملاحظات صفوف بوسطة
+//   · الافتراضي «صافي بوسطة» (كان «بوسطة — صافي بعد الرسوم» — لسه موجود على الصفوف القديمة في الدفتر، والمرآة بتعرضه بالاسم الجديد).
+//   · شحنة RTO «رسوم فقط» (extra.legKind='rto_fee' من COD-Payment-Center ≥ 3.17.0) بتاخد ملاحظة مميّزة.
+//   ⚠️ الدفتر append-only: الملاحظة بتتخزّن وقت التأكيد → الصفوف المتأكدة قبل كده بتفضل بنصها القديم في `treasury_ledger.note`.
+const NOTE_BOSTA        = 'صافي بوسطة';
+const NOTE_BOSTA_RTO    = 'صافي بوسطة [شحنة فشل توصيلها RTO]';
+const NOTE_BOSTA_LEGACY = 'بوسطة — صافي بعد الرسوم';
+const noteForDisplay = n => (n === NOTE_BOSTA_LEGACY ? NOTE_BOSTA : n);
+
+// 🆕 v1.8.0 — أيقونة الاتجاه في سطر المرآة (custom.treasury_log نص عادي — اللون بالإيموجي بس: 🟢 داخل · 🔴 خارج).
+//   بتتحدد من **إشارة المبلغ** (REVERSAL ممكن يبقى موجب أو سالب). غيّر القيمتين هنا لو عايز شكل تاني.
+const DIR_ICON = { IN: '🟢', OUT: '🔴' };
 
 // 🆕 v1.2.0 — التسوية التاريخية (قرار أحمد 05-11-2026): جلسات قبل التشغيل الفعلي اتوردت بالطريقة القديمة
 //    ومستحيل تتعدّ تاني. بتتسجّل في الدفتر **من غير عدّ** بعلامة historical — أحمد بس + PIN، ويوم بيوم.
@@ -559,7 +572,8 @@ const SRC_COLS = `id, timestamp, type, employee, order_id, order_name,
   json_extract(extra,'$.batchExpected')           AS be,
   json_extract(extra,'$.preRegistered')           AS pre,
   json_extract(extra,'$.hasReturn')               AS has_return,
-  json_extract(extra,'$.source')                  AS src`;
+  json_extract(extra,'$.source')                  AS src,
+  json_extract(extra,'$.legKind')                 AS leg_kind`;
 
 async function loadRowsRange(db, fromIso, toIso) {
   const { results } = await db.prepare(
@@ -607,7 +621,7 @@ function buildSession(batchId, rows) {
       // 🆕 صفوف بوسطة (extra.source='bosta_cash_cycle'): courierCollect = Net Value (بعد رسوم بوسطة) —
       //    مش مبلغ شوبيفاي، فبتتعلّم بمصدر مستقل عشان مقارنة Shopify تستثنيها (BOSTA_NET).
       source: r.src === BOSTA_SRC ? BOSTA_SRC : (isRefund ? 'cod_refund' : 'cod_payment'),
-      note: r.src === BOSTA_SRC ? 'بوسطة — صافي بعد الرسوم' : (isRefund ? 'استرداد' : (pre ? 'مسجل مسبقاً' : null)),
+      note: r.src === BOSTA_SRC ? (r.leg_kind === 'rto_fee' ? NOTE_BOSTA_RTO : NOTE_BOSTA) : (isRefund ? 'استرداد' : (pre ? 'مسجل مسبقاً' : null)),
       preRegistered: pre, hasReturn,
     });
   }
@@ -860,8 +874,9 @@ function buildEntries(s) {
 function mirrorLine(e) {
   const who = String(e.treasury_employee || '').replace(/_/g, ' ');
   const p = cairoParts(new Date(e.created_at));
-  let line = `📅 ${p.day}/${p.month}/${p.year} 🕕 ${p.hour}:${p.minute} | ${e.kind} | 💲 ${fmtSigned(e.amount_piastres)} | ${who}`;
-  if (e.note) line += ` | ${e.note}`;                                // الملاحظة آخر عمود (قد تكون عربي)
+  const dir = e.amount_piastres < 0 ? DIR_ICON.OUT : DIR_ICON.IN;
+  let line = `📅 ${p.day}/${p.month}/${p.year} 🕕 ${p.hour}:${p.minute} | ${dir} ${e.kind} | 💲 ${fmtSigned(e.amount_piastres)} | ${who}`;
+  if (e.note) line += ` | ${noteForDisplay(e.note)}`;                                // الملاحظة آخر عمود (قد تكون عربي)
   return line;
 }
 
@@ -1771,7 +1786,7 @@ if (action === 'get_employees') {
         const total = ledger.reduce((s, e) => s + e.amount_piastres, 0);
         return json({ ok: true, orderName: name, orderId: orderIdOut,
           entries: ledger.map(e => ({ id: e.id, createdAt: e.created_at, kind: e.kind, amount: fmtSigned(e.amount_piastres),
-            note: e.note, courier: e.courier, treasuryEmployee: e.treasury_employee, collector: e.collector_employee,
+            note: noteForDisplay(e.note), courier: e.courier, treasuryEmployee: e.treasury_employee, collector: e.collector_employee,
             source: e.source, reversesId: e.reverses_id, batchId: e.source_batch_id })),
           total: fmtMoney(total), sources, shopify, shopifyError }, 200, request);
       }
