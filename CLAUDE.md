@@ -49,7 +49,7 @@
 - **نفس العقد** (`tool='cod_payment'` · `type` payment/refund · `batchId` · `courier='Bosta'` · `courierCollect` · `batchExpected`) — **صفر تغيير في طريقة القراءة**.
 - 🔴 `courierCollect` = **Net Value** (المحصَّل − رسوم بوسطة + Flex Ship) = اللي بوسطة حوّلته فعلاً، **مش** مبلغ شوبيفاي. أوردرات «بدون تحصيل» (ملغي/استبدال بلا فرق) ليها صف برسومها السالبة (`extra.noCollection=true`).
 - `batchId = bosta-<Cash-out ID>` — جلسة واحدة لكل تحويل، و`batchExpected.orders` = **كل** صفوف الملف، فالجلسة تظهر **«ناقصة»** لحد ما كل الصفوف تتسجّل. ⚠️ قرار أحمد: **الخزنة ما تأكّدش قبل الاكتمال** (التطبيق ما بيمنعش التأكيد — ده إجراء تشغيلي).
-- الدفتر: `source='bosta_cash_cycle'` وملاحظة «بوسطة — صافي بعد الرسوم».
+- الدفتر: `source='bosta_cash_cycle'` وملاحظة «صافي بوسطة» (كانت «بوسطة — صافي بعد الرسوم» قبل Worker v1.8.0 — الصفوف القديمة في الدفتر بنصها، والمرآة بتعرضها بالاسم الجديد).
 - 🔴 `compare_orders`: أي أوردر ليه حركة بوسطة = `BOSTA_FEES` (من v1.3.0؛ كان `BOSTA_NET` بلا حكم) — المعادلة `netPayment − shipping − returnFees` ما بتنطبقش على الصافي، والحكم من كارت التسوية.
 - الفحص: اختبار «بوسطة: courierCollect = Net Value…» في `tests/worker.test.mjs`.
 
@@ -171,6 +171,13 @@
 - مربوطة بكل عملية كتابة: `confirmSessions` (تقدّم لكل جلسة `N/M` — توريد مندوب · اليوم بالكامل · المحدّدين) · محاولة الفرق (`confirm_mismatch`) · `runSettle` · `retrySettleMirror` · `rebuildSettleMirror` · `rebuildMirror` · `startReverse` · `ackIncomplete`. ⛔ `runCompareAll`/`previewSettle` ما اتربطوش (قراءة بس، وليهم شريطهم وزرار إيقاف).
 - الفحص: بند جديد في `tests/ui-smoke.mjs` (MutationObserver بيمسك ظهورها أثناء `confirm_session` الحقيقي واختفاءها قبل الملخّص) + `check:ui` عدّى.
 
+## 🆕 ملاحظة بوسطة + شحنة RTO + أيقونة الاتجاه في المرآة (Worker v1.8.0 · 15-11-2026) — `index.js` فقط، الواجهة ما اتغيّرتش
+**الطلب (أحمد):** ① ملاحظة صفوف بوسطة تبقى «صافي بوسطة» ② الخزنة تعرف شحنة الـ RTO (#47530) وتكتب لها ملاحظة مميّزة ③ سطر `custom.treasury_log` يبقى فيه أيقونة اتجاه قبل `CASH_IN`/`CASH_OUT`.
+- **العلامة (من `COD-Payment-Center` ≥ 3.17.0):** `extra.legKind = 'rto_fee'` على صف التحصيل (جنب `bostaOrderType='RETURN_TO_ORIGIN'` · `originalType` · `bostaFees` · `flexShipAmount` · `netValue`). `SRC_COLS` بقت بتقرا `legKind` (مفتاح جديد في **عقد القراءة**، إضافة بحتة — أي تغيير في اسمه هناك لازم ينزل هنا).
+- **الملاحظة (بتتخزّن في `treasury_ledger.note` وقت التأكيد):** صف بوسطة عادي = `صافي بوسطة` · `legKind='rto_fee'` = `صافي بوسطة — رسوم شحنة راجعة (RTO)`. الثوابت `NOTE_BOSTA` / `NOTE_BOSTA_RTO`. ⚠️ الدفتر append-only فالصفوف المتأكدة قبل كده بتفضل بنصها القديم في الجدول؛ `noteForDisplay` بيعرضها «صافي بوسطة» في المرآة و`get_order` (تحويل عرض بس). صفوف الـ RTO المتأكدة قبل v1.8.0 (لو فيه) مش هتتعلّم تلقائيًا.
+- **المرآة:** `🟢 CASH_IN` / `🔴 CASH_OUT` — اللون بإشارة المبلغ (REVERSAL موجب 🟢 وسالب 🔴). الميتافيلد `multi_line_text_field` نص عادي فاللون مستحيل غير بالإيموجي، ومفيش إيموجي سهم أخضر لأعلى (🔺/🔻 الاتنين أحمر) فاستخدمنا الدايرة. تغييرها = ثابت `DIR_ICON` في `index.js`. الأوردرات اللي مراياها اتكتبت قبل كده بتاخد الشكل الجديد عند أول كتابة/`rebuild_mirror` عليها (المرآة بتتبني من كل حركات الأوردر).
+- الفحص: اختبار جديد في `tests/worker.test.mjs` (36).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
 `get_day` · `get_pending` · `confirm_session` · `settle_historical` · `ack_incomplete` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
@@ -187,7 +194,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## الاختبارات
 ```bash
-npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 35 اختبار
+npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 36 اختبار
 node check-log-values.mjs
 npm i --no-save postcss && npm run check:ui     # فحص CSS (parser) + ربط JS
 node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الواجهة الحقيقية ↔ الـ Worker الحقيقي
@@ -212,9 +219,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 15-11-2026 · `index.js` v1.7.0 · `index.html` v1.9.1
+آخر مطابقة: 15-11-2026 · `index.js` v1.8.0 · `index.html` v1.9.1
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 15-11-2026 — `index.html` v1.9.1 (نافذة «جاري التسجيل…» أثناء الكتابة). السابق: 15-11-2026 — Worker v1.7.0 + `index.html` v1.9.0 (إغلاق يدوي للجلسة الناقصة). السابق: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
+آخر تحديث: 15-11-2026 — Worker v1.8.0 (ملاحظة «صافي بوسطة» + ملاحظة RTO + 🟢/🔴 في المرآة). السابق: 15-11-2026 — `index.html` v1.9.1 (نافذة «جاري التسجيل…» أثناء الكتابة). السابق: 15-11-2026 — Worker v1.7.0 + `index.html` v1.9.0 (إغلاق يدوي للجلسة الناقصة). السابق: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
 
 </div>

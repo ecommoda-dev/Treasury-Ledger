@@ -235,7 +235,7 @@ test('المرآة على Shopify: سطور مرتبة + إجمالي من كل 
     assert.equal(mf.length, 4);
     const log100 = mf.find(m => m.ownerId.endsWith('/100') && m.key === 'treasury_log');
     assert.equal(log100.type, 'multi_line_text_field');
-    assert.match(log100.value, /^📅 \d\d\/\d\d\/\d{4} 🕕 \d\d:\d\d \| CASH_IN \| 💲 \+100\.00 \| Sara Cash$/);   // التاريخ = وقت التأكيد بتوقيت القاهرة
+    assert.match(log100.value, /^📅 \d\d\/\d\d\/\d{4} 🕕 \d\d:\d\d \| 🟢 CASH_IN \| 💲 \+100\.00 \| Sara Cash$/);   // التاريخ = وقت التأكيد بتوقيت القاهرة
     assert.equal(mf.find(m => m.ownerId.endsWith('/100') && m.key === 'treasury_total').value, '100.00');
     assert.equal(mf.find(m => m.key === 'treasury_total').type, 'number_decimal');
     // تصحيح → المرآة تتبني من كل الحركات (سطرين + إجمالي صفر)
@@ -321,7 +321,7 @@ test('بوسطة: courierCollect = Net Value، الجلسة ناقصة لحد م
     const led = DB.raw.prepare('SELECT order_id, kind, amount_piastres, source, note FROM treasury_ledger ORDER BY id').all();
     assert.deepEqual(led.map(e => [e.order_id, e.kind, e.amount_piastres, e.source]), [
       ['1', 'CASH_IN', 253820, 'bosta_cash_cycle'], ['2', 'CASH_OUT', -8582, 'bosta_cash_cycle'], ['3', 'CASH_OUT', -177141, 'bosta_cash_cycle']]);
-    assert.equal(led[0].note, 'بوسطة — صافي بعد الرسوم');
+    assert.equal(led[0].note, 'صافي بوسطة');   // v1.8.0 (كان «بوسطة — صافي بعد الرسوم»)
   } finally { globalThis.fetch = realFetch; }
 
   // مقارنة Shopify: أوردر بوسطة = BOSTA_FEES (الفرق = رسوم بوسطة، مش SHORT كاذب)، وأوردر عادي لسه بيتقارن
@@ -791,5 +791,43 @@ test('شحن مجاني v1.6.0: لو شوبيفاي اتضاف عليه شحن �
     freeShipRow(DB, { id: '73', name: '#73', cc: 4075 });
     const r = await cmpOne(env, '73');
     assert.equal(r.parts.shipping, '75.00'); assert.equal(r.settlement.freeShipping, null); assert.equal(r.status, 'MATCH');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+
+test('v1.8.0: شحنة RTO «رسوم فقط» (legKind=rto_fee) = ملاحظة مميّزة + أيقونة 🔴 للخارج و🟢 للداخل في المرآة، والملاحظة القديمة بتتعرض «صافي بوسطة»', async () => {
+  const realFetch = globalThis.fetch;
+  const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+  const bosta = (batchId, tn, orderId, orderName, net, extra = {}) => seed(DB, { ts: '2026-11-15T10:00:00.000Z', type: 'payment', orderId, orderName, extra: {
+    result: 'success', batchId, courier: 'Bosta', courierCollect: net, source: 'bosta_cash_cycle', cashOutId: 'WEDCOD05AUG26', trackingNumber: tn,
+    slot: 'S2', extraShipping: null, extraShippingTotal: '0.00', preRegistered: false, hasReturn: true,
+    batchExpected: { orders: 1, payOrders: 1, refundOrders: 0, collect: net.toFixed(2), extraShippingTotal: '0.00', net: net.toFixed(2), methods: null }, ...extra } });
+  // #47530 الحقيقي: RTO كانت Exchange — رسوم 181.26 − FlexShip 100 = −81.26
+  bosta('bosta-leg-3505408529', '3505408529', '47530', '#47530', -81.26, { legKind: 'rto_fee', originalType: 'EXCHANGE', bostaOrderType: 'RETURN_TO_ORIGIN', noCollection: true });
+  // شحنة بوسطة عادية (بلا legKind) — الملاحظة الافتراضية
+  bosta('bosta-leg-7217235847', '7217235847', '47531', '#47531', 352.94);
+  const calls = [];
+  globalThis.fetch = async (u, o) => {
+    if (String(u).includes('/oauth/')) return new Response(JSON.stringify({ access_token: 't' }), { status: 200 });
+    calls.push(JSON.parse(o.body));
+    return new Response(JSON.stringify({ data: { metafieldsSet: { metafields: [], userErrors: [] } } }), { status: 200 });
+  };
+  try {
+    const a = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-leg-3505408529', date: '2026-11-15', employee: 'Sara_Cash', receivedAmount: '-81.26' } });
+    assert.equal(a.body.ok, true);
+    const b = await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'bosta-leg-7217235847', date: '2026-11-15', employee: 'Sara_Cash', receivedAmount: '352.94' } });
+    assert.equal(b.body.ok, true);
+    const led = Object.fromEntries(DB.raw.prepare('SELECT order_id, kind, note FROM treasury_ledger').all().map(r => [r.order_id, r]));
+    assert.equal(led['47530'].kind, 'CASH_OUT'); assert.equal(led['47530'].note, 'صافي بوسطة — رسوم شحنة راجعة (RTO)');
+    assert.equal(led['47531'].kind, 'CASH_IN');  assert.equal(led['47531'].note, 'صافي بوسطة');
+    const mf = calls.flatMap(c => c.variables.metafields).filter(m => m.key === 'treasury_log');
+    const l47530 = mf.find(m => m.ownerId.endsWith('/47530')).value, l47531 = mf.find(m => m.ownerId.endsWith('/47531')).value;
+    assert.match(l47530, /\| 🔴 CASH_OUT \| 💲 -81\.26 \| Sara Cash \| صافي بوسطة — رسوم شحنة راجعة \(RTO\)$/);
+    assert.match(l47531, /\| 🟢 CASH_IN \| 💲 \+352\.94 \| Sara Cash \| صافي بوسطة$/);
+    // صف قديم في الدفتر بالنص القديم → المرآة وget_order بيعرضوه بالاسم الجديد (من غير لمس الدفتر)
+    DB.raw.prepare("UPDATE treasury_ledger SET note='بوسطة — صافي بعد الرسوم' WHERE order_id='47531'").run();
+    const o = await call(env, 'get_order', { params: { orderName: '#47531' } });
+    assert.equal(o.body.entries[0].note, 'صافي بوسطة');
+    assert.equal(DB.raw.prepare("SELECT note FROM treasury_ledger WHERE order_id='47531'").get().note, 'بوسطة — صافي بعد الرسوم');
   } finally { globalThis.fetch = realFetch; }
 });
