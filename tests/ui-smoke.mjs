@@ -90,8 +90,13 @@ await page.fill('#camt-0-0', '24,400');
 check('مطابق: الزرار اتفتح', await page.locator('#ccbtn-0-0').isEnabled());
 await page.press('#camt-0-0', 'Enter'); await page.waitForSelector('#confirmOverlay.open');
 check('نافذة التأكيد بتسمّي الأثر بالأرقام', (await page.locator('#cfLines').innerText()).includes('4 حركة'));
+// v1.9.1 — نافذة «جاري التسجيل…» لازم تظهر أثناء الكتابة (برقم N/M) وتتقفل لوحدها قبل الملخص
+await page.evaluate(() => { window.__wait = { seen: false, hdr: '', num: '', body: '' }; new MutationObserver(() => { const o = document.getElementById('waitOverlay'); if (o.classList.contains('open')) { window.__wait.seen = true; window.__wait.hdr = document.getElementById('waitHeader').textContent; window.__wait.num = document.getElementById('waitNum').textContent; window.__wait.body = o.innerText; } }).observe(document.getElementById('waitOverlay'), { attributes: true, subtree: true, childList: true, characterData: true }); });
 await page.click('#cfOk');
 await page.waitForSelector('#summaryOverlay.open');
+const wt = await page.evaluate(() => window.__wait);
+check('نافذة «جاري التسجيل…» ظهرت أثناء التأكيد وبتقول N/M ومعاها التحذير', wt.seen && wt.hdr.includes('جاري') && /\d+\/1/.test(wt.num) && wt.body.includes('متقفلش الصفحة'), `${wt.hdr} ${wt.num}`);
+check('…واتقفلت لوحدها قبل الملخص (ومفيش قفل على الصفحة)', await page.locator('#waitOverlay.open').count() === 0 && await page.evaluate(() => !document.body.classList.contains('busy')));
 const sm = await page.locator('#smBody').innerText();
 check('التأكيد الصح: الملخص ظاهر (تحذير المرآة لأن مفيش Shopify في الاختبار)', (await page.locator('#smHeader').innerText()).includes('تحذير') && sm.includes('اتسجّلت 1 من 1'));
 check('الدفتر: 4 حركات مجموعها 24400', DB.raw.prepare('SELECT COUNT(*) n, SUM(amount_piastres) s FROM treasury_ledger').get().s === 2440000);
