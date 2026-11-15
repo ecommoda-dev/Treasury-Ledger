@@ -2,7 +2,7 @@
 
 # Treasury-Ledger — سياق الأداة
 
-![version](https://img.shields.io/badge/version-v1.8.1-blue)
+![version](https://img.shields.io/badge/version-v1.9.0-blue)
 
 ## الهدف
 موظف الخزنة يتأكد إن كل فلوس استلمها مندوب التحصيل (موجبة أو سالبة، لكل أوردر) **اتوردت فعلاً للخزنة**.
@@ -153,9 +153,20 @@
 - ⚠️ **عقد القراءة:** المفتاح الجديد إضافة بحتة (الخزنة بتقرا أعمدة محددة) — ما اتغيّرش أي مفتاح قديم.
 - الفحص: 4 اختبارات جديدة في `tests/worker.test.mjs` (34 اختبار): #64603 = `MATCH` · Showroom (أجر 0) · صف قديم/غير مؤكَّد = `SHORT` (مفيش خصم بالتخمين) · شحن اتضاف بعدين. ⚠️ ما اتجرّبش على D1/شوبيفاي حقيقيين.
 
+## 🆕 إغلاق يدوي لتنبيه الجلسة الناقصة (Worker v1.7.0 · واجهة v1.9.0 · 15-11-2026)
+**الطلب:** الجلسة الناقصة (مثلاً بوسطة 146 من 147، أو مندوب 2 من 3) كانت بتفضل تنبيه دايم حتى بعد التأكيد. أحمد طلب «حذف أو تأكيد يدوي إنها اتقفلت».
+- 🔴 **مفيش حذف** — الدفتر append-only وصفوف التحصيل ملك أداة التحصيل. اللي اتعمل = **إغلاق التنبيه** (`ack_incomplete`): لوج `incomplete_acked` بسبب إجباري، من غير أي كتابة في `treasury_ledger` / `treasury_confirmations`.
+- `ack_incomplete` (POST `{batchId, employee, pin, reason, undo?}`): نفس حارس التسوية التاريخية — `SETTLE_ADMINS` (`Ahmed_Ibraheem`) + PIN. الجلسة لازم تكون ناقصة فعلاً. `undo:true` = إعادة فتح (`incomplete_ack_revoked`). الرفض بيتسجّل `historical_settle_rejected`.
+- **آخر لوج للجلسة هو الحالة** (زي `settlement_over`). الإغلاق مربوط بـ`rowsCount` وقت الإغلاق: لو اتضاف صف للجلسة بعدها التنبيه **بيرجع** بحقل `reopenedBecause`.
+- `get_alerts` بيرجّع `closed[]` (اتقفلت يدويًا: `closedBy` · `closedAt` · `reason`) جنب `alerts[]`، وكل تنبيه `INCOMPLETE` فيه `confirmed`.
+- الواجهة: زرار «إغلاق يدوي» (لأحمد بس) في تاب التنبيهات ← حوار سبب إجباري + PIN (`askConfirm` اتوسّع بـ`withPin` / `reasonRequired` / `reasonLabel`) ← الجلسة تنزل لقسم مطوي «اتقفلت يدويًا» فيه «إعادة فتح». سجل العمليات فيه النوعين.
+- ما اتغيّرش: `buildSession` (الجلسة لسه `incomplete` في `get_day` وفي التسوية التاريخية — الإغلاق للتنبيه بس) · قرار منع تأكيد الناقصة لسه مفتوح (بند ١).
+- 🔴 `MIN_WORKER_VERSION` لسه `1.4.3` (من غير Worker 1.7.0 الزرار بس بيفشل) — انشر الـ Worker الأول.
+- الفحص: اختبار جديد في `tests/worker.test.mjs` (35 اختبار) + فحص بصري بـ Playwright (سارة مفيش زرار · أحمد يقفل ويعيد الفتح).
+
 ## Endpoints (`index.js`)
 `check_employee` · `register_pin` · `verify_employee` · `log_logout` · `get_employees` (بوابة الدخول) ·
-`get_day` · `get_pending` · `confirm_session` · `settle_historical` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
+`get_day` · `get_pending` · `confirm_session` · `settle_historical` · `ack_incomplete` · `reverse_entry` · `rebuild_mirror` · `get_order` · `get_alerts` · `list_ledger_orders` · `compare_orders` ·
 `get_logs` · `get_logs_count` · `get_logs_export` · `get_config` · `diag`.
 CORS مقفول على `https://ecommoda-dev.github.io`.
 
@@ -169,7 +180,7 @@ CORS مقفول على `https://ecommoda-dev.github.io`.
 
 ## الاختبارات
 ```bash
-npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 29 اختبار
+npm test                # tests/worker.test.mjs — منطق الـ Worker فوق D1 shim (node:sqlite) — 35 اختبار
 node check-log-values.mjs
 npm i --no-save postcss && npm run check:ui     # فحص CSS (parser) + ربط JS
 node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الواجهة الحقيقية ↔ الـ Worker الحقيقي
@@ -194,9 +205,9 @@ node tests/ui-smoke.mjs [مجلد-لقطات]            # Playwright: الوا�
 | ecommoda-html-builder | v8.7.0 |
 | shopify-graphql-helper | v2.5.0 |
 
-آخر مطابقة: 13-11-2026 · `index.js` v1.5.0 · `index.html` v1.8.1
+آخر مطابقة: 15-11-2026 · `index.js` v1.7.0 · `index.html` v1.9.0
 🔴 معلّقة: `check-log-values.mjs` نسخة محلية مبسّطة (استبدلها بالقانونية)
 
-آخر تحديث: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
+آخر تحديث: 15-11-2026 — Worker v1.7.0 + `index.html` v1.9.0 (إغلاق يدوي للجلسة الناقصة). السابق: 14-11-2026 — Worker v1.6.0 (الشحن المجاني: أجر المندوب من `extra.freeShipping` في المقارنة والتسوية). السابق: 13-11-2026 — Worker v1.5.0 + `index.html` v1.8.1 (صفوف اتضافت بعد التأكيد)
 
 </div>

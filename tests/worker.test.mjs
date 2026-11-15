@@ -137,6 +137,51 @@ test('جلسة ناقصة: المتوقع = اللي D1 مثبّته + تنبي�
   assert.ok(al.alerts.some(a => a.type === 'INCOMPLETE' && a.batchId === 'inc'));
 });
 
+test('v1.7.0: إغلاق تنبيه الجلسة الناقصة يدويًا — أحمد بس + PIN + سبب، الدفتر ما بيتلمسش، بيرجع لو الجلسة اتغيّرت، وإعادة الفتح', async () => {
+  const { DB, env } = setup();
+  const D = '2026-10-22', ts = '2026-10-22T12:00:00.000Z';
+  session(DB, { batchId: 'inc', ts, rows: [{ orderId: '1', orderName: '#61461', cc: 2700 }, { orderId: '2', orderName: '#61552', cc: 2700 }], orders: 3, collect: 8000 });
+  session(DB, { batchId: 'full', ts, rows: [{ orderId: '3', orderName: '#3', cc: 100 }] });
+  await call(env, 'confirm_session', { method: 'POST', body: { batchId: 'inc', date: D, employee: 'Sara_Cash', receivedAmount: '5400' } });
+  const ledgerBefore = DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n;
+  const confBefore = DB.raw.prepare('SELECT COUNT(*) n FROM treasury_confirmations').get().n;
+  const ack = (body) => call(env, 'ack_incomplete', { method: 'POST', body: { batchId: 'inc', ...body } });
+  const incAlerts = async () => (await call(env, 'get_alerts')).body;
+
+  assert.equal((await ack({ employee: 'Sara_Cash', pin: '1234', reason: 'بوسطة مش هتبعت الباقي' })).status, 403);        // مش أحمد
+  assert.equal((await ack({ employee: 'Ahmed_Ibraheem', pin: '0000', reason: 'سبب' })).status, 403);                     // PIN غلط
+  assert.equal((await ack({ employee: 'Ahmed_Ibraheem', pin: '9999', reason: '' })).status, 400);                         // سبب إجباري
+  assert.equal((await call(env, 'ack_incomplete', { method: 'POST', body: { batchId: 'full', employee: 'Ahmed_Ibraheem', pin: '9999', reason: 'تجربة' } })).body.ok, false); // مش ناقصة
+  assert.equal((await call(env, 'ack_incomplete', { method: 'POST', body: { batchId: 'nope', employee: 'Ahmed_Ibraheem', pin: '9999', reason: 'تجربة' } })).status, 404);
+  assert.ok((await incAlerts()).alerts.some(a => a.type === 'INCOMPLETE' && a.batchId === 'inc'));
+
+  const ok = await ack({ employee: 'Ahmed_Ibraheem', pin: '9999', reason: 'بوسطة مش هتبعت الباقي' });
+  assert.equal(ok.body.ok, true); assert.equal(ok.body.status, 'acked');
+  assert.equal((await ack({ employee: 'Ahmed_Ibraheem', pin: '9999', reason: 'تاني' })).body.status, 'already');
+  let al = await incAlerts();
+  assert.ok(!al.alerts.some(a => a.type === 'INCOMPLETE'));
+  assert.equal(al.closed.length, 1); assert.equal(al.closed[0].batchId, 'inc'); assert.equal(al.closed[0].closedBy, 'Ahmed_Ibraheem');
+  assert.match(al.closed[0].reason, /بوسطة مش هتبعت الباقي/);
+  // الدفتر والتأكيدات ما اتلمسوش
+  assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_ledger').get().n, ledgerBefore);
+  assert.equal(DB.raw.prepare('SELECT COUNT(*) n FROM treasury_confirmations').get().n, confBefore);
+  assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE type='incomplete_acked'").get().n, 1);
+
+  // إعادة فتح
+  assert.equal((await ack({ employee: 'Ahmed_Ibraheem', pin: '9999', undo: true })).body.status, 'reopened');
+  al = await incAlerts();
+  assert.ok(al.alerts.some(a => a.type === 'INCOMPLETE' && a.batchId === 'inc')); assert.equal(al.closed.length, 0);
+
+  // إغلاق تاني ثم صف جديد اتضاف للجلسة = التنبيه يرجع
+  await ack({ employee: 'Ahmed_Ibraheem', pin: '9999', reason: 'سبب تاني' });
+  assert.equal((await incAlerts()).alerts.filter(a => a.type === 'INCOMPLETE').length, 0);
+  seed(DB, { ts, orderId: '9', orderName: '#9', extra: { result: 'success', batchId: 'inc', courier: 'Saif', courierCollect: 1, batchExpected: { orders: 3, collect: '8000.00', net: '8000.00' } } });
+  al = await incAlerts();
+  const back = al.alerts.find(a => a.type === 'INCOMPLETE' && a.batchId === 'inc');
+  assert.ok(back); assert.match(back.reopenedBecause, /اتغيّرت/);
+  assert.equal(DB.raw.prepare("SELECT COUNT(*) n FROM logs WHERE tool='treasury_ledger' AND extra LIKE '%_unregistered%'").get().n, 0);
+});
+
 test('بيانات مصدر ناقصة (courierCollect فاضي / شحن إضافي مش متسق) = الجلسة blocked ومش بتتأكد', async () => {
   const { DB, env } = setup();
   seed(DB, { ts: '2026-11-02T12:00:00.000Z', orderId: '1', orderName: '#1', extra: { result: 'success', batchId: 'bad', courier: 'X', courierCollect: null, extraShipping: [], extraShippingTotal: '0.00' } });

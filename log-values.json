@@ -79,6 +79,16 @@
       "result": "success",
       "stage": "lookup",
       "desc": "تنبيه settlement_over اتحل (الفرق اتصحّح)"
+    },
+    "incomplete_acked": {
+      "result": "success",
+      "stage": "write",
+      "desc": "إغلاق تنبيه جلسة ناقصة يدويًا (v1.7.0) — أحمد بس + PIN + سبب؛ الدفتر ما بيتلمسش"
+    },
+    "incomplete_ack_revoked": {
+      "result": "success",
+      "stage": "write",
+      "desc": "إعادة فتح تنبيه جلسة ناقصة كان اتقفل يدويًا (v1.7.0)"
     }
   }
 }
