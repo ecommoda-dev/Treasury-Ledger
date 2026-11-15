@@ -1015,7 +1015,13 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
     <div class="eco-modal-hdr"><span>📋 سجل التحديثات</span><button class="modal-close-x" onclick="closeChangelog()">✕</button></div>
     <div class="eco-modal-body">
       <div class="cl-version-block">
-        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">13-11-2026</span></div>
+        <div class="cl-version-row"><span class="cl-ver-badge" id="clLatestVerBadge"></span><span class="cl-ver-date">15-11-2026</span></div>
+        <ul class="cl-items">
+          <li class="cl-item"><span class="cl-tag new">جديد</span><span>تبويب التنبيهات: زرار «إغلاق يدوي» على الجلسة الناقصة (لأحمد بس) — سبب إجباري + PIN، والجلسة بتنزل لقسم «اتقفلت يدويًا» مع «إعادة فتح». الدفتر وصفوف التحصيل ما بيتلمسوش، والتنبيه بيرجع لو اتضاف صف جديد للجلسة. يتطلب Worker 1.7.0.</span></li>
+        </ul>
+      </div>
+      <div class="cl-version-block">
+        <div class="cl-version-row"><span class="cl-ver-badge old">v1.8.1</span><span class="cl-ver-date">13-11-2026</span></div>
         <ul class="cl-items">
           <li class="cl-item"><span class="cl-tag fix">إصلاح</span><span>صف اتضاف لجلسة اتأكدت قبل كده (مثلاً S2 لملف Cash-out بوسطة اتأكد ناقص) كان بيظهر «تم التسجيل» وهو مش في الدفتر ومن غير ميتافيلدز. دلوقتي بيظهر «لم يتم التسجيل» بملاحظة «صفوف اتضافت بعد التأكيد»، والمطلوب = الصفوف دي بس، وتأكيدها بيكتب سطورها على نفس التأكيد القديم. يتطلب Worker 1.5.0.</span></li>
         </ul>
@@ -1193,7 +1199,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
     <div class="eco-modal-body">
       <div class="dlg-lead" id="cfLead"></div>
       <div class="dlg-lines" id="cfLines"></div>
-      <div id="cfReasonWrap" style="display:none;margin-top:10px"><span class="field-label">سبب التصحيح (اختياري)</span><input type="text" class="inp" id="cfReason" style="width:100%" maxlength="120" /></div>
+      <div id="cfReasonWrap" style="display:none;margin-top:10px"><span class="field-label" id="cfReasonLabel">سبب التصحيح (اختياري)</span><input type="text" class="inp" id="cfReason" style="width:100%" maxlength="120" /></div>
+      <div id="cfPinWrap" style="display:none;margin-top:10px"><span class="field-label">PIN بتاعك</span><input type="password" class="inp" id="cfPin" inputmode="numeric" maxlength="4" autocomplete="off" style="width:110px" /></div>
     </div>
     <div class="eco-modal-ftr">
       <button class="btn" id="cfCancel">رجوع</button>
@@ -1305,8 +1312,8 @@ tr.ord-rev td { color:var(--text-muted); } tr.ord-rev .ord-amt { text-decoration
 // ══════════════════════════════════════════════════════
 // §CONFIG — ثوابت + esc + توقيت القاهرة + API
 // ══════════════════════════════════════════════════════
-const MIN_WORKER_VERSION = '1.4.3'; // 1.4.3 = sources فيها تفاصيل شحنة بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
-const TOOL_VERSION = 'v1.8.1';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
+const MIN_WORKER_VERSION = '1.4.3'; // (إغلاق الناقصة يدويًا محتاج Worker 1.7.0 — من غيره الزرار بيرجع خطأ «action» بس والباقي شغال) 1.4.3 = sources فيها تفاصيل شحنة بوسطة (gross · fee · tracking · slot · paidAt) + shipmentsSource اتشال · 1.4.2 = shipments[].gross بدل shopify
+const TOOL_VERSION = 'v1.9.0';      // مصدر النسخة الوحيد (الهيدر + الـ changelog + شاشة الدخول)
 const TOOL_NAME    = 'treasury_ledger';
 const LS_SECRET    = 'treasury_ledger_worker_secret';
 const WORKER_URL   = 'https://treasury-ledger-worker.ecommoda-dev.workers.dev';   // اسم الـ Worker من wrangler.toml (ecommoda-constants §5.1)
@@ -2070,7 +2077,7 @@ function setUpdateLock(on) {
   if (!on) refreshAllAmountState();
 }
 // ─── §TOOL-JS::askConfirm — تأكيد قبل الفعل اللي مالوش رجعة، بيسمّي الأثر بالأرقام ───
-function askConfirm({ header, lead, lines = [], okLabel = 'تأكيد', okClass = 'btn-primary', withReason = false }) {
+function askConfirm({ header, lead, lines = [], okLabel = 'تأكيد', okClass = 'btn-primary', withReason = false, reasonLabel = 'سبب التصحيح (اختياري)', reasonRequired = false, withPin = false }) {
   return new Promise((resolve) => {
     const ov = document.getElementById('confirmOverlay');
     document.getElementById('cfHeader').textContent = header;
@@ -2078,18 +2085,26 @@ function askConfirm({ header, lead, lines = [], okLabel = 'تأكيد', okClass 
     document.getElementById('cfLines').innerHTML = lines.map(l => `<div class="dlg-line ${l.soft ? 'soft' : ''} ${l.strong ? 'strong' : ''}">${esc(l.text)}</div>`).join('');
     const rw = document.getElementById('cfReasonWrap'), ri = document.getElementById('cfReason');
     rw.style.display = withReason ? '' : 'none'; ri.value = '';
+    document.getElementById('cfReasonLabel').textContent = reasonLabel;
+    const pw = document.getElementById('cfPinWrap'), pi = document.getElementById('cfPin');
+    pw.style.display = withPin ? '' : 'none'; pi.value = '';
     const ok = document.getElementById('cfOk'), cancel = document.getElementById('cfCancel');
     ok.textContent = okLabel; ok.className = `btn ${okClass}`;
     const done = (v) => {
       ov.classList.remove('open'); document.removeEventListener('keydown', onKey, true);
       ok.onclick = cancel.onclick = null;
-      resolve({ ok: v, reason: ri.value.trim() });
+      resolve({ ok: v, reason: ri.value.trim(), pin: pi.value.trim() });
     };
     const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(false); } };
     document.addEventListener('keydown', onKey, true);
-    ok.onclick = () => done(true); cancel.onclick = () => done(false);
+    ok.onclick = () => {
+      if (withReason && reasonRequired && ri.value.trim().length < 3) { showToast('اكتب السبب (٣ حروف على الأقل)', 'warning'); ri.focus(); return; }
+      if (withPin && !/^\d{4}$/.test(pi.value.trim())) { showToast('اكتب الـ PIN بتاعك (4 أرقام)', 'warning'); pi.focus(); return; }
+      done(true);
+    };
+    cancel.onclick = () => done(false);
     ov.classList.add('open');
-    cancel.focus();                      // الإلغاء هو الافتراضي
+    (withReason ? ri : withPin ? pi : cancel).focus();     // الإلغاء هو الافتراضي لو مفيش خانات
   });
 }
 function openSummary(header, html) { document.getElementById('smHeader').textContent = header; document.getElementById('smBody').innerHTML = html; document.getElementById('summaryOverlay').classList.add('open'); }
@@ -2982,15 +2997,46 @@ async function loadAlerts() {
   try {
     const d = await apiGet('get_alerts');
     document.getElementById('alertsTally').innerHTML = `<span class="chip ${d.count ? 'bad' : 'ok'}">تنبيهات: <strong>${d.count}</strong></span>`;
-    if (!d.alerts.length) { box.innerHTML = '<div class="empty-box">✅ مفيش فروق مفتوحة</div>'; return; }
+    const closedHtml = renderClosedAlerts(d.closed || []);
+    if (!d.alerts.length) { box.innerHTML = '<div class="empty-box">✅ مفيش فروق مفتوحة</div>' + closedHtml; return; }
     box.innerHTML = `<div class="panel-card" style="padding:0"><div class="tbl-wrap"><table class="dt"><thead><tr><th>النوع</th><th>اليوم</th><th>المندوب</th><th>موظف التحصيل</th><th class="num">المتوقع</th><th>التفاصيل</th><th></th></tr></thead><tbody>
       ${d.alerts.map(a => { const [c, t] = ALERT_BADGE[a.type] || ['badge-neutral', a.type];
         if (a.type === 'OVER_COLLECTED') return `<tr><td><span class="badge ${c}">${t}</span></td><td>—</td><td>${orderLink(a.orderName, a.orderId)}</td><td>—</td>
           <td class="num">—</td><td class="log-note">${esc(a.detail)}</td><td><button class="btn btn-sm" onclick="gotoOrder('${esc(String(a.orderName || '').replace('#', ''))}')">سجل الأوردر</button></td></tr>`;
         return `<tr><td><span class="badge ${c}">${t}</span></td><td>${esc(dmy(a.day))}</td><td>${esc(a.courier || '—')}</td><td>${esc(employeeDisplayName(a.collector))}</td>
-          <td class="num">${fmtNum(a.expected)}</td><td class="log-note">${esc(a.detail)}</td><td><button class="btn btn-sm" onclick="openDay('${esc(a.day)}')">فتح اليوم</button></td></tr>`; }).join('')}
-      </tbody></table></div></div>`;
+          <td class="num">${fmtNum(a.expected)}</td><td class="log-note">${esc(a.detail)}${a.reopenedBecause ? `<div class="log-note" style="color:var(--warn,#b45309)">↩ ${esc(a.reopenedBecause)}</div>` : ''}</td>
+          <td><div class="bar-row" style="gap:6px;flex-wrap:nowrap"><button class="btn btn-sm" onclick="openDay('${esc(a.day)}')">فتح اليوم</button>${a.type === 'INCOMPLETE' && isSettleAdmin() ? `<button class="btn btn-sm lockable" onclick="ackIncomplete('${esc(a.batchId)}', false)">إغلاق يدوي</button>` : ''}</div></td></tr>`; }).join('')}
+      </tbody></table></div></div>` + closedHtml;
   } catch (e) { box.innerHTML = `<div class="note-box red">❌ ${esc(e.message)}</div>`; }
+}
+
+// 🆕 v1.9.0 — إغلاق يدوي لتنبيه الجلسة الناقصة (Worker ≥ 1.7.0): الدفتر ما بيتلمسش، الإغلاق لوج بسبب + PIN (أحمد بس)
+function renderClosedAlerts(closed) {
+  if (!closed.length) return '';
+  return `<details class="panel-card" style="margin-top:12px;padding:0"><summary style="padding:12px 16px;cursor:pointer;font-weight:600">اتقفلت يدويًا (${closed.length})</summary>
+    <div class="tbl-wrap"><table class="dt"><thead><tr><th>اليوم</th><th>المندوب</th><th class="num">المتوقع</th><th>التفاصيل</th><th>اتقفلت بواسطة</th><th>السبب</th><th></th></tr></thead><tbody>
+    ${closed.map(a => `<tr><td>${esc(dmy(a.day))}</td><td>${esc(a.courier || '—')}</td><td class="num">${fmtNum(a.expected)}</td><td class="log-note">${esc(a.detail)}</td>
+      <td>${esc(employeeDisplayName(a.closedBy))}<div class="log-note">${esc(String(a.closedAt || '').slice(0, 10))}</div></td><td class="log-note">${esc(a.reason || '—')}</td>
+      <td><div class="bar-row" style="gap:6px;flex-wrap:nowrap"><button class="btn btn-sm" onclick="openDay('${esc(a.day)}')">فتح اليوم</button>${isSettleAdmin() ? `<button class="btn btn-sm lockable" onclick="ackIncomplete('${esc(a.batchId)}', true)">إعادة فتح</button>` : ''}</div></td></tr>`).join('')}
+    </tbody></table></div></details>`;
+}
+async function ackIncomplete(batchId, undo) {
+  if (isUpdating || !isSettleAdmin()) return;
+  const r = await askConfirm(undo
+    ? { header: 'إعادة فتح التنبيه', lead: 'التنبيه هيرجع لقايمة الفروق المفتوحة', okLabel: 'إعادة فتح', withPin: true }
+    : { header: '⚠️ إغلاق جلسة ناقصة يدويًا', lead: 'التنبيه هيتشال من الفروق المفتوحة.',
+        lines: [{ text: 'مفيش حذف ولا تعديل في الدفتر ولا في صفوف التحصيل — الإغلاق بيتسجّل في سجل العمليات باسمك وبالسبب.', soft: true },
+                { text: 'لو اتضاف صف جديد للجلسة بعد كده التنبيه بيرجع لوحده.', soft: true }],
+        okLabel: 'إغلاق التنبيه', withReason: true, reasonLabel: 'سبب الإغلاق (إجباري)', reasonRequired: true, withPin: true });
+  if (!r.ok) return;
+  setUpdateLock(true);
+  try {
+    const res = await apiPost('ack_incomplete', { batchId, employee: currentEmployee.username, pin: r.pin, reason: r.reason, undo: !!undo });
+    if (res.ok) { playBeep('success'); showToast(res.message || 'تم', 'success'); }
+    else { playBeep('error'); showToast(res.error || 'اترفض', 'error', 6000); }
+  } catch (e) { playBeep('error'); showToast(e.message, 'error', 6000); }
+  finally { setUpdateLock(false); }
+  loadAlerts();
 }
 
 let cmpStopFlag = false;
@@ -3045,6 +3091,7 @@ const LOG_TYPES = [
   ['session_confirmed', 'تأكيد جلسة'], ['confirm_mismatch', 'محاولة بفرق'], ['session_already_confirmed', 'متأكدة قبل كده'],
   ['session_blocked', 'جلسة مرفوضة'], ['confirm_failed', 'فشل كتابة الدفتر'], ['entry_reversed', 'تصحيح'], ['mirror_rebuilt', 'إعادة المرآة'],
   ['historical_settled', 'تسوية تاريخية'], ['historical_settle_rejected', 'تسوية مرفوضة'],
+  ['incomplete_acked', 'إغلاق جلسة ناقصة'], ['incomplete_ack_revoked', 'إعادة فتح جلسة ناقصة'],
 ];
 const TYPE_LABEL = Object.fromEntries(LOG_TYPES);
 let logPage = 1, logTotal = 0, logSearchTimer = null, logSort = { key: null, dir: null }, logPreset = '';

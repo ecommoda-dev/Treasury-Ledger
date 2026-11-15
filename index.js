@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.6.0';
+const WORKER_VERSION = '1.7.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 const SOURCE_TOOL = 'cod_payment';        // tool الصفوف المصدر في logs (ecommoda-constants §7.1)
@@ -159,7 +159,7 @@ function resolveAuthTool(appId) { return AUTH_APPS.has(appId) ? appId : TOOL_NAM
 // مبني من log-values.json (check-log-values.mjs بيتأكد إنهم متطابقين). مفيش رفض كتابة أبدًا.
 // ══════════════════════════════════════════════════════════════
 const LOG_REGISTRY = {
-  "treasury_ledger": new Set(["confirm_failed", "confirm_mismatch", "entry_reversed", "login", "logout", "mirror_rebuilt", "historical_settle_rejected", "historical_settled", "session_already_confirmed", "session_blocked", "session_confirmed", "settlement_over", "settlement_cleared"]),
+  "treasury_ledger": new Set(["confirm_failed", "confirm_mismatch", "entry_reversed", "login", "logout", "mirror_rebuilt", "historical_settle_rejected", "historical_settled", "session_already_confirmed", "session_blocked", "session_confirmed", "settlement_over", "settlement_cleared", "incomplete_acked", "incomplete_ack_revoked"]),
 };
 const isRegisteredLogValue = (tool, type) => !!LOG_REGISTRY[tool]?.has(type);
 
@@ -732,6 +732,23 @@ async function loadLateSessions(db, sessions, confs) {
 
 // محاولة بفرق قبل التأكيد الأصلي بتخص التأكيد ده مش الصفوف المتأخرة
 const lateMismatch = (m, prior) => (m && prior && m.timestamp > prior.confirmed_at) ? m : null;
+
+// 🆕 v1.7.0 — «إغلاق يدوي» لتنبيه الجلسة الناقصة (قرار أحمد 15-11-2026). الدفتر ما بيتلمسش — الإغلاق لوج بس:
+//    آخر لوج للجلسة هو الحالة: incomplete_acked = التنبيه مقفول (بسبب + اسم + عدد الصفوف وقتها) · incomplete_ack_revoked = اتفتح تاني.
+//    الإغلاق مربوط بعدد الصفوف: لو اتضاف صف جديد للجلسة بعد الإغلاق التنبيه بيرجع (الجلسة اتغيّرت).
+async function loadIncompleteAcks(db, fromIso) {
+  const { results } = await db.prepare(
+    `SELECT id, timestamp, employee, type, notes,
+            json_extract(extra,'$.batchId')   AS batch_id,
+            json_extract(extra,'$.rowsCount') AS rows_count,
+            json_extract(extra,'$.reason')    AS reason
+       FROM logs WHERE tool = ? AND type IN ('incomplete_acked','incomplete_ack_revoked') AND timestamp >= ? ORDER BY id`
+  ).bind(TOOL_NAME, fromIso).all();
+  const m = new Map();
+  for (const r of results || []) if (r.batch_id) m.set(String(r.batch_id), r);       // الأحدث بيغلب
+  return m;
+}
+const ackActive = (a, s) => !!a && a.type === 'incomplete_acked' && Number(a.rows_count) === s.rowsCount;
 
 // آخر محاولة تأكيد بفرق لكل جلسة (من logs) — التنبيه بيفضل لحد ما الجلسة تتأكد
 async function loadMismatches(db, fromIso) {
@@ -1793,21 +1810,75 @@ if (action === 'get_employees') {
         return json({ ok: true, results, queryCost: costLog }, 200, request);
       }
 
+      // ─── §LEDGER::ack_incomplete — إغلاق/إعادة فتح تنبيه جلسة ناقصة يدويًا (أحمد بس + PIN) · 🆕 v1.7.0 ───
+      // مفيش حذف ولا تعديل في الدفتر ولا في صفوف التحصيل (الدفتر append-only). الإغلاق = لوج `incomplete_acked` بسبب إجباري.
+      // POST { batchId, employee, pin, reason, undo? } — undo:true = إعادة فتح التنبيه (لوج `incomplete_ack_revoked`).
+      if (action === 'ack_incomplete') {
+        if (request.method !== 'POST') return json({ error: 'POST required' }, 405, request);
+        const body = await request.json().catch(() => ({}));
+        const { employee } = body;
+        const batchId = String(body.batchId ?? '').trim();
+        const undo = body.undo === true;
+        const reason = String(body.reason ?? '').trim().slice(0, 200);
+        const reject = async (error, code = 200, stage = 'preflight') => {
+          const logged = await safeLog(env.DB, { type: 'historical_settle_rejected', employee: employee || null,
+            notes: ('إغلاق جلسة ناقصة مرفوض: ' + error).slice(0, 250), extra: { result: 'rejected', stage, batchId: batchId || null } });
+          return json({ ok: false, status: 'rejected', stage, logged, error }, code, request);
+        };
+        if (!batchId) return reject('batchId مطلوب', 400);
+        if (!employee || !SETTLE_ADMINS.has(employee)) return reject('إغلاق الجلسة الناقصة يدويًا مسموح لأحمد بس', 403);
+        let who = null;
+        try { who = await verifyEmployee(env.DB, employee, String(body.pin ?? '')); }
+        catch (e) { return reject(e.message, 403); }
+        if (!who) return reject('الـ PIN غلط', 403);
+        if (!undo && reason.length < 3) return reject('اكتب سبب الإغلاق (٣ حروف على الأقل)', 400);
+
+        const { sessions, from } = await loadWindowSessions(env.DB);
+        const s = sessions.find(x => x.batchId === batchId);
+        if (!s) return reject('الجلسة دي مش موجودة', 404, 'lookup');
+        const acks = await loadIncompleteAcks(env.DB, from);
+        const cur = acks.get(batchId);
+        if (undo) {
+          if (!ackActive(cur, s)) return json({ ok: true, status: 'already', message: 'التنبيه مش مقفول أصلاً' }, 200, request);
+        } else {
+          if (!s.incomplete) return reject('الجلسة دي مش ناقصة', 200, 'lookup');
+          if (ackActive(cur, s)) return json({ ok: true, status: 'already', message: 'التنبيه مقفول قبل كده' }, 200, request);
+        }
+        const exp = s.batchExpected?.orders ?? null;
+        const logged = await safeLog(env.DB, {
+          type: undo ? 'incomplete_ack_revoked' : 'incomplete_acked', employee,
+          notes: undo ? `إعادة فتح تنبيه الجلسة الناقصة ${s.courier || ''}`.trim()
+                      : `${s.courier || '—'} · صفوف D1 ${s.rowsCount} من ${exp ?? '؟'} — ${reason}`.slice(0, 250),
+          extra: { result: 'success', stage: 'write', batchId, day: s.day, courier: s.courier, rowsCount: s.rowsCount, expectedOrders: exp,
+                   expected: fmtMoney(s.expectedPiastres), ...(undo ? {} : { reason }) },
+        });
+        if (!logged) return json({ ok: false, status: 'error', stage: 'write', error: 'فشل تسجيل الإغلاق — جرّب تاني' }, 500, request);
+        return json({ ok: true, status: undo ? 'reopened' : 'acked', batchId,
+          message: undo ? 'التنبيه اتفتح تاني' : 'التنبيه اتقفل يدويًا (الدفتر ما اتلمسش)' }, 200, request);
+      }
+
       // ─── §LEDGER::get_alerts — الفروق المفتوحة المحلية (محسوبة مش متخزّنة) ───
       if (action === 'get_alerts') {
         const { sessions, from } = await loadWindowSessions(env.DB);
         const confs = await loadConfirmations(env.DB);
         const mism  = await loadMismatches(env.DB, from);
-        const alerts = [];
+        const acks  = await loadIncompleteAcks(env.DB, from);
+        const alerts = [], closed = [];
         for (const s of sessions) {
           const c = confs.get(s.batchId), m = mism.get(s.batchId);
           const base = { batchId: s.batchId, day: s.day, courier: s.courier, collector: s.collector, expected: fmtMoney(s.expectedPiastres) };
           if (!c && m) alerts.push({ type: 'DIFF', ...base, detail: `آخر محاولة: المتوقع ${m.expected} — المكتوب ${m.received} (${m.employee})`, at: m.timestamp });
           if (!s.valid && !c) alerts.push({ type: 'BLOCKED', ...base, detail: s.problems.join(' | ') });
-          if (s.incomplete) alerts.push({ type: 'INCOMPLETE', ...base,
-            detail: `الجلسة ناقصة: صفوف D1 ${s.rowsCount} من ${s.batchExpected?.orders ?? '؟'}` +
+          if (s.incomplete) {
+            const a = acks.get(s.batchId);
+            const detail = `الجلسة ناقصة: صفوف D1 ${s.rowsCount} من ${s.batchExpected?.orders ?? '؟'}` +
                     (s.batchExpected?.collect != null ? ` · ${fmtMoney(s.items.reduce((t, i) => t + i.piastres, 0))} من ${fmtMoney(s.batchExpected.collect)}` : '') +
-                    (c ? ' (اتأكدت على الصفوف المكتوبة)' : '') });
+                    (c ? ' (اتأكدت على الصفوف المكتوبة)' : '');
+            // 🆕 v1.7.0 — مقفولة يدويًا (وعدد الصفوف لسه زي ما كان) → بتطلع من التنبيهات وتتعرض في «اتقفلت يدويًا»
+            if (ackActive(a, s)) closed.push({ type: 'INCOMPLETE', ...base, detail, confirmed: !!c, closedAt: a.timestamp, closedBy: a.employee, reason: a.reason || null });
+            else alerts.push({ type: 'INCOMPLETE', ...base, detail, confirmed: !!c,
+              ...(a && a.type === 'incomplete_acked' ? { reopenedBecause: `اتقفلت يدويًا لما كانت ${a.rows_count} صف — الجلسة اتغيّرت` } : {}) });
+          }
         }
         // 🆕 v1.3.0: الداخل أكتر من المتحصَّل — آخر لوج للأوردر = settlement_over
         const { results: sl } = await env.DB.prepare(
@@ -1816,7 +1887,7 @@ if (action === 'get_employees') {
         for (const r of sl || []) lastSl.set(r.order_name, r);
         for (const r of lastSl.values()) if (r.type === 'settlement_over')
           alerts.push({ type: 'OVER_COLLECTED', orderId: r.order_id, orderName: r.order_name, detail: r.notes || 'الداخل الخزنة أكتر من المتحصَّل', at: r.timestamp });
-        return json({ ok: true, alerts, count: alerts.length }, 200, request);
+        return json({ ok: true, alerts, count: alerts.length, closed }, 200, request);
       }
 
       // ─── §LEDGER::get_config ───
