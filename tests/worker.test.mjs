@@ -235,7 +235,7 @@ test('المرآة على Shopify: سطور مرتبة + إجمالي من كل 
     assert.equal(mf.length, 4);
     const log100 = mf.find(m => m.ownerId.endsWith('/100') && m.key === 'treasury_log');
     assert.equal(log100.type, 'multi_line_text_field');
-    assert.match(log100.value, /^📅 \d\d\/\d\d\/\d{4} 🕕 \d\d:\d\d \| 🟢 CASH_IN \| 💲 \+100\.00 \| Sara Cash$/);   // التاريخ = وقت التأكيد بتوقيت القاهرة
+    assert.match(log100.value, /^📅 \d\d\/\d\d\/\d{4} 🕕 \d\d:\d\d \| 🟢 CASH_IN \| \+100\.00 \| Sara Cash$/);   // التاريخ = وقت التأكيد بتوقيت القاهرة
     assert.equal(mf.find(m => m.ownerId.endsWith('/100') && m.key === 'treasury_total').value, '100.00');
     assert.equal(mf.find(m => m.key === 'treasury_total').type, 'number_decimal');
     // تصحيح → المرآة تتبني من كل الحركات (سطرين + إجمالي صفر)
@@ -822,8 +822,8 @@ test('v1.8.0: شحنة RTO «رسوم فقط» (legKind=rto_fee) = ملاحظة 
     assert.equal(led['47531'].kind, 'CASH_IN');  assert.equal(led['47531'].note, 'صافي بوسطة');
     const mf = calls.flatMap(c => c.variables.metafields).filter(m => m.key === 'treasury_log');
     const l47530 = mf.find(m => m.ownerId.endsWith('/47530')).value, l47531 = mf.find(m => m.ownerId.endsWith('/47531')).value;
-    assert.match(l47530, /\| 🔴 CASH_OUT \| 💲 -81\.26 \| Sara Cash \| صافي بوسطة \[شحنة فشل توصيلها RTO\]$/);
-    assert.match(l47531, /\| 🟢 CASH_IN \| 💲 \+352\.94 \| Sara Cash \| صافي بوسطة$/);
+    assert.match(l47530, /\| 🔴 CASH_OUT \| -81\.26 \| Sara Cash \| صافي بوسطة \[شحنة فشل توصيلها RTO\]$/);
+    assert.match(l47531, /\| 🟢 CASH_IN \| \+352\.94 \| Sara Cash \| صافي بوسطة$/);
     // صف قديم في الدفتر بالنص القديم → المرآة وget_order بيعرضوه بالاسم الجديد (من غير لمس الدفتر)
     DB.raw.prepare("UPDATE treasury_ledger SET note='بوسطة — صافي بعد الرسوم' WHERE order_id='47531'").run();
     const o = await call(env, 'get_order', { params: { orderName: '#47531' } });

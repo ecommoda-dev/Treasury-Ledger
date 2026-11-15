@@ -882,7 +882,7 @@ function mirrorLine(e) {
   const who = String(e.treasury_employee || '').replace(/_/g, ' ');
   const p = cairoParts(new Date(e.created_at));
   const dir = e.amount_piastres < 0 ? DIR_ICON.OUT : DIR_ICON.IN;
-  let line = `📅 ${p.day}/${p.month}/${p.year} 🕕 ${p.hour}:${p.minute} | ${dir} ${e.kind} | 💲 ${fmtSigned(e.amount_piastres)} | ${who}`;
+  let line = `📅 ${p.day}/${p.month}/${p.year} 🕕 ${p.hour}:${p.minute} | ${dir} ${e.kind} | ${fmtSigned(e.amount_piastres)} | ${who}`;
   if (e.note) line += ` | ${noteForDisplay(e.note)}`;                                // الملاحظة آخر عمود (قد تكون عربي)
   return line;
 }
