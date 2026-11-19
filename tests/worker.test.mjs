@@ -795,6 +795,56 @@ test('شحن مجاني v1.6.0: لو شوبيفاي اتضاف عليه شحن �
 });
 
 
+// ─── v1.10.0 — أجر مشوار S2 (COD-Payment-Center ≥ 3.28.0 · #65513): `freeShipping.leg='return'` بيتضاف فوق الشحن مش بيستبدله ───
+// #65513 الحقيقي: S1 اتسجّل 2,600 (2,675 − شحن 75) · استبدال بنفس السعر (رصيد صفر · رسوم مرتجع 0) · شحن شوبيفاي لسه 75 · الأجر −75 (صف refund بلا تحصيل).
+function s2FeeRow(DB, { id, name, cc = -75, fee = 75, type = 'refund', returnId = '37747065154' }) {
+  seed(DB, { ts: '2026-11-19T09:50:18.000Z', type, orderId: id, orderName: name, extra: {
+    result: 'success', batchId: 'f' + id, courier: 'Saif', courierCollect: cc, hasReturn: true, isRefund: type === 'refund', feeOnly: true,
+    freeShipping: { confirmed: true, courierKind: 'courier', courierFee: fee, shopifyShipping: 0, leg: 'return', returnId, feeOnly: true } } });
+  const logId = DB.raw.prepare('SELECT MAX(id) AS id FROM logs').get().id;
+  DB.raw.prepare(`INSERT INTO treasury_ledger (created_at, order_id, order_name, kind, amount_piastres, source, source_log_id, treasury_employee, idempotency_key) VALUES ('2026-11-19T10:00:00Z', ?, ?, 'CASH_OUT', ?, 'cod_payment', ?, 'X', ?)`)
+    .run(id, name, Math.round(cc * 100), logId, `log:${logId}`);
+}
+
+test('أجر مشوار S2 v1.10.0: #65513 (شحن 75 على شوبيفاي + S1 2600 + أجر −75) = MATCH والتسوية بلا فرق غير مفسَّر', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('65513', '#65513', { net: '2675.00', ship: '75.00', curShip: '75.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '2675.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    freeShipRow(DB, { id: '65513', name: '#65513', cc: 2600, fee: null, courier: 'Kareem' });   // S1 (بلا freeShipping — الشحن 75 على شوبيفاي)
+    s2FeeRow(DB, { id: '65513', name: '#65513' });
+    const r = await cmpOne(env, '65513');
+    assert.equal(r.status, 'MATCH'); assert.equal(r.diff, '0.00'); assert.equal(r.shopify, '2525.00');
+    assert.equal(r.settlement.deducted.shipping, '150.00');            // شحن S1 75 + أجر مشوار S2 75
+    assert.equal(r.settlement.loss.other, '0.00'); assert.equal(r.settlement.loss.total, '0.00');
+    assert.equal(r.settlement.freeShipping, '150.00');
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('أجر مشوار S2 v1.10.0: بلا صف الأجر الأوردر لسه MATCH بـ2600 (الأجر الضايع ما بيبانش — ده سبب إن الصف لازم يتسجّل)', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockShopify([settleNode('65514', '#65514', { net: '2675.00', ship: '75.00', curShip: '75.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '2675.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    freeShipRow(DB, { id: '65514', name: '#65514', cc: 2600, fee: null, courier: 'Kareem' });
+    const r = await cmpOne(env, '65514');
+    assert.equal(r.status, 'MATCH'); assert.equal(r.shopify, '2600.00'); assert.equal(r.settlement.freeShipping, null);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('أجر مشوار S2 v1.10.0: السلوك القديم لحالة شحن شوبيفاي 0 + أجر مرتجع (v3.15.0) ما اتغيّرش — نفس الأرقام بالظبط', async () => {
+  const realFetch = globalThis.fetch;
+  // #65609: استرجاع كلي −200 − 75 أجر = −275 في الدفتر · شحن شوبيفاي 0 · المتحصَّل صافي 0 بعد الاسترداد
+  globalThis.fetch = mockShopify([settleNode('65609', '#65609', { net: '0.00', ship: '0.00', curShip: '0.00', tx: [txn('SALE', 'Cash on Delivery (COD)', '200.00'), txn('REFUND', 'Cash on Delivery (COD)', '200.00')] })]);
+  try {
+    const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });
+    freeShipRow(DB, { id: '65609', name: '#65609', cc: 125 });                         // S1 مجاني 75 → 200 − 75
+    s2FeeRow(DB, { id: '65609', name: '#65609', cc: -275, type: 'refund' });           // مرتجع مجاني: −200 − 75
+    const r = await cmpOne(env, '65609');
+    assert.equal(r.parts.shipping, '150.00'); assert.equal(r.settlement.freeShipping, '150.00');   // S1 75 (بدل شحن 0) + S2 75 — نفس رقم v1.6.0 (الخصم نفسه بيتقص عند المتحصَّل الصافي صفر — سلوك قديم)
+  } finally { globalThis.fetch = realFetch; }
+});
+
 test('v1.8.0: شحنة RTO «رسوم فقط» (legKind=rto_fee) = ملاحظة مميّزة + أيقونة 🔴 للخارج و🟢 للداخل في المرآة، والملاحظة القديمة بتتعرض «صافي بوسطة»', async () => {
   const realFetch = globalThis.fetch;
   const { DB, env } = setup({ SHOP_DOMAIN: 's', CLIENT_ID: 'a', CLIENT_SECRET: 'b' });

@@ -1,4 +1,4 @@
-// EcomModa — Treasury-Ledger (Worker v1.9.0 — «استرداد جزئي بوسطة» (extra.source='bosta_partial_refund') + ملاحظة «صافي بوسطة» + ملاحظة RTO + أيقونة اتجاه في سطر المرآة)
+// EcomModa — Treasury-Ledger (Worker v1.10.0 — أجر مشوار S2 (extra.freeShipping.leg='return') بيتجمّع على الشحن مش بيستبدله · v1.9.0 — «استرداد جزئي بوسطة» (extra.source='bosta_partial_refund') + ملاحظة «صافي بوسطة» + ملاحظة RTO + أيقونة اتجاه في سطر المرآة)
 // skills: worker-builder v3.10.0 · constants v4.5.1 · shopify-graphql-helper v2.5.0 — 04-11-2026
 //
 // دفتر الخزنة: موظف الخزنة يأكد إن فلوس كل جلسة تحصيل (tool='cod_payment') اتوردت فعلاً.
@@ -10,7 +10,7 @@
 // §CONSTANTS
 // ══════════════════════════════════════════════════════════════
 const TOOL_NAME      = 'treasury_ledger';
-const WORKER_VERSION = '1.9.0';
+const WORKER_VERSION = '1.10.0';
 
 const BOSTA_SRC = 'bosta_cash_cycle';  // extra.source لصفوف تحصيل بوسطة (COD-Payment-Center v3.11.0)
 // 🆕 v1.9.0 (15-11-2026 · قرار أحمد) — «استرداد جزئي بوسطة»: بوسطة بتدفع للعميل 2000 كاش بس (حد بوسطة) والباقي بيحوّله موظف التحصيل
@@ -1112,17 +1112,22 @@ function legsFromLogs(cashEntries, info, legShipping) {
 async function loadFreeShippingFees(db, entries) {
   const ids = [...new Set((entries || []).filter(e => !isBostaFamily(e.source) && e.source_log_id !== null && e.source_log_id !== undefined).map(e => e.source_log_id))];
   const out = new Map();
+  out.legReturn = new Set();
   try {
     for (const part of chunk(ids, BIND_CHUNK)) {
       const { results } = await db.prepare(
-        `SELECT id, json_extract(extra,'$.freeShipping.courierFee') AS fee, json_extract(extra,'$.freeShipping.confirmed') AS conf
+        `SELECT id, json_extract(extra,'$.freeShipping.courierFee') AS fee, json_extract(extra,'$.freeShipping.confirmed') AS conf,
+                json_extract(extra,'$.freeShipping.leg') AS leg
            FROM logs WHERE tool = ? AND id IN (${part.map(() => '?').join(',')})`).bind(SOURCE_TOOL, ...part).all();
       for (const r of results || []) {
         const p = toPiastres(r.fee);
-        if (p !== null && p >= 0 && (r.conf === 1 || r.conf === true || r.conf === 'true')) out.set(r.id, p);   // بتأكيد موظف التحصيل بس
+        if (p !== null && p >= 0 && (r.conf === 1 || r.conf === true || r.conf === 'true')) {   // بتأكيد موظف التحصيل بس
+          out.set(r.id, p);
+          if (r.leg === 'return') out.legReturn.add(r.id);   // 🆕 v1.10.0 — أجر مشوار S2 (مرتجع/استبدال): بيتضاف على الشحن مش بيستبدله
+        }
       }
     }
-  } catch (e) { return new Map(); }       // JSON فاسد في صف = رجوع لشحن شوبيفاي بدل ما نكسر الفحص كله
+  } catch (e) { const m = new Map(); m.legReturn = new Set(); return m; }       // JSON فاسد في صف = رجوع لشحن شوبيفاي بدل ما نكسر الفحص كله
   return out;
 }
 
@@ -1142,9 +1147,15 @@ function compareOrder(entries, node, preWindow, pending = null, legInfo = null, 
   const shopShip = node.currentShippingPriceSet ? money(node.currentShippingPriceSet) : money(node.totalShippingPriceSet);
   // 🆕 v1.6.0 — شحن مجاني اتأكّد وقت التحصيل: أجر المندوب من صف التحصيل بدل شحن شوبيفاي (0). بس لما شوبيفاي لسه شحنه 0
   //    (لو اتضاف شحن بعد كده بنرجع لشوبيفاي) — وصفوف بوسطة مالهاش علاقة (بتحسب رسومها لوحدها).
-  const fsFees = freeFees ? cashEntries.filter(e => !isBostaFamily(e.source) && !e.reverses_id && e.kind !== KIND.REV && freeFees.has(e.source_log_id)).map(e => freeFees.get(e.source_log_id)) : [];
-  const fsShip = fsFees.length ? fsFees.reduce((a, x) => a + x, 0) : null;
-  const ship = (fsShip !== null && shopShip === 0 && !bosta) ? fsShip : shopShip;
+  //    🆕 v1.10.0 — أجر مشوار S2 (`freeShipping.leg='return'` — مرتجع/استبدال، حتى «أجر مشوار فقط» برصيد صفر · COD-Payment-Center ≥ 3.28.0) بيتضاف **فوق** الشحن
+  //    (شحن S1 اللي العميل دفعه + أجر مشوار S2) مش بيستبدله — #65513: شحن 75 على شوبيفاي + استبدال بلا رسوم ← 75 + 75. شحن S1 المجاني بيفضل زي ما هو.
+  const fsRows = freeFees ? cashEntries.filter(e => !isBostaFamily(e.source) && !e.reverses_id && e.kind !== KIND.REV && freeFees.has(e.source_log_id)) : [];
+  const sumFees = rows => rows.reduce((a, e) => a + freeFees.get(e.source_log_id), 0);
+  const s2Rows = fsRows.filter(e => freeFees.legReturn?.has(e.source_log_id));
+  const s1Rows = fsRows.filter(e => !freeFees.legReturn?.has(e.source_log_id));
+  const fsShip = s1Rows.length ? sumFees(s1Rows) : null;
+  const s2Fee = (!bosta && s2Rows.length) ? sumFees(s2Rows) : 0;
+  const ship = ((fsShip !== null && shopShip === 0 && !bosta) ? fsShip : shopShip) + s2Fee;
   // رسوم المرتجع للدورات الفعّالة بس (CANCELED/DECLINED مالهاش رسوم)، بترتيب createdAt (للتوزيع على الشحنتين)
   const retList = (node.returns?.nodes || []).filter(r => !['CANCELED', 'DECLINED'].includes(r?.status))
     .sort((x, y) => String(x.createdAt || '').localeCompare(String(y.createdAt || '')))
